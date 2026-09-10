@@ -73,6 +73,13 @@ Raise `PermanentSourceError` if the dataset moved, was withdrawn, or lost a
 column you need. Raise `TransientSourceError` if it looks temporarily unwell.
 Do not catch either in order to return partial data quietly.
 
+If the source needs a key, ask the context for it: `ctx.credential("openaq_api_key")`.
+Never read `os.environ` from an adapter. The name maps to an environment
+variable in `CREDENTIAL_ENV` in `pipeline/__main__.py`, which is the one place
+in the package that reads the environment, and a missing key becomes a
+`PermanentSourceError` — a failed pull with a legible reason, not a crash that
+takes the other sources down with it.
+
 **3. Write `validate`.** One record at a time. Raise `RecordRejected` with a
 reason short enough to be a useful histogram key: `"latitude outside pilot
 state"`, not the row itself. Validate what makes a record unusable, not what
@@ -151,7 +158,9 @@ etl/
 │   ├── adapters/
 │   │   ├── base.py        the interface: four stages, one class
 │   │   ├── registry.py    name to adapter
-│   │   └── fake.py        reference implementation
+│   │   ├── fake.py        reference implementation
+│   │   ├── echo.py        EPA ECHO/ICIS: facilities and compliance (F1-F4)
+│   │   └── openaq.py      OpenAQ: measured PM2.5 and monitor coverage (E4)
 │   ├── policy.py          retry, rate limit, partial failure
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata

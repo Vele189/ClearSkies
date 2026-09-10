@@ -12,7 +12,9 @@ run produced no usable data, which is the signal the job should fail on; a
 import argparse
 import asyncio
 import logging
+import os
 import sys
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from pipeline.adapters import fake, get, specs
@@ -22,6 +24,17 @@ from pipeline.metadata import PullMetadata
 from pipeline.runner import run_adapter
 from pipeline.sinks import InMemorySink
 from pipeline.snapshots import InMemorySnapshotStore
+
+# The one place in the package that reads the environment. An adapter asks for
+# a secret by name through `ctx.credential` and never touches os.environ itself,
+# which is what keeps it testable and keeps a key out of a log line.
+CREDENTIAL_ENV: Mapping[str, str] = {
+    "openaq_api_key": "OPENAQ_API_KEY",
+}
+
+
+def _credentials() -> dict[str, str]:
+    return {name: os.environ.get(variable, "") for name, variable in CREDENTIAL_ENV.items()}
 
 
 def _list_sources() -> int:
@@ -47,6 +60,7 @@ async def _run(name: str, *, dry_run: bool, pilot_state: str) -> PullMetadata:
             now=datetime.now(UTC),
             pilot_state=pilot_state,
             dry_run=dry_run,
+            credentials=_credentials(),
         )
         return await run_adapter(adapter, ctx)
 
