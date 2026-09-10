@@ -22,9 +22,10 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 
 | Check | Command |
 |---|---|
-| Python lint and format | `ruff check`, `ruff format --check` |
-| Python types | `mypy` in strict mode |
-| Python tests | `pytest` |
+| Python lint and format | `ruff check`, `ruff format --check`, in `api` and `etl` |
+| Python types | `mypy` in strict mode, in `api` and `etl` |
+| Python tests | `pytest`, in `api` and `etl` |
+| Adapter contract | `python -m pipeline run fake`, the reference source end to end |
 | Frontend lint | `eslint` |
 | Frontend types | `tsc --noEmit` |
 | Frontend tests | `vitest run` |
@@ -32,7 +33,8 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 | Migrations | build the schema from empty, unwind, and rebuild |
 | Validation set | pre-registration ordering, and internal consistency |
 
-`make check` runs the first six locally. Run it before opening a pull request.
+`make check` runs everything above except the database image build. Run it
+before opening a pull request.
 
 ## The three rules that are not about code
 
@@ -84,17 +86,27 @@ each table is for.
 
 ## Adding a data source
 
-Adapters implement one interface: fetch, validate, normalize onto the hex grid,
-and declare freshness. Adding a source means a module in `etl/adapters/`, a
-registration, and an entry in `docs/provenance.md` recording the source URL,
-retrieval date, and known gaps.
+Adapters implement one interface with four stages: fetch, validate, normalize
+onto the hex grid, and load. Adding a source means a module in
+`etl/pipeline/adapters/`, one import line, and an entry in `docs/provenance.md`
+recording the source URL, retrieval date, and known gaps. The full contract and
+a worked example are in [`etl/README.md`](etl/README.md); the reference
+implementation runs against a fixture with `make ingest-fake`.
+
+Do not write a retry loop, a rate limiter, or a partial-failure rule inside an
+adapter. All three are declared once in `etl/pipeline/policy.py` and applied by
+the runner. If a source genuinely needs different numbers, override the policy on
+the adapter class and say why in the commit message; the field expected to vary
+is the rate limit, because each upstream publishes its own.
 
 Two rules that have bitten this project already. An adapter records the exact
 URL and date it used and checksums what it downloaded, because several EPA
 datasets have moved or been withdrawn. And a missing value is stored as missing,
 never as zero. An unmonitored area is uncertain, not clean, and imputing it to
 zero or to the median would systematically pull unmonitored high-burden areas
-toward the middle. That is the failure this project exists to avoid.
+toward the middle. That is the failure this project exists to avoid. The
+`Measurement` type makes the second rule hard to break by accident: an absent
+measurement cannot carry a value, and an observed one cannot be empty.
 
 ## Style
 

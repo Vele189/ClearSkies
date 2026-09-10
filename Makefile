@@ -2,8 +2,10 @@
 SHELL := /bin/bash
 
 API := api
+ETL := etl
 WEB := web
 VENV := $(API)/.venv
+ETL_VENV := $(ETL)/.venv
 PY := $(VENV)/bin/python
 
 .PHONY: help
@@ -68,8 +70,32 @@ $(VENV): $(API)/pyproject.toml
 	$(VENV)/bin/pip install -q -e "$(API)[dev]"
 	@touch $(VENV)
 
+# ---- ETL ---------------------------------------------------------------
+# Its own environment: the ingestion job needs GeoPandas and h3 and the API
+# does not, and the API service should not carry them into its container.
+
+$(ETL_VENV): $(ETL)/pyproject.toml
+	python3 -m venv $(ETL_VENV)
+	$(ETL_VENV)/bin/pip install -q -e "$(ETL)[dev]"
+	@touch $(ETL_VENV)
+
+.PHONY: sources
+sources: $(ETL_VENV) ## List the registered data sources
+	cd $(ETL) && .venv/bin/python -m pipeline sources
+
+.PHONY: ingest-fake
+ingest-fake: $(ETL_VENV) ## Run the reference adapter end to end, no network needed
+	cd $(ETL) && .venv/bin/python -m pipeline run fake
+
+.PHONY: etl-check
+etl-check: $(ETL_VENV) ## Lint, typecheck and test the ingestion package
+	cd $(ETL) && .venv/bin/ruff check . && .venv/bin/ruff format --check .
+	cd $(ETL) && .venv/bin/mypy pipeline tests
+	cd $(ETL) && .venv/bin/python -m pytest -q
+	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning run fake
+
 .PHONY: install
-install: $(VENV) ## Install API dependencies
+install: $(VENV) $(ETL_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
 
 .PHONY: api
@@ -83,12 +109,12 @@ web: ## Run the Vite dev server on :5173
 # ---- Checks ------------------------------------------------------------
 
 .PHONY: test
-test: $(VENV) ## Run both test suites
+test: $(VENV) ## Run the API and frontend test suites
 	cd $(API) && .venv/bin/python -m pytest -q
 	cd $(WEB) && npm run test
 
 .PHONY: lint
-lint: $(VENV) ## Lint and typecheck both services
+lint: $(VENV) ## Lint and typecheck the API and frontend
 	cd $(API) && .venv/bin/ruff check . && .venv/bin/ruff format --check .
 	cd $(API) && .venv/bin/mypy app tests
 	cd $(WEB) && npm run lint
@@ -99,7 +125,7 @@ build: ## Production build of the frontend
 	cd $(WEB) && npm run build
 
 .PHONY: check
-check: lint test ## Everything CI runs, plus the validation-set guards
+check: lint test etl-check ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
 	$(PY) scripts/check_validation_set.py
 

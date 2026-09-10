@@ -39,6 +39,27 @@ jobs:
       - run: mypy app tests
       - run: python -m pytest -q
 
+  etl:
+    name: Ingestion
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: etl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy pipeline tests
+      - run: python -m pytest -q
+      # The reference adapter runs against a fixture, so this proves the four
+      # stages still fit together without depending on an upstream being up.
+      - run: python -m pipeline run fake
+
   web:
     name: Frontend
     runs-on: ubuntu-latest
