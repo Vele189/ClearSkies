@@ -30,6 +30,12 @@ export default defineRailway(() => {
     },
   });
 
+  // Railpack installs Python dependencies only when it finds requirements.txt,
+  // uv.lock, poetry.lock, pdm.lock or a Pipfile. It detects Python from
+  // pyproject.toml alone and sets a start command, but installs nothing, so the
+  // build goes green and the container has no uvicorn in it. api/requirements.txt
+  // exists for that reason and is kept in step with pyproject.toml by
+  // scripts/check_requirements_sync.py. Do not delete it as a duplicate.
   const api = service("api", {
     source: github(REPO, { rootDirectory: "/api" }),
     start: "uvicorn app.main:app --host 0.0.0.0 --port $PORT",

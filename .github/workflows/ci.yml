@@ -38,6 +38,12 @@ jobs:
       - run: ruff format --check .
       - run: mypy app tests
       - run: python -m pytest -q
+      # Railpack installs nothing from a bare pyproject.toml, so the deploy
+      # reads api/requirements.txt. Catch the two lists drifting here rather
+      # than in a health check that has already failed.
+      - name: requirements.txt matches pyproject.toml
+        working-directory: .
+        run: python scripts/check_requirements_sync.py
 
   etl:
     name: Ingestion
