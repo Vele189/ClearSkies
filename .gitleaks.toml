@@ -1,0 +1,35 @@
+# Secret scanning configuration. CI runs this over the working tree and over
+# the full commit history on every push and pull request; `make secrets` runs
+# the same scan locally.
+#
+# This is the layer that works on forks and fails the build. GitHub's own
+# secret scanning is the other layer, and is the only one that can reject a
+# push before the secret reaches the remote. Both are described in
+# docs/secrets.md; neither replaces the other.
+
+[extend]
+# The upstream rule set, roughly two hundred provider patterns including the
+# Anthropic key format this project actually uses. Local rules extend it rather
+# than replace it, so an upstream addition arrives with the next version bump.
+useDefault = true
+
+[[allowlists]]
+description = """
+The local development Postgres credential. It is the same fixed string in
+.env.example, docker-compose.yml, the API's default settings, and the CI
+database job, it only ever addresses a container on the developer's own
+machine, and it is already public in this repository.
+
+Listed explicitly rather than by silencing a rule or a path, so that a real
+credential appearing in any of those files is still caught.
+"""
+regexTarget = "match"
+regexes = ['''clearskies:clearskies''']
+
+[[allowlists]]
+description = """
+Example and placeholder hosts that appear in committed configuration. These are
+not credentials and never resolve to anything this project controls.
+"""
+regexTarget = "match"
+regexes = ['''tiles\.example\.com''']

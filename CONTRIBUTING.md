@@ -29,8 +29,36 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 | Frontend tests | `vitest run` |
 | Database image | builds, and all four extensions load |
 | Validation set | pre-registration ordering, and internal consistency |
+| Committed credentials | `gitleaks` over the working tree and the full history |
+| Secret register | `scripts/check_secrets.py audit` |
 
-`make check` runs the first six locally. Run it before opening a pull request.
+`make check` runs everything except the database image and the credential scan,
+both of which need tools it does not install. `make secrets` runs the scan on
+its own once `gitleaks` is on your path. Run `make check` before opening a pull
+request.
+
+## Configuration and secrets
+
+One rule: **no credential value is ever committed.** `.env.example` holds
+placeholders, `.env` holds values and is ignored, and nothing else in the
+repository may contain a live key.
+
+`docs/secrets.md` is the register. It lists every variable, whether it is a
+secret, where it has to be set, and what degrades without it. Adding a variable
+means adding it in three places at once, and `scripts/check_secrets.py audit`
+fails CI if you miss one:
+
+1. `.env.example`, with an empty value unless the default points at localhost.
+2. The register table in `docs/secrets.md`.
+3. The workflow `env:` block, if the nightly job reads it.
+
+Only the nightly ETL workflow may read secrets. CI must not, because it runs on
+pull requests from forks where secrets are unavailable by design, and a check
+that needed one would fail for every outside contributor.
+
+A missing optional credential degrades that adapter and lets the run continue,
+the same posture the methodology takes toward an upstream source that has gone
+away. It does not abort the run and it does not substitute a zero.
 
 ## The two rules that are not about code
 

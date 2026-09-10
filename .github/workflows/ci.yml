@@ -6,6 +6,39 @@ on:
   pull_request:
 
 jobs:
+  secrets:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    # Reads no secrets, so it runs on pull requests from forks like every other
+    # check here. A scan that only ran for maintainers would miss the commit
+    # most likely to carry a credential: a first-time contributor's.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the history scan needs every commit, not just the tip
+      - name: Install the scanner
+        # Pinned by version and checksum rather than taken from a moving tag.
+        # The same reasoning the adapters use for upstream data: record exactly
+        # what you fetched, and notice when it changes underneath you.
+        env:
+          VERSION: 8.30.1
+          SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          asset="gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$asset" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${asset}"
+          echo "${SHA256}  ${asset}" | sha256sum -c -
+          tar -xzf "$asset" gitleaks
+      - name: Working tree
+        run: ./gitleaks dir . --no-banner --redact --config .gitleaks.toml
+      - name: Full history
+        # A credential deleted in a later commit is still a credential. This is
+        # the check that catches one that was committed and then tidied away.
+        run: ./gitleaks git . --no-banner --redact --config .gitleaks.toml
+      - name: Register matches .env.example and the workflows
+        run: python3 scripts/check_secrets.py audit
+
   preregistration:
     name: Validation set pre-registered
     runs-on: ubuntu-latest

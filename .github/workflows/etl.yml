@@ -8,15 +8,33 @@ on:
     - cron: "0 7 * * *" # 07:00 UTC, roughly 01:00 in the pilot state
   workflow_dispatch:
 
+# This is the only workflow that reads secrets, and it must stay that way. CI
+# runs on pull requests from forks, where secrets are unavailable by design; a
+# check that needed one would fail for every outside contributor.
+#
+# Which secret does what, and what breaks without it: docs/secrets.md.
 jobs:
   ingest:
     name: Ingest and score
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+      CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Configuration preflight
+        # Before the network and before the database, so a credential that was
+        # never set reads as one line at the top of the log rather than an
+        # adapter traceback twenty minutes in. Prints presence, never values.
+        #
+        # --warn-only because Phase 0 ingests nothing, so a missing secret is
+        # not yet a reason to fail a nightly build. Phase 1 drops the flag in
+        # the same commit that wires the first adapter that needs one.
+        run: python scripts/check_secrets.py check --role etl --warn-only
       - name: Not implemented
         run: |
           echo "Phase 1 wires the five adapters in here."

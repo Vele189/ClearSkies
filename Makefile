@@ -68,10 +68,23 @@ lint: $(VENV) ## Lint and typecheck both services
 build: ## Production build of the frontend
 	cd $(WEB) && npm run build
 
+.PHONY: secrets
+secrets: ## Scan for committed credentials and audit the secret register
+	python3 scripts/check_secrets.py audit
+	@command -v gitleaks >/dev/null 2>&1 || { \
+	  echo "gitleaks is not installed. CI runs this scan on every push either way;"; \
+	  echo "to run it here: https://github.com/gitleaks/gitleaks#installing"; \
+	  exit 1; }
+	gitleaks dir . --no-banner --redact --config .gitleaks.toml
+	gitleaks git . --no-banner --redact --config .gitleaks.toml
+
 .PHONY: check
 check: lint test ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
 	$(PY) scripts/check_validation_set.py
+	# The register audit only, not the scanner: `check` must not depend on a
+	# tool that is not installed by `make install`. `make secrets` runs both.
+	python3 scripts/check_secrets.py audit
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 

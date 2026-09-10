@@ -113,6 +113,7 @@ What exists today:
 clearskies/
 ├── docs/
 │   ├── methodology.md            Indicators, weights, normalization, validation
+│   ├── secrets.md                Every variable, where it is set, what breaks
 │   └── validation/sites.yml      Pre-registered validation set (append-only)
 ├── api/                          FastAPI service
 │   ├── app/indicators.py         The fifteen indicators, one declaration
@@ -151,6 +152,8 @@ make check         # lint, typecheck, tests, pre-registration guard
 ```
 
 `make up` builds `infra/postgres` from source, which compiles h3-pg and takes several minutes the first time.
+
+Phase 0 needs nothing filled in: every variable in `.env.example` has a working local default, and the API degrades rather than refusing to start when an optional credential is absent. Without an LLM key the draft endpoint returns 503 and everything else is unaffected. `docs/secrets.md` lists every variable, whether it is a secret, where else it has to be set, and what breaks without it. No credential value is ever committed, and CI scans the working tree and the full commit history on every push to keep it that way.
 
 The map renders the basemap and the API answers `/health` and `/indicators`, but no hexagon is scored yet. `/hex/{h3}` validates the cell and reports that the pipeline has not run rather than inventing a score. The frontend shows a banner saying the same. That is Phase 0 behaving correctly.
 
