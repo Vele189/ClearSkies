@@ -1,0 +1,32 @@
+name: Nightly ETL
+
+# Also keeps the database warm. Railway does not idle a service, but the daily
+# run is the thing that proves the adapters still work against upstream sources
+# that have a habit of moving.
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC, roughly 01:00 in the pilot state
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    name: Ingest and score
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the ingestion package
+        working-directory: etl
+        run: pip install -e .
+      - name: Registered sources
+        working-directory: etl
+        run: python -m pipeline sources
+      - name: Reference adapter
+        # Phase 1 replaces this with the five real adapters. Until then the
+        # nightly job still exercises the interface end to end, so a change that
+        # breaks the contract is caught here rather than on the night the first
+        # real source is wired in.
+        working-directory: etl
+        run: python -m pipeline run fake

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment
+.env
+.env.local
+*.local
+
+# Data artifacts (never commit source snapshots or tiles)
+data/
+*.pmtiles
+*.parquet
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

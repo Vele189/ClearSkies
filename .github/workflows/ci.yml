@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [master, project-setup]
+  pull_request:
+
+jobs:
+  preregistration:
+    name: Validation set pre-registered
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the check reads commit ordering
+      - run: ./scripts/check_preregistration.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install h3 pyyaml
+      - name: Validation set is internally consistent
+        run: python scripts/check_validation_set.py
+
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy app tests
+      - run: python -m pytest -q
+
+  etl:
+    name: Ingestion
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: etl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy pipeline tests
+      - run: python -m pytest -q
+      # The reference adapter runs against a fixture, so this proves the four
+      # stages still fit together without depending on an upstream being up.
+      - run: python -m pipeline run fake
+
+  web:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  database:
+    name: Database image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and verify extensions load
+        run: |
+          docker compose up -d --build db
+          # Wait for init scripts to finish, not just for the socket to open.
+          for _ in $(seq 1 90); do
+            docker compose exec -T db psql -h 127.0.0.1 -U clearskies -d clearskies \
+              -tAc "SELECT 1 FROM clearskies_extensions LIMIT 1" >/dev/null 2>&1 && break
+            sleep 2
+          done
+          docker compose exec -T db psql -U clearskies -d clearskies \
+            -v ON_ERROR_STOP=1 -c "SELECT * FROM clearskies_extensions"
+          docker compose exec -T db psql -U clearskies -d clearskies \
+            -v ON_ERROR_STOP=1 -tAc \
+            "SELECT count(*) FROM clearskies_extensions" | grep -qx 4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e "./api[dev]"
+
+      # The schema is only version-controlled if the files in api/migrations
+      # actually build it. This applies them to a database that has never seen
+      # them, unwinds the whole set, and applies it again, which is the shape
+      # of a reviewer checking out the branch.
+      - name: Migrations build the schema from empty
+        working-directory: api
+        run: |
+          python -m app.migrate up
+          python -m app.migrate verify
+
+      - name: Applying twice changes nothing
+        working-directory: api
+        run: python -m app.migrate up | grep -qx "0 applied"
+
+      - name: Down migrations unwind the whole set
+        working-directory: api
+        run: |
+          python -m app.migrate down --to 0000
+          python -m app.migrate up
+          python -m app.migrate verify

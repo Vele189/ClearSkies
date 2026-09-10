@@ -1,0 +1,1030 @@
+# ClearSkies pre-registered validation set
+#
+# Committed BEFORE any file under scoring/ exists. CI enforces that ordering,
+# and scripts/check_validation_set.py enforces this file's internal consistency.
+#
+# READ-ONLY from this point. The set is closed. Sites are never added, removed
+# or re-anchored; criteria are never loosened. The only permitted change is a
+# documented methodology revision recorded in docs/methodology.md section 18,
+# which requires re-running the full protocol from the beginning.
+#
+# Flipping `active` on an out-of-state site when coverage extends is NOT a
+# change to the set. That transition and its trigger are pre-declared below,
+# which is the entire point of registering those sites now rather than
+# choosing them later once a national score already exists.
+#
+# See docs/methodology.md sections 13 and 17, and Appendix A.
+
+schema_version: 2
+methodology_version: "0.1.0"
+pilot_state: LA
+registered: 2026-09-10
+status: closed
+
+# Every site resolves to an explicit set of H3 resolution 8 cells, computed
+# once from its anchor with h3.grid_disk(anchor, k) and frozen here. A res-8
+# cell averages 0.737 km2 with an edge near 461 m, so k=1 gives 7 cells
+# spanning roughly 1.2 km, k=2 gives 19 cells spanning roughly 2.1 km, and
+# k=3 gives 37 cells spanning roughly 3.0 km. k is chosen from the physical
+# extent of each site, before any score exists.
+#
+# Anchors carry verified: false until each is checked against the cited
+# documentation in Phase 1. Verification may correct an anchor that names the
+# wrong community, which is a methodology revision under section 17 and is
+# recorded as one. It may not move an anchor to improve a result.
+
+criteria:
+  high_burden:
+    rule: "at least one of the site's pre-registered cells falls in the statewide top decile"
+    threshold_percentile: 90
+    required: 8
+    of: 10
+    applies_to: active sites only
+  negative_control:
+    rule: "every scored cell of the site falls below the statewide median"
+    threshold_percentile: 50
+    required: 4
+    of: 4
+  stress_not_a_poverty_map:
+    rule: "expected percentile band; a result outside it triggers a documented investigation, not an automatic failure"
+    expected_band: [40, 75]
+    gating: false
+  stress_not_an_emissions_map:
+    rule: "expected below the top decile; a result outside it triggers a documented investigation, not an automatic failure"
+    expected_below_percentile: 90
+    gating: false
+
+# A site with no scored cell is reported as not_applicable. It is never
+# counted as a pass. Section 5 leaves cells under 25 people unscored, which is
+# expected to affect the low-population stress cases.
+
+# ---------------------------------------------------------------------------
+# Active: the pilot state set. These gate the Phase 2 exit condition.
+# ---------------------------------------------------------------------------
+
+high_burden_sites:
+  - id: 1
+    name: "Reserve / LaPlace"
+    parish: "St. John the Baptist"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.055
+    lon: -90.555
+    k: 1
+    h3_res8_anchor: 88444600ddfffff
+    h3_cells:
+      - 88444600c3fffff
+      - 88444600cbfffff
+      - 88444600d1fffff
+      - 88444600d5fffff
+      - 88444600d9fffff
+      - 88444600ddfffff
+      - 88444602b7fffff
+    verified: false
+    citations:
+      - "EPA AirToxScreen, census tract estimates of lifetime cancer risk from air toxics"
+      - "United States v. Denka Performance Elastomer LLC, E.D. La., complaint filed February 2023"
+      - "EPA, Chloroprene emissions and risk information for the Pontchartrain Works facility"
+  - id: 2
+    name: "Welcome, 5th District"
+    parish: "St. James"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.045
+    lon: -90.828
+    k: 2
+    h3_res8_anchor: 884446aa35fffff
+    h3_cells:
+      - 884446a841fffff
+      - 884446a843fffff
+      - 884446a849fffff
+      - 884446a84bfffff
+      - 884446a84dfffff
+      - 884446a859fffff
+      - 884446a85dfffff
+      - 884446aa07fffff
+      - 884446aa21fffff
+      - 884446aa23fffff
+      - 884446aa27fffff
+      - 884446aa2bfffff
+      - 884446aa31fffff
+      - 884446aa33fffff
+      - 884446aa35fffff
+      - 884446aa37fffff
+      - 884446aa39fffff
+      - 884446aa3bfffff
+      - 884446aa3dfffff
+    verified: false
+    citations:
+      - "Louisiana DEQ air permits issued to FG LA LLC for the Sunshine Project"
+      - "St. James Parish land use plan and its designation of the 4th and 5th Districts"
+      - "RISE St. James v. Louisiana Department of Environmental Quality, 23rd Judicial District Court"
+  - id: 3
+    name: "Mossville"
+    parish: "Calcasieu"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.25
+    lon: -93.3
+    k: 2
+    h3_res8_anchor: 88446e4da9fffff
+    h3_cells:
+      - 884445b2d3fffff
+      - 884445b2dbfffff
+      - 88446e4d81fffff
+      - 88446e4d85fffff
+      - 88446e4d87fffff
+      - 88446e4d8dfffff
+      - 88446e4da1fffff
+      - 88446e4da3fffff
+      - 88446e4da5fffff
+      - 88446e4da7fffff
+      - 88446e4da9fffff
+      - 88446e4dabfffff
+      - 88446e4dadfffff
+      - 88446e4dbdfffff
+      - 88446e4de1fffff
+      - 88446e4de3fffff
+      - 88446e4de5fffff
+      - 88446e4de7fffff
+      - 88446e4debfffff
+    verified: false
+    citations:
+      - "Advocates for Environmental Human Rights, petition to the Inter-American Commission on Human Rights, 2005"
+      - "ATSDR, health consultation on dioxin exposure in the Calcasieu Estuary"
+      - "Sasol North America property purchase program for Mossville residents"
+  - id: 4
+    name: "Alsen / North Baton Rouge"
+    parish: "East Baton Rouge"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.548
+    lon: -91.208
+    k: 2
+    h3_res8_anchor: 884440cc51fffff
+    h3_cells:
+      - 884440cc09fffff
+      - 884440cc0bfffff
+      - 884440cc19fffff
+      - 884440cc1dfffff
+      - 884440cc43fffff
+      - 884440cc4bfffff
+      - 884440cc51fffff
+      - 884440cc53fffff
+      - 884440cc55fffff
+      - 884440cc57fffff
+      - 884440cc59fffff
+      - 884440cc5bfffff
+      - 884440cc5dfffff
+      - 884440ce33fffff
+      - 884440ce37fffff
+      - 884440cea5fffff
+      - 884440ceadfffff
+      - 884440cee5fffff
+      - 884440cee7fffff
+    verified: false
+    citations:
+      - "Robert D. Bullard, Dumping in Dixie: Race, Class, and Environmental Quality, 1990"
+      - "EPA Superfund records for the Rollins Environmental Services and Alsen landfill area"
+      - "EPA ECHO compliance records for the Baton Rouge refinery complex"
+  - id: 5
+    name: "Norco"
+    parish: "St. Charles"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 29.998
+    lon: -90.41
+    k: 1
+    h3_res8_anchor: 8844460161fffff
+    h3_cells:
+      - 8844460161fffff
+      - 8844460163fffff
+      - 8844460165fffff
+      - 8844460167fffff
+      - 8844460169fffff
+      - 884446016bfffff
+      - 884446016dfffff
+    verified: false
+    citations:
+      - "Steve Lerner, Diamond: A Struggle for Environmental Justice in Louisiana's Chemical Corridor, MIT Press, 2005"
+      - "Concerned Citizens of Norco relocation agreement with Shell, 2002"
+      - "EPA ECHO compliance records for the Norco refinery and chemical plant"
+  - id: 6
+    name: "Plaquemine"
+    parish: "Iberville"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.289
+    lon: -91.235
+    k: 2
+    h3_res8_anchor: 884440d1d7fffff
+    h3_cells:
+      - 884440d0a5fffff
+      - 884440d0adfffff
+      - 884440d181fffff
+      - 884440d183fffff
+      - 884440d189fffff
+      - 884440d18bfffff
+      - 884440d191fffff
+      - 884440d195fffff
+      - 884440d199fffff
+      - 884440d19bfffff
+      - 884440d19dfffff
+      - 884440d1c3fffff
+      - 884440d1d1fffff
+      - 884440d1d3fffff
+      - 884440d1d5fffff
+      - 884440d1d7fffff
+      - 884440d1d9fffff
+      - 884440d1dbfffff
+      - 884440d1ddfffff
+    verified: false
+    citations:
+      - "EPA ECHO compliance and enforcement records for the Plaquemine chemical complex"
+      - "EPA Toxics Release Inventory, Iberville Parish reporting facilities"
+  - id: 7
+    name: "Chalmette"
+    parish: "St. Bernard"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 29.943
+    lon: -89.963
+    k: 1
+    h3_res8_anchor: 8844464367fffff
+    h3_cells:
+      - 8844464329fffff
+      - 884446432dfffff
+      - 8844464361fffff
+      - 8844464363fffff
+      - 8844464365fffff
+      - 8844464367fffff
+      - 88444658dbfffff
+    verified: false
+    citations:
+      - "EPA ECHO compliance and enforcement records for Chalmette Refining"
+      - "Louisiana Bucket Brigade, community air monitoring reports for St. Bernard Parish"
+  - id: 8
+    name: "Geismar"
+    parish: "Ascension"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.22
+    lon: -91.02
+    k: 2
+    h3_res8_anchor: 884440db61fffff
+    h3_cells:
+      - 884440db05fffff
+      - 884440db0dfffff
+      - 884440db29fffff
+      - 884440db2dfffff
+      - 884440db45fffff
+      - 884440db47fffff
+      - 884440db61fffff
+      - 884440db63fffff
+      - 884440db65fffff
+      - 884440db67fffff
+      - 884440db69fffff
+      - 884440db6bfffff
+      - 884440db6dfffff
+      - 884446acd9fffff
+      - 884446acdbfffff
+      - 884446ae93fffff
+      - 884446ae97fffff
+      - 884446aeb3fffff
+      - 884446aebbfffff
+    verified: false
+    citations:
+      - "US Chemical Safety Board, investigation of the Williams Olefins plant explosion, June 2013"
+      - "EPA Toxics Release Inventory, Ascension Parish reporting facilities"
+  - id: 9
+    name: "Gordon Plaza, New Orleans"
+    parish: "Orleans"
+    state: LA
+    active: true
+    burden_pathway: soil
+    lat: 29.998
+    lon: -90.045
+    k: 1
+    h3_res8_anchor: 8844464051fffff
+    h3_cells:
+      - 8844464051fffff
+      - 8844464053fffff
+      - 8844464055fffff
+      - 8844464057fffff
+      - 8844464059fffff
+      - 884446405bfffff
+      - 884446405dfffff
+    verified: false
+    citations:
+      - "EPA Superfund records for the Agriculture Street Landfill site"
+      - "ATSDR health consultation for the Agriculture Street Landfill"
+      - "City of New Orleans resolutions on Gordon Plaza resident relocation"
+  - id: 10
+    name: "Port Allen / Brusly"
+    parish: "West Baton Rouge"
+    state: LA
+    active: true
+    burden_pathway: air
+    lat: 30.45
+    lon: -91.212
+    k: 2
+    h3_res8_anchor: 884440c1d3fffff
+    h3_cells:
+      - 884440c0a1fffff
+      - 884440c0a5fffff
+      - 884440c0a7fffff
+      - 884440c0a9fffff
+      - 884440c0adfffff
+      - 884440c0e5fffff
+      - 884440c0e7fffff
+      - 884440c18bfffff
+      - 884440c191fffff
+      - 884440c199fffff
+      - 884440c19bfffff
+      - 884440c19dfffff
+      - 884440c1d1fffff
+      - 884440c1d3fffff
+      - 884440c1d5fffff
+      - 884440c1d7fffff
+      - 884440c1d9fffff
+      - 884440c1dbfffff
+      - 884440c1ddfffff
+    verified: false
+    citations:
+      - "EPA ECHO compliance records for West Baton Rouge Parish refining and chemical facilities"
+      - "EPA Toxics Release Inventory, West Baton Rouge Parish reporting facilities"
+
+# ---------------------------------------------------------------------------
+# Inactive: out-of-state. Registered now, scoreable only if coverage extends.
+#
+# Indicators are percentile-ranked within the scored state (section 9), so a
+# cell outside Louisiana has no percentile and cannot be evaluated in v0.
+# These are recorded anyway so that the national targets are fixed while the
+# project has nothing to gain from choosing them favourably. Selecting them
+# later, after a national score exists, is the post-hoc selection that
+# pre-registration is meant to prevent.
+#
+# activate_when is the pre-declared trigger. Nothing else activates a site.
+# ---------------------------------------------------------------------------
+
+inactive_out_of_state_sites:
+  - id: N-FLINT
+    name: "Flint"
+    county: "Genesee County"
+    state: MI
+    active: false
+    activate_when: "scoring coverage includes MI"
+    burden_pathway: water
+    lat: 43.013
+    lon: -83.687
+    k: 3
+    h3_res8_anchor: 88274d1753fffff
+    h3_cells:
+      - 88274d1449fffff
+      - 88274d144dfffff
+      - 88274d1605fffff
+      - 88274d1621fffff
+      - 88274d1623fffff
+      - 88274d1625fffff
+      - 88274d1627fffff
+      - 88274d1629fffff
+      - 88274d162bfffff
+      - 88274d162dfffff
+      - 88274d1661fffff
+      - 88274d1663fffff
+      - 88274d1665fffff
+      - 88274d1667fffff
+      - 88274d166dfffff
+      - 88274d1701fffff
+      - 88274d1703fffff
+      - 88274d1709fffff
+      - 88274d170bfffff
+      - 88274d1711fffff
+      - 88274d1713fffff
+      - 88274d1715fffff
+      - 88274d1717fffff
+      - 88274d1719fffff
+      - 88274d171bfffff
+      - 88274d171dfffff
+      - 88274d1743fffff
+      - 88274d174bfffff
+      - 88274d1751fffff
+      - 88274d1753fffff
+      - 88274d1755fffff
+      - 88274d1757fffff
+      - 88274d1759fffff
+      - 88274d175bfffff
+      - 88274d175dfffff
+      - 88274d8db3fffff
+      - 88274d8db7fffff
+    verified: false
+    note: "Burden pathway is drinking water. An air-only score is not expected to flag it, and a miss here is evidence about scope rather than about the score."
+    citations:
+      - "Flint Water Advisory Task Force, Final Report, State of Michigan, March 2016"
+      - "Michigan Civil Rights Commission, The Flint Water Crisis: Systemic Racism Through the Lens of Flint, 2017"
+  - id: N-CHESTER
+    name: "Chester"
+    county: "Delaware County"
+    state: PA
+    active: false
+    activate_when: "scoring coverage includes PA"
+    burden_pathway: air
+    lat: 39.846
+    lon: -75.365
+    k: 2
+    h3_res8_anchor: 882aacb1b1fffff
+    h3_cells:
+      - 882aaca265fffff
+      - 882aaca26dfffff
+      - 882aaca349fffff
+      - 882aaca34bfffff
+      - 882aaca359fffff
+      - 882aaca35dfffff
+      - 882aacb183fffff
+      - 882aacb187fffff
+      - 882aacb195fffff
+      - 882aacb197fffff
+      - 882aacb1a3fffff
+      - 882aacb1abfffff
+      - 882aacb1b1fffff
+      - 882aacb1b3fffff
+      - 882aacb1b5fffff
+      - 882aacb1b7fffff
+      - 882aacb1b9fffff
+      - 882aacb1bbfffff
+      - 882aacb1bdfffff
+    verified: false
+    citations:
+      - "EPA Region III, Chester Risk Assessment Project, 1995"
+      - "Chester Residents Concerned for Quality Living v. Seif, 132 F.3d 925, 3d Cir. 1997, vacated as moot 524 U.S. 974, 1998"
+  - id: N-MANCHESTER
+    name: "Manchester, Houston Ship Channel"
+    county: "Harris County"
+    state: TX
+    active: false
+    activate_when: "scoring coverage includes TX"
+    burden_pathway: air
+    lat: 29.723
+    lon: -95.264
+    k: 3
+    h3_res8_anchor: 88446c06edfffff
+    h3_cells:
+      - 88446c044bfffff
+      - 88446c0451fffff
+      - 88446c0453fffff
+      - 88446c0459fffff
+      - 88446c045bfffff
+      - 88446c045dfffff
+      - 88446c0603fffff
+      - 88446c0607fffff
+      - 88446c0611fffff
+      - 88446c0613fffff
+      - 88446c0615fffff
+      - 88446c0617fffff
+      - 88446c0619fffff
+      - 88446c061bfffff
+      - 88446c061dfffff
+      - 88446c0631fffff
+      - 88446c0633fffff
+      - 88446c0635fffff
+      - 88446c0637fffff
+      - 88446c0639fffff
+      - 88446c063bfffff
+      - 88446c063dfffff
+      - 88446c0685fffff
+      - 88446c068dfffff
+      - 88446c06a9fffff
+      - 88446c06adfffff
+      - 88446c06c1fffff
+      - 88446c06c5fffff
+      - 88446c06c7fffff
+      - 88446c06cdfffff
+      - 88446c06e1fffff
+      - 88446c06e3fffff
+      - 88446c06e5fffff
+      - 88446c06e7fffff
+      - 88446c06e9fffff
+      - 88446c06ebfffff
+      - 88446c06edfffff
+    verified: false
+    citations:
+      - "Union of Concerned Scientists and t.e.j.a.s., Double Jeopardy in Houston, 2016"
+      - "EPA ECHO compliance records for Houston Ship Channel refining and petrochemical facilities"
+  - id: N-PORTARTHUR
+    name: "Port Arthur"
+    county: "Jefferson County"
+    state: TX
+    active: false
+    activate_when: "scoring coverage includes TX"
+    burden_pathway: air
+    lat: 29.868
+    lon: -93.933
+    k: 2
+    h3_res8_anchor: 88446e105bfffff
+    h3_cells:
+      - 88446e1019fffff
+      - 88446e1051fffff
+      - 88446e1053fffff
+      - 88446e1055fffff
+      - 88446e1057fffff
+      - 88446e1059fffff
+      - 88446e105bfffff
+      - 88446e105dfffff
+      - 88446e1233fffff
+      - 88446e1237fffff
+      - 88446e12a1fffff
+      - 88446e12a5fffff
+      - 88446e12a9fffff
+      - 88446e12adfffff
+      - 88446e12e1fffff
+      - 88446e12e3fffff
+      - 88446e12e5fffff
+      - 88446e12e7fffff
+      - 88446e12edfffff
+    verified: false
+    citations:
+      - "EPA Title VI administrative complaints filed against Texas air permitting decisions in Port Arthur"
+      - "EPA Toxics Release Inventory, Jefferson County reporting facilities"
+  - id: N-WESTOAKLAND
+    name: "West Oakland"
+    county: "Alameda County"
+    state: CA
+    active: false
+    activate_when: "scoring coverage includes CA"
+    burden_pathway: air
+    lat: 37.81
+    lon: -122.294
+    k: 2
+    h3_res8_anchor: 882830811dfffff
+    h3_cells:
+      - 8828308025fffff
+      - 8828308101fffff
+      - 8828308103fffff
+      - 8828308107fffff
+      - 8828308109fffff
+      - 882830810bfffff
+      - 8828308111fffff
+      - 8828308113fffff
+      - 8828308115fffff
+      - 8828308117fffff
+      - 8828308119fffff
+      - 882830811bfffff
+      - 882830811dfffff
+      - 8828308139fffff
+      - 882830813bfffff
+      - 8828308151fffff
+      - 8828308153fffff
+      - 8828308155fffff
+      - 8828308157fffff
+    verified: false
+    citations:
+      - "Bay Area Air Quality Management District, West Oakland Community Action Plan under AB 617, 2019"
+      - "California Air Resources Board, diesel particulate matter exposure assessments for the Port of Oakland"
+  - id: N-KETTLEMAN
+    name: "Kettleman City"
+    county: "Kings County"
+    state: CA
+    active: false
+    activate_when: "scoring coverage includes CA"
+    burden_pathway: waste
+    lat: 36.01
+    lon: -119.962
+    k: 1
+    h3_res8_anchor: 8829a816d9fffff
+    h3_cells:
+      - 8829a816d1fffff
+      - 8829a816d9fffff
+      - 8829a816dbfffff
+      - 8829a816ddfffff
+      - 8829a8b933fffff
+      - 8829a8b937fffff
+      - 8829a8b9e5fffff
+    verified: false
+    citations:
+      - "California Department of Public Health, investigation of birth defects in Kettleman City, 2010"
+      - "California DTSC permitting record for the Kettleman Hills hazardous waste facility"
+  - id: N-INSTITUTE
+    name: "Institute"
+    county: "Kanawha County"
+    state: WV
+    active: false
+    activate_when: "scoring coverage includes WV"
+    burden_pathway: air
+    lat: 38.383
+    lon: -81.766
+    k: 2
+    h3_res8_anchor: 882a9caf25fffff
+    h3_cells:
+      - 882a9ca891fffff
+      - 882a9ca893fffff
+      - 882a9ca899fffff
+      - 882a9ca89bfffff
+      - 882a9ca89dfffff
+      - 882a9ca8d1fffff
+      - 882a9ca8d3fffff
+      - 882a9ca8d7fffff
+      - 882a9ca8dbfffff
+      - 882a9cad49fffff
+      - 882a9cad4dfffff
+      - 882a9caf21fffff
+      - 882a9caf23fffff
+      - 882a9caf25fffff
+      - 882a9caf27fffff
+      - 882a9caf29fffff
+      - 882a9caf2bfffff
+      - 882a9caf2dfffff
+      - 882a9caf67fffff
+    verified: false
+    citations:
+      - "US Chemical Safety Board, Bayer CropScience pesticide waste tank explosion investigation, 2011"
+      - "EPA ECHO compliance records for Kanawha Valley chemical manufacturing facilities"
+  - id: N-UNIONTOWN
+    name: "Uniontown"
+    county: "Perry County"
+    state: AL
+    active: false
+    activate_when: "scoring coverage includes AL"
+    burden_pathway: waste
+    lat: 32.449
+    lon: -87.514
+    k: 2
+    h3_res8_anchor: 8844edd5ebfffff
+    h3_cells:
+      - 8844edd513fffff
+      - 8844edd517fffff
+      - 8844edd581fffff
+      - 8844edd585fffff
+      - 8844edd589fffff
+      - 8844edd58dfffff
+      - 8844edd5a9fffff
+      - 8844edd5c1fffff
+      - 8844edd5c3fffff
+      - 8844edd5c5fffff
+      - 8844edd5c7fffff
+      - 8844edd5cdfffff
+      - 8844edd5e1fffff
+      - 8844edd5e3fffff
+      - 8844edd5e5fffff
+      - 8844edd5e7fffff
+      - 8844edd5e9fffff
+      - 8844edd5ebfffff
+      - 8844edd5edfffff
+    verified: false
+    note: "Burden pathway is solid waste and coal ash. An air-only score may not flag it."
+    citations:
+      - "EPA Title VI complaint against the Alabama Department of Environmental Management concerning the Arrowhead Landfill, 2013"
+      - "EPA records on disposal of Kingston Fossil Plant coal ash at the Arrowhead Landfill"
+  - id: N-WARREN
+    name: "Afton, Warren County"
+    county: "Warren County"
+    state: NC
+    active: false
+    activate_when: "scoring coverage includes NC"
+    burden_pathway: waste
+    lat: 36.204
+    lon: -78.083
+    k: 2
+    h3_res8_anchor: 882a8914d1fffff
+    h3_cells:
+      - 882a891489fffff
+      - 882a89148bfffff
+      - 882a891499fffff
+      - 882a89149dfffff
+      - 882a8914c3fffff
+      - 882a8914cbfffff
+      - 882a8914d1fffff
+      - 882a8914d3fffff
+      - 882a8914d5fffff
+      - 882a8914d7fffff
+      - 882a8914d9fffff
+      - 882a8914dbfffff
+      - 882a8914ddfffff
+      - 882a8916b3fffff
+      - 882a8916b7fffff
+      - 882a89ab25fffff
+      - 882a89ab2dfffff
+      - 882a89ab65fffff
+      - 882a89ab67fffff
+    verified: false
+    note: "The 1982 PCB landfill protests here are the origin of the US environmental justice movement. Included for that reason even though the burden pathway is buried waste."
+    citations:
+      - "US General Accounting Office, Siting of Hazardous Waste Landfills and Their Correlation with Racial and Economic Status of Surrounding Communities, GAO/RCED-83-168, 1983"
+      - "United Church of Christ Commission for Racial Justice, Toxic Wastes and Race in the United States, 1987"
+  - id: N-EASTCHICAGO
+    name: "East Chicago, Calumet"
+    county: "Lake County"
+    state: IN
+    active: false
+    activate_when: "scoring coverage includes IN"
+    burden_pathway: soil
+    lat: 41.638
+    lon: -87.463
+    k: 2
+    h3_res8_anchor: 88266418edfffff
+    h3_cells:
+      - 8826641811fffff
+      - 8826641813fffff
+      - 8826641815fffff
+      - 8826641817fffff
+      - 8826641831fffff
+      - 8826641833fffff
+      - 8826641837fffff
+      - 8826641839fffff
+      - 882664183bfffff
+      - 88266418c5fffff
+      - 88266418e1fffff
+      - 88266418e3fffff
+      - 88266418e5fffff
+      - 88266418e7fffff
+      - 88266418e9fffff
+      - 88266418ebfffff
+      - 88266418edfffff
+      - 88266419d9fffff
+      - 88266419dbfffff
+    verified: false
+    note: "Burden pathway is lead-contaminated soil. An air-only score may not flag it."
+    citations:
+      - "EPA Superfund records for the USS Lead site and the West Calumet Housing Complex"
+      - "EPA and HUD records on the 2016 relocation of West Calumet residents"
+
+negative_controls:
+  - id: N1
+    name: "Mandeville"
+    parish: "St. Tammany"
+    state: LA
+    active: true
+    lat: 30.358
+    lon: -90.065
+    k: 1
+    h3_res8_anchor: 8844466b43fffff
+    h3_cells:
+      - 8844466b09fffff
+      - 8844466b41fffff
+      - 8844466b43fffff
+      - 8844466b47fffff
+      - 8844466b4bfffff
+      - 8844466b55fffff
+      - 8844466b5dfffff
+    verified: false
+  - id: N2
+    name: "Old Metairie"
+    parish: "Jefferson"
+    state: LA
+    active: true
+    lat: 29.995
+    lon: -90.131
+    k: 1
+    h3_res8_anchor: 88444655e5fffff
+    h3_cells:
+      - 88444642d9fffff
+      - 88444642dbfffff
+      - 8844465533fffff
+      - 88444655e1fffff
+      - 88444655e5fffff
+      - 88444655e7fffff
+      - 88444655edfffff
+    verified: false
+    note: "The weakest control in the set. Affluent with no adjacent heavy industry, but across the river from the west bank industrial strip and inside a dense metropolitan airshed. Retained deliberately: a control that is merely easy tests nothing."
+  - id: N3
+    name: "Bocage"
+    parish: "East Baton Rouge"
+    state: LA
+    active: true
+    lat: 30.418
+    lon: -91.128
+    k: 1
+    h3_res8_anchor: 884440c135fffff
+    h3_cells:
+      - 884440c123fffff
+      - 884440c131fffff
+      - 884440c135fffff
+      - 884440c137fffff
+      - 884440c13dfffff
+      - 884440cac9fffff
+      - 884440cacbfffff
+    verified: false
+  - id: N4
+    name: "South Lafayette"
+    parish: "Lafayette"
+    state: LA
+    active: true
+    lat: 30.17
+    lon: -92.03
+    k: 1
+    h3_res8_anchor: 88444425c5fffff
+    h3_cells:
+      - 8844442513fffff
+      - 88444425c1fffff
+      - 88444425c5fffff
+      - 88444425c7fffff
+      - 88444425cdfffff
+      - 88444425e9fffff
+      - 88444425ebfffff
+    verified: false
+
+# High poverty, low industry. Landing in the top decile means population
+# characteristics are dominating the product.
+stress_not_a_poverty_map:
+  - id: SA1
+    name: "Lake Providence"
+    parish: "East Carroll"
+    state: LA
+    active: true
+    lat: 32.805
+    lon: -91.172
+    k: 2
+    h3_res8_anchor: 88445d8dc3fffff
+    h3_cells:
+      - 88445d8c35fffff
+      - 88445d8c37fffff
+      - 88445d8d81fffff
+      - 88445d8d89fffff
+      - 88445d8d8bfffff
+      - 88445d8d8dfffff
+      - 88445d8dc1fffff
+      - 88445d8dc3fffff
+      - 88445d8dc5fffff
+      - 88445d8dc7fffff
+      - 88445d8dc9fffff
+      - 88445d8dcbfffff
+      - 88445d8dcdfffff
+      - 88445d8dd1fffff
+      - 88445d8dd5fffff
+      - 88445d8dd7fffff
+      - 88445d8dd9fffff
+      - 88445d8dddfffff
+      - 88445d8debfffff
+    verified: false
+  - id: SA2
+    name: "Tallulah"
+    parish: "Madison"
+    state: LA
+    active: true
+    lat: 32.408
+    lon: -91.187
+    k: 2
+    h3_res8_anchor: 8844436499fffff
+    h3_cells:
+      - 8844436483fffff
+      - 884443648bfffff
+      - 8844436491fffff
+      - 8844436493fffff
+      - 8844436495fffff
+      - 8844436497fffff
+      - 8844436499fffff
+      - 884443649bfffff
+      - 884443649dfffff
+      - 88444364d1fffff
+      - 88444364d3fffff
+      - 88444364d5fffff
+      - 88444364d7fffff
+      - 88444364dbfffff
+      - 88445d914dfffff
+      - 88445d9321fffff
+      - 88445d9325fffff
+      - 88445d9327fffff
+      - 88445d932dfffff
+    verified: false
+  - id: SA3
+    name: "St. Joseph"
+    parish: "Tensas"
+    state: LA
+    active: true
+    lat: 31.92
+    lon: -91.234
+    k: 2
+    h3_res8_anchor: 88444300e7fffff
+    h3_cells:
+      - 8844430033fffff
+      - 8844430085fffff
+      - 884443008dfffff
+      - 88444300a1fffff
+      - 88444300a5fffff
+      - 88444300a9fffff
+      - 88444300abfffff
+      - 88444300adfffff
+      - 88444300e1fffff
+      - 88444300e3fffff
+      - 88444300e5fffff
+      - 88444300e7fffff
+      - 88444300e9fffff
+      - 88444300ebfffff
+      - 88444300edfffff
+      - 88444301d1fffff
+      - 88444301d3fffff
+      - 88444301d9fffff
+      - 88444301dbfffff
+    verified: false
+
+# High emissions, sparse population. Landing at the very top means pollution
+# burden is dominating.
+stress_not_an_emissions_map:
+  - id: SB1
+    name: "Alliance Refinery vicinity"
+    parish: "Plaquemines"
+    state: LA
+    active: true
+    lat: 29.7
+    lon: -89.98
+    k: 2
+    h3_res8_anchor: 8844732611fffff
+    h3_cells:
+      - 884446c925fffff
+      - 884446c927fffff
+      - 8844732603fffff
+      - 884473260bfffff
+      - 8844732611fffff
+      - 8844732613fffff
+      - 8844732615fffff
+      - 8844732617fffff
+      - 8844732619fffff
+      - 884473261bfffff
+      - 884473261dfffff
+      - 8844732639fffff
+      - 884473263bfffff
+      - 8844732653fffff
+      - 8844732657fffff
+      - 88447326c5fffff
+      - 88447326cdfffff
+      - 88447326e9fffff
+      - 88447326edfffff
+    verified: false
+  - id: SB2
+    name: "Krotz Springs"
+    parish: "St. Landry"
+    state: LA
+    active: true
+    lat: 30.535
+    lon: -91.752
+    k: 2
+    h3_res8_anchor: 8844408535fffff
+    h3_cells:
+      - 8844408507fffff
+      - 8844408521fffff
+      - 8844408523fffff
+      - 8844408527fffff
+      - 884440852bfffff
+      - 8844408531fffff
+      - 8844408533fffff
+      - 8844408535fffff
+      - 8844408537fffff
+      - 8844408539fffff
+      - 884440853bfffff
+      - 884440853dfffff
+      - 8844408ec1fffff
+      - 8844408ec3fffff
+      - 8844408ec9fffff
+      - 8844408ecbfffff
+      - 8844408ecdfffff
+      - 8844408ed9fffff
+      - 8844408eddfffff
+    verified: false
+  - id: SB3
+    name: "Port Hudson mill vicinity"
+    parish: "West Feliciana"
+    state: LA
+    active: true
+    lat: 30.68
+    lon: -91.27
+    k: 2
+    h3_res8_anchor: 8844401911fffff
+    h3_cells:
+      - 8844401825fffff
+      - 8844401827fffff
+      - 8844401903fffff
+      - 884440190bfffff
+      - 8844401911fffff
+      - 8844401913fffff
+      - 8844401915fffff
+      - 8844401917fffff
+      - 8844401919fffff
+      - 884440191bfffff
+      - 884440191dfffff
+      - 8844401939fffff
+      - 884440193bfffff
+      - 8844401953fffff
+      - 8844401957fffff
+      - 88444019c5fffff
+      - 88444019cdfffff
+      - 88444019e9fffff
+      - 88444019edfffff
+    verified: false
+
+# Reported, never gated. See docs/methodology.md section 13.6.
+# Race is not an input to the score, so any correlation found here is an
+# empirical result rather than an artifact of construction.
+disparity_analysis:
+  - metric: spearman_score_percentile_vs_black_population_share
+    population_weighted: true
+    report_confidence_interval: true
+  - metric: spearman_score_percentile_vs_people_of_color_share
+    population_weighted: true
+    report_confidence_interval: true
