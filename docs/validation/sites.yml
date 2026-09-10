@@ -1,0 +1,234 @@
+# ClearSkies pre-registered validation set
+#
+# Committed BEFORE any file under scoring/ exists. CI enforces that ordering.
+# See docs/methodology.md sections 13 and 17, and Appendix A.
+#
+# APPEND-ONLY. A site is never removed. If a site is later found to be poorly
+# chosen, add a `note` explaining the problem and keep reporting it.
+#
+# Coordinates are approximate neighbourhood anchors carrying verified: false
+# until each is checked against a named public source in Phase 1. Verification
+# may refine a coordinate. It may not delete a site or relocate an anchor to a
+# different community.
+
+schema_version: 1
+methodology_version: "0.1.0"
+state: LA
+registered: 2026-09-10
+
+criteria:
+  high_burden:
+    rule: "at least one scored hex within radius_m of the anchor falls in the statewide top decile"
+    radius_m: 1000
+    threshold_percentile: 90
+    required: 8
+    of: 10
+  negative_control:
+    rule: "all scored hexes within radius_m of the anchor fall below the statewide median"
+    radius_m: 1000
+    threshold_percentile: 50
+    required: 4
+    of: 4
+  stress_not_a_poverty_map:
+    rule: "expected percentile band; a result outside it triggers a documented investigation, not an automatic failure"
+    radius_m: 1000
+    expected_band: [40, 75]
+    gating: false
+  stress_not_an_emissions_map:
+    rule: "expected below the top decile; a result outside it triggers a documented investigation, not an automatic failure"
+    radius_m: 1000
+    expected_below_percentile: 90
+    gating: false
+
+# If no scored hex exists within radius_m of an anchor, the case is reported as
+# not_applicable. It is never counted as a pass.
+
+high_burden_sites:
+  - id: 1
+    name: Reserve / LaPlace
+    parish: St. John the Baptist
+    lat: 30.055
+    lon: -90.555
+    verified: false
+    rationale: >-
+      Chloroprene emissions from the Pontchartrain Works elastomer plant. Among the
+      highest modeled air toxics cancer risks in the country in successive federal
+      assessments.
+
+  - id: 2
+    name: Welcome, 5th District
+    parish: St. James
+    lat: 30.045
+    lon: -90.828
+    verified: false
+    rationale: >-
+      Dense petrochemical corridor siting, subject of sustained permitting litigation
+      and community organizing.
+
+  - id: 3
+    name: Mossville
+    parish: Calcasieu
+    lat: 30.250
+    lon: -93.300
+    verified: false
+    rationale: >-
+      Historic Black community encircled by vinyl chloride and chemical production.
+      Residents bought out and largely dispersed, which means the present-day
+      population indicators may be weak even though the exposure indicators are strong.
+
+  - id: 4
+    name: Alsen / North Baton Rouge
+    parish: East Baton Rouge
+    lat: 30.548
+    lon: -91.208
+    verified: false
+    rationale: >-
+      Adjacent to a major refinery complex and a Superfund landfill. A foundational
+      case in the environmental justice literature.
+
+  - id: 5
+    name: Norco
+    parish: St. Charles
+    lat: 29.998
+    lon: -90.410
+    verified: false
+    rationale: >-
+      Refinery and chemical plant adjacency. The Diamond community relocation is a
+      documented siting and buyout case.
+
+  - id: 6
+    name: Plaquemine
+    parish: Iberville
+    lat: 30.289
+    lon: -91.235
+    verified: false
+    rationale: Large chlor-alkali and chemical manufacturing complex on the west bank.
+
+  - id: 7
+    name: Chalmette
+    parish: St. Bernard
+    lat: 29.943
+    lon: -89.963
+    verified: false
+    rationale: Refinery immediately adjacent to dense residential blocks.
+
+  - id: 8
+    name: Geismar
+    parish: Ascension
+    lat: 30.220
+    lon: -91.020
+    verified: false
+    rationale: >-
+      One of the densest concentrations of chemical manufacturing in the corridor.
+
+  - id: 9
+    name: Gordon Plaza, New Orleans
+    parish: Orleans
+    lat: 29.998
+    lon: -90.045
+    verified: false
+    rationale: >-
+      Residential subdivision built on a municipal landfill, later a Superfund site,
+      with an unresolved relocation campaign. Note that the burden here is primarily
+      soil contamination, which v0 does not measure. This site tests whether the air
+      and facility indicators happen to catch it; a miss is informative rather than
+      surprising.
+
+  - id: 10
+    name: Port Allen / Brusly
+    parish: West Baton Rouge
+    lat: 30.450
+    lon: -91.212
+    verified: false
+    rationale: >-
+      Refining and chemical facilities directly across the river from the Baton Rouge
+      complex.
+
+negative_controls:
+  - id: N1
+    name: Mandeville
+    parish: St. Tammany
+    lat: 30.358
+    lon: -90.065
+    verified: false
+
+  - id: N2
+    name: Old Metairie
+    parish: Jefferson
+    lat: 29.995
+    lon: -90.131
+    verified: false
+    note: >-
+      The weakest control in the set. Affluent with no adjacent heavy industry, but
+      across the river from the west bank industrial strip and inside a dense
+      metropolitan airshed. Retained deliberately: a control that is merely easy tests
+      nothing.
+
+  - id: N3
+    name: Bocage
+    parish: East Baton Rouge
+    lat: 30.418
+    lon: -91.128
+    verified: false
+
+  - id: N4
+    name: South Lafayette
+    parish: Lafayette
+    lat: 30.170
+    lon: -92.030
+    verified: false
+
+stress_not_a_poverty_map:
+  - id: SA1
+    name: Lake Providence
+    parish: East Carroll
+    lat: 32.805
+    lon: -91.172
+    verified: false
+
+  - id: SA2
+    name: Tallulah
+    parish: Madison
+    lat: 32.408
+    lon: -91.187
+    verified: false
+
+  - id: SA3
+    name: St. Joseph
+    parish: Tensas
+    lat: 31.920
+    lon: -91.234
+    verified: false
+
+stress_not_an_emissions_map:
+  - id: SB1
+    name: Alliance Refinery vicinity
+    parish: Plaquemines
+    lat: 29.700
+    lon: -89.980
+    verified: false
+
+  - id: SB2
+    name: Krotz Springs
+    parish: St. Landry
+    lat: 30.535
+    lon: -91.752
+    verified: false
+
+  - id: SB3
+    name: Port Hudson mill vicinity
+    parish: West Feliciana
+    lat: 30.680
+    lon: -91.270
+    verified: false
+
+# Reported, never gated. See methodology.md section 13.6.
+# Race is not an input to the score, so any correlation found here is an
+# empirical result rather than an artifact of construction.
+disparity_analysis:
+  - metric: spearman_score_percentile_vs_black_population_share
+    population_weighted: true
+    report_confidence_interval: true
+  - metric: spearman_score_percentile_vs_people_of_color_share
+    population_weighted: true
+    report_confidence_interval: true
