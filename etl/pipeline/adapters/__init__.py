@@ -13,12 +13,14 @@ Each is one module here plus one line in this file.
 """
 
 from pipeline.adapters.base import FetchResult, SourceAdapter
+from pipeline.adapters.census_acs import CensusAcsAdapter
 from pipeline.adapters.echo import EpaEchoAdapter
 from pipeline.adapters.fake import FakeAirAdapter
 from pipeline.adapters.registry import REGISTRY, get, names, register, specs
 
 __all__ = [
     "REGISTRY",
+    "CensusAcsAdapter",
     "EpaEchoAdapter",
     "FakeAirAdapter",
     "FetchResult",

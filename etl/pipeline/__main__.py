@@ -12,16 +12,33 @@ run produced no usable data, which is the signal the job should fail on; a
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from datetime import UTC, datetime
 
-from pipeline.adapters import fake, get, specs
+from pipeline.adapters import census_acs, fake, get, specs
 from pipeline.context import make_context
 from pipeline.http import build_client
 from pipeline.metadata import PullMetadata
 from pipeline.runner import run_adapter
 from pipeline.sinks import InMemorySink
 from pipeline.snapshots import InMemorySnapshotStore
+
+# The only place the pipeline reads the environment. Adapters ask
+# `ctx.credentials` for a name from this table; an adapter that reached for
+# os.environ itself would be one no test could run and one whose requirements
+# stayed invisible until it failed in the middle of the night.
+CREDENTIAL_ENV: dict[str, str] = {
+    census_acs.CREDENTIAL: "CENSUS_API_KEY",
+}
+
+
+def _credentials() -> dict[str, str]:
+    return {
+        name: value
+        for name, variable in CREDENTIAL_ENV.items()
+        if (value := os.environ.get(variable, "").strip())
+    }
 
 
 def _list_sources() -> int:
@@ -47,6 +64,7 @@ async def _run(name: str, *, dry_run: bool, pilot_state: str) -> PullMetadata:
             now=datetime.now(UTC),
             pilot_state=pilot_state,
             dry_run=dry_run,
+            credentials=_credentials(),
         )
         return await run_adapter(adapter, ctx)
 

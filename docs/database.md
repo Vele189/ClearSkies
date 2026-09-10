@@ -149,7 +149,7 @@ first use, so an empty database needs no bootstrap step.
 
 ## 4. The schema
 
-Twenty-two tables in five groups, plus the runner's own ledger. Every fact
+Twenty-three tables in six groups, plus the runner's own ledger. Every fact
 table carries a `snapshot_id`, and every derived hex table carries a `run_id`.
 
 ### Provenance (`0002`)
@@ -192,6 +192,7 @@ Confusing the two is, per the paper, the most common way this step goes wrong.
 | `monitor` | One OpenAQ location | E4, and the c_monitor confidence term |
 | `monitor_measurement` | Monitor, parameter, day | E4 |
 | `tract_demographics` | Tract, ACS vintage, variable | S1, S2, P1 to P5 |
+| `tract_race_ethnicity` | Tract, ACS vintage, variable | nothing; see `0011` |
 | `hex_demographics` | Run, hex | The displayed profile |
 
 Three things in here are load-bearing rather than incidental:
@@ -213,6 +214,22 @@ and used in the disparity analysis of section 13.6, and they are never inputs
 to the score. Section 14 argues that at length: keeping race out of the
 arithmetic is what makes the disparity finding an independent result rather
 than a built-in one.
+
+### Race and ethnicity before interpolation (`0011`)
+
+| Table | Grain | Feeds |
+|---|---|---|
+| `tract_race_ethnicity` | Tract, ACS vintage, variable | nothing |
+
+The tract-level counterpart of those three `hex_demographics` columns, and the
+reason it is not simply more rows in `tract_demographics`: that table is the one
+every indicator reads. A variable filter is a weak boundary, and a `WHERE
+variable LIKE` widened by one character would pull racial composition into an
+indicator without anything failing. A separate table takes a join to cross, and
+a reviewer sees a join.
+
+The two tables have the same grain and the same columns on purpose, so CS-106
+interpolates both through one code path.
 
 ### Scores (`0009`)
 

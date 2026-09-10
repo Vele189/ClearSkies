@@ -127,12 +127,34 @@ class HttpFetcher:
         *,
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
+        secret_params: Mapping[str, str] | None = None,
     ) -> Download:
-        """Fetch one URL, or raise `TransientSourceError` once retries are spent."""
+        """Fetch one URL, or raise `TransientSourceError` once retries are spent.
+
+        `secret_params` is for query parameters that must never be written down.
+        An API key belongs there and nowhere else: it is merged into the request
+        and left out of the artifact, the snapshot key and the retry log, all
+        three of which are either published or persisted. `Artifact.url` reaches
+        docs/provenance.md verbatim, so a key placed in `url` or `params` would
+        be published to the repository.
+
+        The corollary is that `url` is the identity of the request. Two calls
+        that pass the same `url` share one snapshot, so a source paged or
+        chunked across several requests must vary `url` rather than `params`,
+        or a later stale night will replay one response for all of them.
+        """
         if url not in self.urls:
             self.urls.append(url)
         if self.offline:
             return await self._from_snapshot(url)
+
+        # Merged here rather than handed to httpx, which replaces a URL's own
+        # query string when it is given params instead of merging into it.
+        target = httpx.URL(url)
+        if params:
+            target = target.copy_merge_params(params)
+        if secret_params:
+            target = target.copy_merge_params(secret_params)
 
         attempt = 0
         while True:
@@ -140,7 +162,7 @@ class HttpFetcher:
             await self._throttle.acquire()
             self.requests += 1
             try:
-                response = await self._client.get(url, params=params, headers=headers)
+                response = await self._client.get(target, headers=headers)
             except httpx.TimeoutException as exc:
                 error = TransientSourceError(f"{url}: timed out ({exc!r})")
             except httpx.TransportError as exc:
