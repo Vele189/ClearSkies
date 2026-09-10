@@ -1,0 +1,24 @@
+name: Nightly ETL
+
+# Also keeps the database warm. Railway does not idle a service, but the daily
+# run is the thing that proves the adapters still work against upstream sources
+# that have a habit of moving.
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC, roughly 01:00 in the pilot state
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    name: Ingest and score
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Not implemented
+        run: |
+          echo "Phase 1 wires the five adapters in here."
+          echo "Each records its source URL, retrieval date, and checksum to docs/provenance.md."
+          exit 0
