@@ -118,6 +118,8 @@ clearskies/
 ├── api/                          FastAPI service
 │   ├── app/indicators.py         The fifteen indicators, one declaration
 │   ├── app/schemas.py            Response models mirroring the methodology
+│   ├── app/migrate.py            Migration runner
+│   ├── migrations/               The schema, one numbered .sql pair per change
 │   └── tests/
 ├── etl/                          Ingestion
 │   ├── pipeline/adapters/base.py The data source interface: four stages
@@ -150,6 +152,7 @@ clearskies/
 cp .env.example .env
 make up            # build and start Postgres with all three extensions
 make extensions    # print the extension versions, proving the image is right
+make migrate       # create the schema
 make install       # Python venv and npm dependencies
 make api           # FastAPI on :8000, docs at /docs
 make web           # Vite dev server on :5173
@@ -157,6 +160,8 @@ make check         # lint, typecheck, tests, pre-registration guard
 ```
 
 `make up` builds `infra/postgres` from source, which compiles h3-pg and takes several minutes the first time.
+
+Schema changes only ever land as a migration: `make migrate-new name=...` writes the numbered pair of files, `make migrate` applies them, and the runner refuses to continue if a released migration has been edited since it ran. [docs/database.md](docs/database.md) covers the workflow, what each table is for, and how to point the same commands at a shared development database instead of the container.
 
 The map renders the basemap and the API answers `/health` and `/indicators`, but no hexagon is scored yet. `/hex/{h3}` validates the cell and reports that the pipeline has not run rather than inventing a score. The frontend shows a banner saying the same. That is Phase 0 behaving correctly.
 

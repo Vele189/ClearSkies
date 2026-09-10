@@ -10,6 +10,7 @@ methodology and the validation set will not be.
 ```bash
 cp .env.example .env
 make up        # Postgres with PostGIS, h3 and pgvector; builds from source
+make migrate   # create the schema
 make install   # Python venv and npm dependencies
 make check     # everything CI runs
 ```
@@ -29,12 +30,13 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 | Frontend types | `tsc --noEmit` |
 | Frontend tests | `vitest run` |
 | Database image | builds, and all four extensions load |
+| Migrations | build the schema from empty, unwind, and rebuild |
 | Validation set | pre-registration ordering, and internal consistency |
 
 `make check` runs everything above except the database image build. Run it
 before opening a pull request.
 
-## The two rules that are not about code
+## The three rules that are not about code
 
 ### Scoring disagreements go to the methodology paper first
 
@@ -65,6 +67,22 @@ state is a pre-declared transition, not a change to the set.
 
 Related: no file may be added under `scoring/` in a commit that precedes the
 one adding the validation set. CI checks commit ancestry for this.
+
+### Schema changes only ever land as a migration
+
+No `CREATE TABLE` typed into psql, no column added by hand on Railway. Every
+change is a numbered pair of files in `api/migrations`, written with
+`make migrate-new name=...` and applied with `make migrate`.
+
+A schema that exists because somebody ran a statement once cannot be rebuilt,
+and a project whose claim is that its output is reproducible from public inputs
+cannot have one. The runner checksums applied migrations and refuses to
+continue when a released file has been edited: your database already has the
+old statement and everyone else's would get the new one. Write the next
+migration instead.
+
+`docs/database.md` has the full workflow, the local development paths, and what
+each table is for.
 
 ## Adding a data source
 

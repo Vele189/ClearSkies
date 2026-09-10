@@ -98,3 +98,31 @@ jobs:
           docker compose exec -T db psql -U clearskies -d clearskies \
             -v ON_ERROR_STOP=1 -tAc \
             "SELECT count(*) FROM clearskies_extensions" | grep -qx 4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e "./api[dev]"
+
+      # The schema is only version-controlled if the files in api/migrations
+      # actually build it. This applies them to a database that has never seen
+      # them, unwinds the whole set, and applies it again, which is the shape
+      # of a reviewer checking out the branch.
+      - name: Migrations build the schema from empty
+        working-directory: api
+        run: |
+          python -m app.migrate up
+          python -m app.migrate verify
+
+      - name: Applying twice changes nothing
+        working-directory: api
+        run: python -m app.migrate up | grep -qx "0 applied"
+
+      - name: Down migrations unwind the whole set
+        working-directory: api
+        run: |
+          python -m app.migrate down --to 0000
+          python -m app.migrate up
+          python -m app.migrate verify
