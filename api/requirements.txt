@@ -1,0 +1,20 @@
+# Runtime dependencies for the deployed API service.
+#
+# This file exists for the deploy, not for development. Railpack, Railway's
+# builder, installs Python dependencies only when it finds one of
+# requirements.txt, uv.lock, poetry.lock, pdm.lock or Pipfile. A bare
+# pyproject.toml is enough for it to detect Python and pick a start command
+# but not to install anything, which produces a container with no uvicorn in
+# it and a health check that never passes.
+#
+# pyproject.toml stays the source of truth. This list must mirror its
+# [project] dependencies exactly, and scripts/check_requirements_sync.py fails
+# CI when the two drift apart. For development use `pip install -e ".[dev]"`
+# or `make install`, both of which read pyproject.toml directly.
+
+fastapi>=0.115
+uvicorn[standard]>=0.32
+asyncpg>=0.30
+pydantic>=2.9
+pydantic-settings>=2.6
+h3>=4.1
