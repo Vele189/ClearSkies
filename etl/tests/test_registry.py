@@ -12,8 +12,10 @@ def test_the_reference_adapter_is_registered() -> None:
 
 
 def test_an_unknown_source_names_the_ones_that_exist() -> None:
+    # Deliberately a name no adapter will ever claim. This test used to ask for
+    # "epa_echo", which stopped being unknown the moment CS-101 registered it.
     with pytest.raises(KeyError, match="registered: "):
-        get("epa_echo")
+        get("no_such_source")
 
 
 def test_every_registered_source_describes_itself() -> None:
