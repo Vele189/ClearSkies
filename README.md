@@ -205,6 +205,8 @@ Five phases, each ending in something demoable. No fixed dates; a phase is done 
 
 Phases 0 through 2 stand on their own as a complete piece. Phase 3 is the most distinctive part and is worth finishing, but the project does not depend on it.
 
+The ticket-level breakdown, with owners, dependencies and what is already done, is in [`docs/backlog.md`](docs/backlog.md).
+
 ---
 
 ## Limitations and honest caveats
