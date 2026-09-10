@@ -17,8 +17,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Not implemented
-        run: |
-          echo "Phase 1 wires the five adapters in here."
-          echo "Each records its source URL, retrieval date, and checksum to docs/provenance.md."
-          exit 0
+      - name: Install the ingestion package
+        working-directory: etl
+        run: pip install -e .
+      - name: Registered sources
+        working-directory: etl
+        run: python -m pipeline sources
+      - name: Reference adapter
+        # Phase 1 replaces this with the five real adapters. Until then the
+        # nightly job still exercises the interface end to end, so a change that
+        # breaks the contract is caught here rather than on the night the first
+        # real source is wired in.
+        working-directory: etl
+        run: python -m pipeline run fake

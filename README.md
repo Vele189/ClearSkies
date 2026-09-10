@@ -4,7 +4,7 @@
 
 ClearSkies joins EPA compliance records, toxic release inventories, modeled air toxics exposure, measured air quality, and census demographics into a single burden score for every hexagon on a map. Click a hex and you see exactly why it scored the way it did, which facilities contributed, and how confident the score is. From there you can generate a draft public comment letter, agency complaint, community briefing, or journalist fact sheet — grounded in public records, with every citation verified before the draft is shown.
 
-> **Status: Phase 0 (foundations).** The methodology paper and the pre-registered validation set are written; no pipeline or scoring code exists yet. **Pilot state: Louisiana**, locked. See [Roadmap](#roadmap) for what exists and what doesn't.
+> **Status: Phase 0 (foundations).** The methodology paper, the pre-registered validation set, and the data source adapter interface are written. No real source is wired in and nothing is scored yet. **Pilot state: Louisiana**, locked. See [Roadmap](#roadmap) for what exists and what doesn't.
 
 ---
 
@@ -113,11 +113,17 @@ What exists today:
 clearskies/
 ├── docs/
 │   ├── methodology.md            Indicators, weights, normalization, validation
+│   ├── provenance.md             Per source: release, retrieval, checksum, gaps
 │   └── validation/sites.yml      Pre-registered validation set (append-only)
 ├── api/                          FastAPI service
 │   ├── app/indicators.py         The fifteen indicators, one declaration
 │   ├── app/schemas.py            Response models mirroring the methodology
 │   └── tests/
+├── etl/                          Ingestion
+│   ├── pipeline/adapters/base.py The data source interface: four stages
+│   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
+│   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
+│   └── README.md                 How to add a new data source
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
 ├── scripts/                      Pre-registration and fixture guards
@@ -132,7 +138,7 @@ clearskies/
 
 `scoring/` is deliberately absent. The methodology requires the validation set to be committed before any scoring code exists, and CI enforces that ordering by comparing commit history. Creating the directory early would defeat the check it is meant to pass.
 
-Still to come: `etl/` with the five adapters and the interpolation step (Phase 1), `scoring/` (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
+`etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), `scoring/` (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
 
 ---
 
@@ -170,7 +176,18 @@ Returns the burden score, every sub-score with its percentile rank, the confiden
 
 ## Adding a data source
 
-Adapters implement a single interface: fetch, validate, normalize to the hex grid, and declare freshness. Adding a source means writing one module in `etl/adapters/`, registering it, and documenting it in `docs/provenance.md`. The README in that directory carries the full contract.
+Adapters implement a single interface with four stages: **fetch** from upstream, **validate** each record, **normalize** onto the hex grid, and **load** through the sink. Adding a source means one module in `etl/pipeline/adapters/`, one import line, and a row in `docs/provenance.md`.
+
+What an adapter does not write is as important as what it does. Retries, rate limiting, checksums, snapshot fallback when a source disappears, partial-failure tolerance, transaction boundaries, and the provenance manifest are declared once at the interface level and inherited by every source. That is what keeps a sixth source a contained change rather than a sixth opinion about what a 503 means.
+
+Two rules the types enforce. A missing value is stored as missing, never as zero, because imputing an unmonitored area to zero or to the median would systematically pull unmonitored high-burden areas toward the middle. And the release vintage is recorded separately from the download time, because downloading a six-year-old file today does not make it current.
+
+The full contract, a worked example, and step-by-step instructions are in [`etl/README.md`](etl/README.md). The reference implementation in `etl/pipeline/adapters/fake.py` runs against a fixture with no network:
+
+```bash
+make sources        # what the registry knows about
+make ingest-fake    # the reference adapter, end to end
+```
 
 ---
 
