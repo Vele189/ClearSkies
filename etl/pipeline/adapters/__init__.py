@@ -16,10 +16,12 @@ from pipeline.adapters.base import FetchResult, SourceAdapter
 from pipeline.adapters.echo import EpaEchoAdapter
 from pipeline.adapters.fake import FakeAirAdapter
 from pipeline.adapters.registry import REGISTRY, get, names, register, specs
+from pipeline.adapters.tri import EpaTriAdapter
 
 __all__ = [
     "REGISTRY",
     "EpaEchoAdapter",
+    "EpaTriAdapter",
     "FakeAirAdapter",
     "FetchResult",
     "SourceAdapter",

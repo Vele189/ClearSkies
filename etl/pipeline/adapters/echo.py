@@ -127,6 +127,9 @@ class Facility(NormalizedRecord):
 
     facility_id: str
     registry_id: str
+    # Set by the TRI adapter on the facility rows it owns; ECHO's air feed does
+    # not carry a TRI id. See pipeline/adapters/tri.py.
+    tri_facility_id: str | None = None
     name: str
     street: str | None
     city: str | None
