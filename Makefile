@@ -31,6 +31,36 @@ extensions: ## Prove the custom image loaded all three extensions
 	docker compose exec -T db psql -U clearskies -d clearskies \
 	  -c "SELECT * FROM clearskies_extensions"
 
+.PHONY: psql
+psql: ## Open a psql shell on the local database
+	docker compose exec db psql -U clearskies -d clearskies
+
+# ---- Migrations --------------------------------------------------------
+#
+# Every schema change lands here. Nothing creates, alters or drops a table
+# outside api/migrations; see docs/database.md.
+
+.PHONY: migrate
+migrate: $(VENV) ## Apply pending migrations
+	cd $(API) && .venv/bin/python -m app.migrate up
+
+.PHONY: migrate-status
+migrate-status: $(VENV) ## List applied and pending migrations
+	cd $(API) && .venv/bin/python -m app.migrate status
+
+.PHONY: migrate-verify
+migrate-verify: $(VENV) ## Fail unless every migration is applied and unedited
+	cd $(API) && .venv/bin/python -m app.migrate verify
+
+.PHONY: migrate-down
+migrate-down: $(VENV) ## Revert the last migration
+	cd $(API) && .venv/bin/python -m app.migrate down
+
+.PHONY: migrate-new
+migrate-new: $(VENV) ## Scaffold one: make migrate-new name=add_facility_naics
+	@test -n "$(name)" || { echo "usage: make migrate-new name=add_facility_naics"; exit 1; }
+	cd $(API) && .venv/bin/python -m app.migrate new $(name)
+
 # ---- API ---------------------------------------------------------------
 
 $(VENV): $(API)/pyproject.toml
@@ -75,7 +105,7 @@ check: lint test ## Everything CI runs, plus the validation-set guards
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 
-.PHONY: migrate ingest score tiles
-migrate ingest score tiles:
-	@echo "'$@' arrives in Phase $(if $(filter migrate ingest,$@),1,2). See docs/methodology.md."
+.PHONY: ingest score tiles
+ingest score tiles:
+	@echo "'$@' arrives in Phase $(if $(filter ingest,$@),1,2). See docs/methodology.md."
 	@exit 1
