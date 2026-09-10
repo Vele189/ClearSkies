@@ -66,8 +66,9 @@ build: ## Production build of the frontend
 	cd $(WEB) && npm run build
 
 .PHONY: check
-check: lint test ## Everything CI runs, plus the pre-registration guard
+check: lint test ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
+	$(PY) scripts/check_validation_set.py
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 

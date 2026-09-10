@@ -1,6 +1,6 @@
 # ClearSkies Methodology
 
-**Version:** 0.1.0 (draft, pre-implementation)
+**Version:** 0.1.1 (draft, pre-implementation)
 **Status:** Phase 0 deliverable. Written before any scoring code exists, by design.
 **Pilot geography:** Louisiana
 **Last revised:** 2026-09-10
@@ -299,11 +299,13 @@ A hex in the Insufficient band cannot be used to generate an advocacy document. 
 
 ### 13.1 Pre-registration
 
-The validation set lives in `docs/validation/sites.yml` and is committed **before** any file under `scoring/` is committed. CI enforces this by checking that the first commit touching `docs/validation/sites.yml` precedes the first commit touching `scoring/`, and fails the build otherwise. The mechanism is crude and easy to defeat by anyone determined to; its purpose is to make casual post-hoc tuning impossible and deliberate tuning visible in the git history.
+The validation set lives in `docs/validation/sites.yml` and is committed **before** any file under `scoring/` is committed. It is closed and read-only. CI enforces this by checking that the first commit touching `docs/validation/sites.yml` precedes the first commit touching `scoring/`, and fails the build otherwise. The mechanism is crude and easy to defeat by anyone determined to; its purpose is to make casual post-hoc tuning impossible and deliberate tuning visible in the git history.
 
 ### 13.2 Primary criterion
 
-At least **8 of the 10** pre-registered sites in Appendix A must have at least one scored hex within 1 km of the site's anchor coordinate that falls in the statewide **top decile** of scores.
+At least **8 of the 10** active pre-registered sites in Appendix A must have at least one scored hex, among the cells frozen for that site in `docs/validation/sites.yml`, falling in the statewide **top decile** of scores.
+
+Each site resolves to an explicit set of resolution 8 cells rather than a radius evaluated at scoring time, so the cells a site is judged on are fixed in the fixture and cannot shift with the code that reads it. `scripts/check_validation_set.py` re-derives every cell list from its anchor and fails CI if the two disagree, which means an anchor cannot be nudged toward a better result without the committed cells contradicting it.
 
 ### 13.3 Negative controls
 
@@ -396,12 +398,28 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 1. This document is versioned semantically. A change to any indicator definition, weight, normalization rule, or aggregation formula is a **minor** version bump at minimum.
 2. No weight or formula changes without an entry in §18 stating what changed, why, and what the justification was **independent of its effect on validation results**.
 3. Every published score carries the methodology version that produced it, and historical scores are not silently recomputed under a new version.
-4. The pre-registered validation set in Appendix A is append-only. Sites are never removed. If a site is later found to be poorly chosen, it stays in the set with a documented note explaining the problem, and continues to be reported.
-5. Changing this document requires re-running the full §13 protocol before the new scores are published.
+4. The pre-registered validation set in Appendix A is **closed and read-only**. Sites are never added, removed, or re-anchored, and criteria are never loosened. If a site is later found to be poorly chosen, it stays in the set with a documented note explaining the problem, and continues to be reported. Correcting an anchor that names the wrong community is a revision under this section, recorded in §18; moving one to improve a result is not permitted.
+5. Flipping `active` on an out-of-state site when coverage extends is **not** a change to the set. That transition and its trigger are pre-declared in the fixture, which is the reason those sites are registered now rather than chosen later once a national score already exists.
+6. Changing this document requires re-running the full §13 protocol before the new scores are published.
 
 ---
 
 ## 18. Changelog
+
+### v0.1.1 — 2026-09-10 — validation set closed
+
+Validation set resolved from point anchors to explicit sets of H3 resolution 8
+cells, frozen in the fixture and re-derived in CI. Citations to public
+documentation added for every high-burden site. Ten out-of-state sites
+registered as inactive with pre-declared activation triggers, so the national
+targets are fixed before a national score exists rather than chosen after one
+does. `burden_pathway` recorded per site, since the v0 score covers air only
+and several registered sites carry their harm through water, soil, or waste.
+The set is now closed and read-only rather than append-only (§17.4).
+
+No indicator, weight, normalization, or aggregation change. Scores are
+unaffected.
+
 
 ### v0.1.0 — 2026-09-10 — draft, pre-implementation
 
@@ -426,57 +444,82 @@ Reference list is not exhaustive and grows with the document. Legal citations fo
 
 ## Appendix A — Pre-registered validation set
 
-Machine-readable form: `docs/validation/sites.yml`. That file is authoritative; this appendix is its readable rendering. Per §17.4 the set is append-only.
+Machine-readable form: `docs/validation/sites.yml`. That file is authoritative; this appendix renders it. The set is closed and read-only per §17.4, and `scripts/check_validation_set.py` enforces its internal consistency in CI.
 
-**Coordinates are approximate anchors, accurate to roughly the neighbourhood, and are marked `unverified` in `sites.yml` until each is checked against a named public source during Phase 1.** They are committed now, before scoring exists, because pre-registration requires it. Verification may refine a coordinate; it may not remove a site or move an anchor to a different community.
+Every site resolves to an explicit set of H3 resolution 8 cells, derived once from its anchor with `grid_disk(anchor, k)` and frozen in the fixture. A res-8 cell averages 0.737 km², so `k=1` is 7 cells spanning roughly 1.2 km, `k=2` is 19 cells spanning roughly 2.1 km, and `k=3` is 37 cells spanning roughly 3.0 km. `k` reflects the physical extent of each site and was set before any score existed.
 
-### A.1 Expected high-burden sites (criterion: 8 of 10 in the statewide top decile)
+**Anchors carry `verified: false`** until each is checked against its cited documentation in Phase 1. Verification may correct an anchor that names the wrong community, which is a §17.4 revision. It may not move one to improve a result.
 
-| # | Site | Parish | Anchor | Why it is in the set |
-|---|---|---|---|---|
-| 1 | Reserve / LaPlace | St. John the Baptist | 30.055, −90.555 | Chloroprene emissions from the Pontchartrain Works elastomer plant; among the highest modeled air toxics cancer risks in the country in successive federal assessments |
-| 2 | Welcome, 5th District | St. James | 30.045, −90.828 | Dense petrochemical corridor siting; subject of sustained permitting litigation and community organizing |
-| 3 | Mossville | Calcasieu | 30.250, −93.300 | Historic Black community encircled by vinyl chloride and chemical production; residents bought out and largely dispersed |
-| 4 | Alsen / North Baton Rouge | East Baton Rouge | 30.548, −91.208 | Adjacent to a major refinery complex and a Superfund landfill; a foundational case in the environmental justice literature |
-| 5 | Norco | St. Charles | 29.998, −90.410 | Refinery and chemical plant adjacency; the Diamond community relocation is a documented siting and buyout case |
-| 6 | Plaquemine | Iberville | 30.289, −91.235 | Large chlor-alkali and chemical manufacturing complex on the west bank |
-| 7 | Chalmette | St. Bernard | 29.943, −89.963 | Refinery immediately adjacent to dense residential blocks |
-| 8 | Geismar | Ascension | 30.220, −91.020 | One of the densest concentrations of chemical manufacturing in the corridor |
-| 9 | Gordon Plaza, New Orleans | Orleans | 29.998, −90.045 | Residential subdivision built on a municipal landfill, later a Superfund site; unresolved relocation campaign |
-| 10 | Port Allen / Brusly | West Baton Rouge | 30.450, −91.212 | Refining and chemical facilities directly across the river from the Baton Rouge complex |
+**`burden_pathway`** records which medium carries the harm. The v0 score covers air only, so a site whose burden is water, soil, or buried waste is not expected to score highly, and a miss there is evidence about the score's scope rather than about its quality.
 
-### A.2 Negative controls (criterion: 4 of 4 below the statewide 50th percentile)
+### A.1 Active sites, pilot state (criterion: 8 of 10 in the statewide top decile)
 
-| # | Area | Parish | Anchor |
+| # | Site | Parish | Pathway | Cells | Anchor |
+|---|---|---|---|---|---|
+| 1 | Reserve / LaPlace | St. John the Baptist | air | 7 (k=1) | `88444600ddfffff` |
+| 2 | Welcome, 5th District | St. James | air | 19 (k=2) | `884446aa35fffff` |
+| 3 | Mossville | Calcasieu | air | 19 (k=2) | `88446e4da9fffff` |
+| 4 | Alsen / North Baton Rouge | East Baton Rouge | air | 19 (k=2) | `884440cc51fffff` |
+| 5 | Norco | St. Charles | air | 7 (k=1) | `8844460161fffff` |
+| 6 | Plaquemine | Iberville | air | 19 (k=2) | `884440d1d7fffff` |
+| 7 | Chalmette | St. Bernard | air | 7 (k=1) | `8844464367fffff` |
+| 8 | Geismar | Ascension | air | 19 (k=2) | `884440db61fffff` |
+| 9 | Gordon Plaza, New Orleans | Orleans | soil | 7 (k=1) | `8844464051fffff` |
+| 10 | Port Allen / Brusly | West Baton Rouge | air | 19 (k=2) | `884440c1d3fffff` |
+
+Citations for each site are in the fixture. Two carry a scope caveat worth stating here: Gordon Plaza's burden is principally contaminated soil, and Mossville's residents were largely bought out and dispersed, so its population indicators may be weak even where its exposure indicators are strong.
+
+### A.2 Registered but inactive, out of state
+
+Indicators are percentile-ranked within the scored state (§9), so a cell outside Louisiana has no percentile and cannot be evaluated in v0. These sites are registered anyway, so that the national targets are fixed while the project has nothing to gain from choosing them favourably. Selecting them later, once a national score exists, is exactly the post-hoc selection pre-registration is meant to prevent. Each carries a pre-declared `activate_when` trigger, and nothing else activates a site.
+
+| # | Site | County | State | Pathway | Cells |
+|---|---|---|---|---|---|
+| N-FLINT | Flint | Genesee County | MI | water | 37 (k=3) |
+| N-CHESTER | Chester | Delaware County | PA | air | 19 (k=2) |
+| N-MANCHESTER | Manchester, Houston Ship Channel | Harris County | TX | air | 37 (k=3) |
+| N-PORTARTHUR | Port Arthur | Jefferson County | TX | air | 19 (k=2) |
+| N-WESTOAKLAND | West Oakland | Alameda County | CA | air | 19 (k=2) |
+| N-KETTLEMAN | Kettleman City | Kings County | CA | waste | 7 (k=1) |
+| N-INSTITUTE | Institute | Kanawha County | WV | air | 19 (k=2) |
+| N-UNIONTOWN | Uniontown | Perry County | AL | waste | 19 (k=2) |
+| N-WARREN | Afton, Warren County | Warren County | NC | waste | 19 (k=2) |
+| N-EASTCHICAGO | East Chicago, Calumet | Lake County | IN | soil | 19 (k=2) |
+
+Four of these have a burden pathway the v0 score does not measure. Flint is drinking water, Uniontown is coal ash, East Chicago is lead-contaminated soil, and Warren County is buried PCB waste. They are kept because the set should record the sites the field considers foundational, not only the ones a particular score is good at finding. Warren County in particular is where the US environmental justice movement began.
+
+### A.3 Negative controls (criterion: 4 of 4 below the statewide 50th percentile)
+
+| # | Area | Parish | Cells |
 |---|---|---|---|
-| N1 | Mandeville | St. Tammany | 30.358, −90.065 |
-| N2 | Old Metairie | Jefferson | 29.995, −90.131 |
-| N3 | Bocage | East Baton Rouge | 30.418, −91.128 |
-| N4 | South Lafayette | Lafayette | 30.170, −92.030 |
+| N1 | Mandeville | St. Tammany | 7 (k=1) |
+| N2 | Old Metairie | Jefferson | 7 (k=1) |
+| N3 | Bocage | East Baton Rouge | 7 (k=1) |
+| N4 | South Lafayette | Lafayette | 7 (k=1) |
 
-N2 is the weakest control in the set. It is affluent and has no adjacent heavy industry, but it sits across the river from the west bank industrial strip and inside a dense metropolitan airshed. It is retained deliberately: a control that is merely easy tests nothing.
+N2 is the weakest control in the set, affluent with no adjacent heavy industry but across the river from the west bank industrial strip. It is retained deliberately: a control that is merely easy tests nothing.
 
-### A.3 Stress case A — not a poverty map
+### A.4 Stress case A — not a poverty map
 
-High-poverty, low-industry parishes. Expected to land roughly between the 40th and 75th percentiles. Landing in the top decile indicates Population Characteristics is dominating the product.
+High-poverty, low-industry parishes, expected between roughly the 40th and 75th percentiles. Landing in the top decile means Population Characteristics is dominating the product.
 
-| # | Area | Parish | Anchor |
+| # | Area | Parish | Cells |
 |---|---|---|---|
-| SA1 | Lake Providence | East Carroll | 32.805, −91.172 |
-| SA2 | Tallulah | Madison | 32.408, −91.187 |
-| SA3 | St. Joseph | Tensas | 31.920, −91.234 |
+| SA1 | Lake Providence | East Carroll | 19 (k=2) |
+| SA2 | Tallulah | Madison | 19 (k=2) |
+| SA3 | St. Joseph | Tensas | 19 (k=2) |
 
-### A.4 Stress case B — not an emissions map
+### A.5 Stress case B — not an emissions map
 
-High-emission sites with sparse surrounding population. Expected to land below the top decile. Landing at the very top indicates Pollution Burden is dominating.
+High-emission sites with sparse surrounding population, expected below the top decile. Landing at the very top means Pollution Burden is dominating.
 
-| # | Area | Parish | Anchor |
+| # | Area | Parish | Cells |
 |---|---|---|---|
-| SB1 | Alliance Refinery vicinity | Plaquemines | 29.700, −89.980 |
-| SB2 | Krotz Springs | St. Landry | 30.535, −91.752 |
-| SB3 | Port Hudson mill vicinity | West Feliciana | 30.680, −91.270 |
+| SB1 | Alliance Refinery vicinity | Plaquemines | 19 (k=2) |
+| SB2 | Krotz Springs | St. Landry | 19 (k=2) |
+| SB3 | Port Hudson mill vicinity | West Feliciana | 19 (k=2) |
 
-Note the tension between A.4 and the low-population exclusion in §5: some hexes at these anchors will fall below the 25-person threshold and be unscored. The criterion applies to scored hexes within 1 km of the anchor, and if none exist the case is reported as `not_applicable` rather than as a pass.
+Some cells at these anchors fall below the 25-person threshold in §5 and will be unscored. The criterion applies to scored cells, and a site with none is reported as `not_applicable` rather than as a pass.
 
 ---
 

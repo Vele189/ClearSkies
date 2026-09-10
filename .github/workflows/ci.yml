@@ -14,6 +14,12 @@ jobs:
         with:
           fetch-depth: 0 # the check reads commit ordering
       - run: ./scripts/check_preregistration.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install h3 pyyaml
+      - name: Validation set is internally consistent
+        run: python scripts/check_validation_set.py
 
   api:
     name: API
