@@ -1,4 +1,7 @@
-def test_health_reports_degraded_without_a_database(client):
+from fastapi.testclient import TestClient
+
+
+def test_health_reports_degraded_without_a_database(client: TestClient) -> None:
     r = client.get("/health")
     assert r.status_code == 200
     body = r.json()
@@ -9,7 +12,7 @@ def test_health_reports_degraded_without_a_database(client):
         assert body["notes"]
 
 
-def test_openapi_document_builds(client):
+def test_openapi_document_builds(client: TestClient) -> None:
     r = client.get("/openapi.json")
     assert r.status_code == 200
     assert "/hex/{h3_index}" in r.json()["paths"]

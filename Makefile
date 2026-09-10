@@ -53,12 +53,15 @@ web: ## Run the Vite dev server on :5173
 # ---- Checks ------------------------------------------------------------
 
 .PHONY: test
-test: $(VENV) ## Run the API test suite
+test: $(VENV) ## Run both test suites
 	cd $(API) && .venv/bin/python -m pytest -q
+	cd $(WEB) && npm run test
 
 .PHONY: lint
 lint: $(VENV) ## Lint and typecheck both services
 	cd $(API) && .venv/bin/ruff check . && .venv/bin/ruff format --check .
+	cd $(API) && .venv/bin/mypy app tests
+	cd $(WEB) && npm run lint
 	cd $(WEB) && npm run typecheck
 
 .PHONY: build

@@ -17,14 +17,17 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const body = await response.json();
-      if (typeof body?.detail === "string") detail = body.detail;
+      const body: unknown = await response.json();
+      if (body && typeof body === "object" && "detail" in body && typeof body.detail === "string") {
+        detail = body.detail;
+      }
     } catch {
       // Non-JSON error body; the status text is the best available message.
     }
     throw new ApiError(response.status, detail);
   }
-  return (await response.json()) as T;
+  const data: unknown = await response.json();
+  return data as T;
 }
 
 export const getHealth = (signal?: AbortSignal) => request<Health>("/health", signal);

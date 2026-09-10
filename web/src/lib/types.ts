@@ -67,12 +67,15 @@ export interface Facility {
 
 export interface Demographics {
   population: number;
-  under_5_pct: number | null;
-  over_64_pct: number | null;
-  poverty_200pct: number | null;
-  black_pct: number | null;
-  people_of_color_pct: number | null;
-  hispanic_pct: number | null;
+  // Optional to match the API model, where every field but population carries
+  // a default of null. An absent value means the ACS estimate was unavailable,
+  // which is not the same as zero.
+  under_5_pct?: number | null;
+  over_64_pct?: number | null;
+  poverty_200pct?: number | null;
+  black_pct?: number | null;
+  people_of_color_pct?: number | null;
+  hispanic_pct?: number | null;
 }
 
 export interface HexDetail {

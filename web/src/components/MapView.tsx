@@ -56,8 +56,13 @@ interface Props {
 
 export default function MapView({ onSelect }: Props) {
   const container = useRef<HTMLDivElement>(null);
+
+  // Held in a ref so the map effect below can stay keyed to [] and not tear
+  // down and rebuild the map every time the parent re-renders a new callback.
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     if (!container.current) return;
@@ -95,8 +100,12 @@ export default function MapView({ onSelect }: Props) {
       });
 
       map.on("click", LAYER_ID, (event: MapLayerMouseEvent) => {
-        const h3 = event.features?.[0]?.properties?.h3;
-        if (typeof h3 === "string") onSelectRef.current(h3);
+        // Tile feature properties are untyped by definition; narrow before use.
+        const properties: unknown = event.features?.[0]?.properties;
+        if (properties && typeof properties === "object" && "h3" in properties) {
+          const h3: unknown = properties.h3;
+          if (typeof h3 === "string") onSelectRef.current(h3);
+        }
       });
       map.on("mouseenter", LAYER_ID, () => {
         map.getCanvas().style.cursor = "pointer";

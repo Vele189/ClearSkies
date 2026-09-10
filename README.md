@@ -120,9 +120,12 @@ clearskies/
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
-├── scripts/                      Pre-registration guard
+├── scripts/                      Pre-registration and fixture guards
 ├── .railway/railway.ts           Railway service definitions
 ├── .github/workflows/            CI and the nightly ETL job
+├── .github/ISSUE_TEMPLATE/       Bug, scoring, methodology, data source
+├── CONTRIBUTING.md
+├── LICENSE                       MIT
 ├── Makefile
 └── docker-compose.yml            Local database only
 ```
@@ -203,10 +206,14 @@ Out of scope for this release: national coverage, non-US data, user accounts, mo
 
 ## Contributing
 
-Issues and pull requests are welcome, particularly on the methodology. Scoring weights and indicator choices are argued in `docs/methodology.md` rather than in code comments, so a disagreement about the score is a disagreement about that document. Change it there first.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Two rules there are not about code and are easy to trip over.
+
+Scoring weights and indicator choices are argued in `docs/methodology.md`, not in code comments, so a disagreement about the score is a disagreement about that document. And the validation set is closed: `docs/validation/sites.yml` is read-only, and a criterion that fails is never answered by adjusting a weight until it passes.
+
+`make check` runs everything CI does apart from the database image build.
 
 ---
 
 ## License and data
 
-Code is open source. Every upstream dataset is US public-domain government data; `docs/provenance.md` records each source, its last pull, and its known gaps.
+MIT, see [LICENSE](LICENSE). Every upstream dataset is US public-domain government data; `docs/provenance.md` records each source, its last pull, and its known gaps.

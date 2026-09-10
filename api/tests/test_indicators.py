@@ -17,30 +17,30 @@ EXPECTED_PER_GROUP = {
 }
 
 
-def test_indicator_set_matches_the_methodology():
+def test_indicator_set_matches_the_methodology() -> None:
     assert len(INDICATORS) == 15
     for group, expected in EXPECTED_PER_GROUP.items():
         assert len(in_group(group)) == expected, group
 
 
-def test_indicator_ids_are_unique():
+def test_indicator_ids_are_unique() -> None:
     ids = [i.id for i in INDICATORS]
     assert len(ids) == len(set(ids))
 
 
-def test_environmental_effects_carry_half_weight():
+def test_environmental_effects_carry_half_weight() -> None:
     # Section 8.2: one step further from the harm, and partly a measure of
     # regulatory attention rather than pollution.
     assert GROUP_WEIGHTS[Group.ENVIRONMENTAL_EFFECTS] == 0.5
     assert GROUP_WEIGHTS[Group.EXPOSURES] == 1.0
 
 
-def test_every_group_belongs_to_exactly_one_component():
+def test_every_group_belongs_to_exactly_one_component() -> None:
     seen = [g for groups in COMPONENT_GROUPS.values() for g in groups]
     assert sorted(seen) == sorted(Group)
     assert len(seen) == len(set(seen))
 
 
-def test_minimums_are_satisfiable():
+def test_minimums_are_satisfiable() -> None:
     for group, minimum in GROUP_MINIMUM_PRESENT.items():
         assert 1 <= minimum <= len(in_group(group))

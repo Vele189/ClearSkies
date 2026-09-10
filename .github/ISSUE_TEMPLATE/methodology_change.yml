@@ -1,0 +1,63 @@
+name: Methodology change proposal
+description: Propose a change to indicators, weights, normalization or aggregation
+labels: [methodology, needs-discussion]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Scoring decisions are argued in `docs/methodology.md`, not in code.
+        A change to any indicator definition, weight, normalization rule or
+        aggregation formula is a methodology revision and needs a rationale
+        that stands on its own.
+
+        **The rationale must not depend on the change's effect on validation
+        results.** Adjusting a weight because it makes a validation site pass is
+        not permitted, and a proposal arguing that will be closed. This is the
+        rule the whole pre-registration design exists to protect.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change
+      options:
+        - Add or remove an indicator
+        - Change a weight
+        - Change normalization or percentile handling
+        - Change how components are combined
+        - Change missing-data handling
+        - Change the confidence score
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What the methodology says now
+      description: Quote the relevant section, with its number.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: What it should say instead
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale, independent of validation results
+      description: Why this is a better description of cumulative burden. Cite prior art or evidence where you can.
+    validations:
+      required: true
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Known consequences
+      description: Which hexagons or which kinds of place this would move, and in which direction. An honest answer here is more useful than a confident one.
+  - type: checkboxes
+    id: understood
+    attributes:
+      label: Before submitting
+      options:
+        - label: My rationale does not depend on how this affects any validation site.
+          required: true
+        - label: I understand this requires re-running the full validation protocol before new scores are published.
+          required: true

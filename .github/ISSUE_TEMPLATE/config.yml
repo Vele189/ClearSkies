@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Methodology questions
+    url: https://github.com/Vele189/ClearSkies/blob/master/docs/methodology.md
+    about: Indicator choices, weights, normalization and validation are documented here. Read this before proposing a scoring change.

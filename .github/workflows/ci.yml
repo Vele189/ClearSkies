@@ -36,6 +36,7 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
+      - run: mypy app tests
       - run: python -m pytest -q
 
   web:
@@ -52,6 +53,9 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
       - run: npm run build
 
   database:

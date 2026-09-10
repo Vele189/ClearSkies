@@ -6,7 +6,7 @@ router = APIRouter(tags=["meta"])
 
 
 @router.get("/indicators")
-async def list_indicators() -> dict:
+async def list_indicators() -> dict[str, object]:
     """The indicator set, its groups, and the weights that combine them.
 
     Published so a reader can check the running configuration against
