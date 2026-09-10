@@ -90,6 +90,17 @@ coordinates fall in open water is not.
   night's rows instead of duplicating them. A repeated key inside one pull fails
   the run.
 
+**4a. If your source is tract-level, use `pipeline/interpolate.py`.** Methodology
+section 7 has two formulas and picking the wrong one is, per the paper, the most
+common error in this step. Counts sum across space and are apportioned through
+`apportion`; rates, ratios and modeled risks do not sum and are combined by
+`population_weighted_mean`. Neither area-weights anything, and a rate with a
+published numerator and denominator has both apportioned and the division done
+once at the end. Both return a value for **every** hex you ask about, plus a
+`Coverage` saying how many came back absent and why — put that in the manifest
+from `fetch`, because the runner asks for known gaps before the first record is
+normalized and a count discovered later can never be published.
+
 **5. Register it.** Add the import to `pipeline/adapters/__init__.py`. The
 `@register` decorator does the rest, and `python -m pipeline sources` will list
 it.
@@ -151,7 +162,10 @@ etl/
 │   ├── adapters/
 │   │   ├── base.py        the interface: four stages, one class
 │   │   ├── registry.py    name to adapter
-│   │   └── fake.py        reference implementation
+│   │   ├── fake.py          reference implementation
+│   │   ├── echo.py          EPA ECHO/ICIS      (F1-F4)
+│   │   └── airtoxscreen.py  EPA AirToxScreen   (E1, E2)
+│   ├── interpolate.py     section 7: tract values onto the hex grid
 │   ├── policy.py          retry, rate limit, partial failure
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata
