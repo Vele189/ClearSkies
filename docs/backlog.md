@@ -1708,7 +1708,7 @@ a command that cannot connect to anything.
 
 ### CS-301 — Curate and version the statute corpus
 
-**Size:** L · **Labels:** llm, data · **Depends on:** CS-006 · **Owner:** Lead · **Status:** Not started
+**Size:** L · **Labels:** llm, data · **Depends on:** CS-006 · **Owner:** Lead · **Status:** Done, Louisiana authorities outstanding
 
 A closed, curated corpus is what keeps retrieval honest: no open web, no model
 recall.
@@ -1736,6 +1736,65 @@ recall.
 - Corpus versioned and immutable once versioned. It cannot grow at runtime, and
   adding an authority requires a manifest entry in Appendix B first.
 - Ingestion repeatable from a script, not a one-off manual load.
+
+**What landed:** `assistant/`, a fourth Python package on the same terms as
+`etl/` and `scoring/`, plus migration `0018_statute_corpus_version`.
+
+- **Twelve of the sixteen Appendix B authorities are ingested**, from their own
+  publishers: the US Code from govinfo, 40 C.F.R. Part 7 from the eCFR versioner
+  API, and both cases from the Caselaw Access Project. 12 documents, 2,850
+  chunks, 2,198 distinct citable labels. A whole chapter arrives in one request
+  rather than one request per section, because a hand-maintained list of section
+  numbers goes stale silently when Congress adds a section and the corpus would
+  then be missing an authority while reporting itself complete.
+- **The four Louisiana authorities are not ingested.** `legis.la.gov` does not
+  resolve from the build host and `www.doa.la.gov` answers 403. They are in the
+  manifest with fetch plans; what is missing is a machine that can reach them.
+  For a Louisiana pilot this is a real limitation, not a cosmetic one: the public
+  trust duty in *Save Ourselves* rests on a state constitutional provision whose
+  text is not in the corpus. `docs/corpus.md` section 4 records it and the model
+  card will carry it.
+- **The corpus refuses to seal while an authority is missing**, naming which.
+  An unsealed version is invisible to `statute_corpus_active` and therefore to
+  retrieval and to the verifier, so an incomplete corpus is not published rather
+  than published with a caveat. The version in the development database was
+  sealed with `--force` and its `notes` column says why.
+- **Sealing is a one-way door enforced by trigger**, not by convention. Insert,
+  update, delete and moving a row between versions are all refused on a sealed
+  version, and the version row itself cannot be modified or deleted. The claim
+  this project makes is that the assistant cannot cite outside the corpus, and
+  that claim is worth as much as the weakest thing between a process with a
+  connection string and an INSERT. Six tamper attempts were run against a real
+  database and all six were refused.
+- **Rule 4 is a test rather than a rule.** `python -m corpus check` parses
+  Appendix B out of the methodology paper and compares it with the manifest in
+  both directions, in CI. An authority in the code and not the paper is a corpus
+  that grew without the methodology saying so; one in the paper and not the code
+  is a methodology promising an authority the assistant cannot cite, which is
+  the quieter failure because every draft is simply a little worse and nothing
+  reports it.
+- Ingestion is repeatable from `make corpus-seal`. Every input is pinned — the
+  US Code edition year, the eCFR as-of date, the reporter volume and file name
+  of each opinion — and fetched documents are cached on disk so a rebuild
+  reproduces the same content hash rather than downloading whatever those URLs
+  serve today.
+
+**Two bugs found on the way, both of which produced a citation that exists.**
+This is the failure mode worth naming, because a fabricated citation announces
+itself and these do not: the section is real, a reader can look it up, and it
+does not say what the draft says it says.
+
+The US Code prints suffixed section numbers with an **en dash**. Matching only
+the hyphen did not fail, it truncated: all nine sections of Title VI parsed as
+`2000d`, so nine distinct authorities shared one citation. Second, the letters
+**c, d, l and m are also Roman numerals**, so deciding a marker's depth by its
+style read clause (i) as continuing subsection (c) and filed a clause four
+levels down as a subsection. A chunk of § 7412(c)(9)(B)(i) came out labelled
+§ 7412(i), which is a real subsection about a different subject. Depth is now
+decided by sequence — (i) follows (h), and (i) does not follow (c) — and where
+the publisher did not mark a subdivision explicitly its letter stays out of the
+label entirely. A broader citation is always safe; a precise one naming a
+subdivision the statute does not have is not.
 
 ---
 

@@ -35,3 +35,8 @@ quality-runs/
 # The nightly run ledger (CS-109). Carried between Actions runs by the cache,
 # never committed; the durable home is the pipeline_run table.
 pipeline-state/
+
+# Cached source documents for the statute corpus build. Reproducible from
+# `make corpus-build`; several megabytes of statute text that does not belong
+# in git.
+assistant/.cache/
