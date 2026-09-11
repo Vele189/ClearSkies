@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.indicators import COMPONENT_GROUPS, GROUP_MINIMUM_PRESENT, GROUP_WEIGHTS, INDICATORS
+from app.methodology import METHODOLOGY_VERSION
 
 router = APIRouter(tags=["meta"])
 
@@ -13,7 +14,7 @@ async def list_indicators() -> dict[str, object]:
     docs/methodology.md rather than taking the paper's word for it.
     """
     return {
-        "methodology_version": "0.1.0",
+        "methodology_version": METHODOLOGY_VERSION,
         "indicators": [
             {
                 "id": i.id,

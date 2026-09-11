@@ -7,6 +7,13 @@ dependencies = [
     "pydantic>=2.9",
     "httpx>=0.27",
     "h3>=4.1",
+    # CS-207, the tile build. `pmtiles` writes the archive and
+    # `mapbox-vector-tile` encodes the tiles inside it. Both are small and both
+    # are the reference implementation of a published spec, which is the whole
+    # reason not to hand-roll a protobuf encoder for a format a browser has to
+    # parse.
+    "pmtiles>=3.4",
+    "mapbox-vector-tile>=2.1",
 ]
 
 [project.optional-dependencies]
@@ -37,7 +44,7 @@ strict = true
 warn_unreachable = true
 # h3 ships no stubs; its cell functions are dynamic at the boundary.
 [[tool.mypy.overrides]]
-module = ["h3.*"]
+module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

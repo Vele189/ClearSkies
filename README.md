@@ -125,9 +125,23 @@ clearskies/
 │   ├── pipeline/adapters/base.py The data source interface: four stages
 │   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
+│   ├── pipeline/tiles/build.py   The map's PMTiles archive
 │   └── README.md                 How to add a new data source
+├── scoring/                      The burden score
+│   ├── burden/eligibility.py     Who gets scored: the 25-person rule, section 5
+│   ├── burden/percentile.py      Statewide percentile rank, section 9
+│   ├── burden/component.py       Subgroup means into a component, section 10
+│   ├── burden/pollution.py       The Pollution Burden half
+│   ├── burden/population.py      The Population Characteristics half
+│   ├── burden/score.py           The two halves multiplied, section 10 step 4
+│   ├── burden/confidence.py      How well supported a score is, section 12
+│   ├── burden/validation.py      The section 13 phase gate
+│   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
+│   ├── src/lib/ramp.ts           The choropleth ramp and section 12's bands
+│   └── src/components/Legend.tsx What the colours mean, on screen
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
+├── infra/r2/                     Tile bucket: CORS policy and why not Railway
 ├── scripts/                      Pre-registration and fixture guards
 ├── .railway/railway.ts           Railway service definitions
 ├── .github/workflows/            CI and the nightly ETL job
@@ -138,9 +152,9 @@ clearskies/
 └── docker-compose.yml            Local database only
 ```
 
-`scoring/` is deliberately absent. The methodology requires the validation set to be committed before any scoring code exists, and CI enforces that ordering by comparing commit history. Creating the directory early would defeat the check it is meant to pass.
+`scoring/` was deliberately absent until the validation set had been committed. The methodology requires the pre-registered set to exist before any scoring code does, and CI compares commit history to enforce it: the first commit adding a file under `scoring/` must be a descendant of the one adding `docs/validation/sites.yml`. That ordering is now fixed in the history and the check keeps it that way.
 
-`etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), `scoring/` (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
+`etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), the two components and the burden score itself (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
 
 ---
 

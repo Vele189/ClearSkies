@@ -22,16 +22,18 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 
 | Check | Command |
 |---|---|
-| Python lint and format | `ruff check`, `ruff format --check`, in `api` and `etl` |
-| Python types | `mypy` in strict mode, in `api` and `etl` |
-| Python tests | `pytest`, in `api` and `etl` |
+| Python lint and format | `ruff check`, `ruff format --check`, in `api`, `etl` and `scoring` |
+| Python types | `mypy` in strict mode, in `api`, `etl` and `scoring` |
+| Python tests | `pytest`, in `api`, `etl` and `scoring` |
 | Adapter contract | `python -m pipeline run fake`, the reference source end to end |
+| Tile build | `python -m pipeline tiles` over a fixture, no database needed |
 | Frontend lint | `eslint` |
 | Frontend types | `tsc --noEmit` |
 | Frontend tests | `vitest run` |
 | Database image | builds, and all four extensions load |
 | Migrations | build the schema from empty, unwind, and rebuild |
 | Validation set | pre-registration ordering, and internal consistency |
+| Validation gate | `scripts/run_validation.py` over the harness fixture |
 
 `make check` runs everything above except the database image build. Run it
 before opening a pull request.
@@ -61,6 +63,12 @@ the code, fix a defect in the data handling, or revise the methodology with a
 rationale that stands independently of the validation outcome and re-run every
 check from the beginning. Adjusting a weight because it makes a site pass is
 not one of them.
+
+Run the gate with `make validate SCORES=path/to/scores.json`. It exits non-zero
+unless the run cleared the bar, and prints the three permitted responses at the
+foot of its report. `make validate-harness` runs the same command over a
+synthetic fixture built to fail, which proves the command works without a
+database and can never be mistaken for a result.
 
 Flipping `active` on an out-of-state site when scoring coverage extends to its
 state is a pre-declared transition, not a change to the set.

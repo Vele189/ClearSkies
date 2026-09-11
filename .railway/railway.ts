@@ -23,6 +23,14 @@
 // Both of those need CLI >= 5.x. `railway config` and `railway cdn` do not
 // exist in 4.31.0.
 //
+//   3. Per-pull-request preview environments. Railway builds these from
+//      additional environments, which the Hobby plan this project runs on does
+//      not include; they need a Pro workspace. **Previews are therefore not
+//      available and reviewers check a branch locally**, which is what
+//      `make web` is for. This is recorded rather than left to be rediscovered:
+//      a reviewer looking for a preview URL that was never going to exist will
+//      assume the deploy is broken.
+//
 // A service cannot be managed by the dashboard and by IaC at the same time.
 // There is no railway.json or railway.toml in this repository, so nothing has
 // to be migrated before the 2026-12-01 cutoff that retires those files.
@@ -111,6 +119,21 @@ export default defineRailway(() => {
       // onto a path, so it needs the scheme. RAILWAY_PUBLIC_DOMAIN is a bare
       // hostname.
       VITE_API_BASE_URL: "https://${{api.RAILWAY_PUBLIC_DOMAIN}}",
+      // The PMTiles archive, on Cloudflare R2 rather than on this service.
+      // Sealed in the dashboard once the bucket exists; preserve() keeps an
+      // apply from clearing it. See infra/r2/README.md for why it is not here:
+      // one large object read with Range requests is a poor fit for an edge
+      // cache keyed on whole URLs, and Railway bills egress where R2 does not.
+      // Whatever it is set to, the bucket's CORS policy must name this
+      // service's public domain, and `make check-tiles URL=...` confirms it.
+      VITE_TILES_URL: preserve(),
+      // Free, no key, no attribution beyond the basemap's own. Overridden per
+      // environment rather than hardcoded in the client.
+      VITE_BASEMAP_STYLE: "https://tiles.openfreemap.org/styles/positron",
+      // Place-name search stays off unless a geocoder is named. A deployment
+      // should not send what people type into the search box to a third party
+      // by default; coordinates and H3 indexes work without one.
+      VITE_GEOCODER_URL: preserve(),
     },
   });
 

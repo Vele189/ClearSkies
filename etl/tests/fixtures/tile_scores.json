@@ -1,0 +1,210 @@
+{
+  "hexes": {
+    "884440c133fffff": {
+      "no_score_reason": "low_population"
+    },
+    "884440c137fffff": {
+      "confidence": 0.41,
+      "confidence_band": "high",
+      "percentile": 98.0,
+      "score": 49.0
+    },
+    "884440c181fffff": {
+      "confidence": 0.42,
+      "confidence_band": "high",
+      "percentile": 96.0,
+      "score": 48.0
+    },
+    "884440c185fffff": {
+      "confidence": 0.43,
+      "confidence_band": "high",
+      "percentile": 94.0,
+      "score": 47.0
+    },
+    "884440c187fffff": {
+      "confidence": 0.44,
+      "confidence_band": "high",
+      "percentile": 92.0,
+      "score": 46.0
+    },
+    "884440c18dfffff": {
+      "confidence": 0.45,
+      "confidence_band": "high",
+      "percentile": 90.0,
+      "score": 45.0
+    },
+    "884440c1a1fffff": {
+      "confidence": 0.46,
+      "confidence_band": "high",
+      "percentile": 88.0,
+      "score": 44.0
+    },
+    "884440c1a3fffff": {
+      "no_score_reason": "low_population"
+    },
+    "884440c1a5fffff": {
+      "confidence": 0.48,
+      "confidence_band": "high",
+      "percentile": 84.0,
+      "score": 42.0
+    },
+    "884440c1a7fffff": {
+      "confidence": 0.49,
+      "confidence_band": "high",
+      "percentile": 82.0,
+      "score": 41.0
+    },
+    "884440c1a9fffff": {
+      "confidence": 0.5,
+      "confidence_band": "high",
+      "percentile": 80.0,
+      "score": 40.0
+    },
+    "884440c1abfffff": {
+      "confidence": 0.51,
+      "confidence_band": "high",
+      "percentile": 78.0,
+      "score": 39.0
+    },
+    "884440c1adfffff": {
+      "confidence": 0.52,
+      "confidence_band": "high",
+      "percentile": 76.0,
+      "score": 38.0
+    },
+    "884440c1b5fffff": {
+      "confidence": 0.53,
+      "confidence_band": "high",
+      "percentile": 74.0,
+      "score": 37.0
+    },
+    "884440c1bdfffff": {
+      "no_score_reason": "low_population"
+    },
+    "884440c1e1fffff": {
+      "confidence": 0.55,
+      "confidence_band": "high",
+      "percentile": 70.0,
+      "score": 35.0
+    },
+    "884440c1e3fffff": {
+      "confidence": 0.56,
+      "confidence_band": "high",
+      "percentile": 68.0,
+      "score": 34.0
+    },
+    "884440c1e5fffff": {
+      "confidence": 0.57,
+      "confidence_band": "high",
+      "percentile": 66.0,
+      "score": 33.0
+    },
+    "884440c1e7fffff": {
+      "confidence": 0.58,
+      "confidence_band": "high",
+      "percentile": 64.0,
+      "score": 32.0
+    },
+    "884440c1e9fffff": {
+      "confidence": 0.59,
+      "confidence_band": "high",
+      "percentile": 62.0,
+      "score": 31.0
+    },
+    "884440c1ebfffff": {
+      "confidence": 0.6,
+      "confidence_band": "moderate",
+      "percentile": 60.0,
+      "score": 30.0
+    },
+    "884440c1edfffff": {
+      "no_score_reason": "low_population"
+    },
+    "884440ca8bfffff": {
+      "confidence": 0.62,
+      "confidence_band": "moderate",
+      "percentile": 56.0,
+      "score": 28.0
+    },
+    "884440ca91fffff": {
+      "confidence": 0.63,
+      "confidence_band": "moderate",
+      "percentile": 54.0,
+      "score": 27.0
+    },
+    "884440ca93fffff": {
+      "confidence": 0.64,
+      "confidence_band": "moderate",
+      "percentile": 52.0,
+      "score": 26.0
+    },
+    "884440ca99fffff": {
+      "confidence": 0.65,
+      "confidence_band": "moderate",
+      "percentile": 50.0,
+      "score": 25.0
+    },
+    "884440ca9bfffff": {
+      "confidence": 0.66,
+      "confidence_band": "moderate",
+      "percentile": 48.0,
+      "score": 24.0
+    },
+    "884440ca9dfffff": {
+      "confidence": 0.67,
+      "confidence_band": "moderate",
+      "percentile": 46.0,
+      "score": 23.0
+    },
+    "884440cad1fffff": {
+      "no_score_reason": "low_population"
+    },
+    "884440cad3fffff": {
+      "confidence": 0.69,
+      "confidence_band": "moderate",
+      "percentile": 42.0,
+      "score": 21.0
+    },
+    "884440cad5fffff": {
+      "confidence": 0.7,
+      "confidence_band": "moderate",
+      "percentile": 40.0,
+      "score": 20.0
+    },
+    "884440cad7fffff": {
+      "confidence": 0.71,
+      "confidence_band": "moderate",
+      "percentile": 38.0,
+      "score": 19.0
+    },
+    "884440cad9fffff": {
+      "confidence": 0.72,
+      "confidence_band": "moderate",
+      "percentile": 36.0,
+      "score": 18.0
+    },
+    "884440cadbfffff": {
+      "confidence": 0.73,
+      "confidence_band": "moderate",
+      "percentile": 34.0,
+      "score": 17.0
+    },
+    "884440caddfffff": {
+      "confidence": 0.74,
+      "confidence_band": "moderate",
+      "percentile": 32.0,
+      "score": 16.0
+    },
+    "884440cf49fffff": {
+      "no_score_reason": "low_population"
+    },
+    "884440cf4dfffff": {
+      "confidence": 0.76,
+      "confidence_band": "moderate",
+      "percentile": 28.0,
+      "score": 14.0
+    }
+  },
+  "methodology_version": "0.1.2",
+  "source": "SYNTHETIC FIXTURE - invented scores, not a scored run"
+}

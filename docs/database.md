@@ -296,6 +296,30 @@ forbids only the incoherent direction, an unobserved indicator carrying a value.
 `hex_score` is scored or it carries a reason it is not, never both and never
 neither, because a map needs to be able to explain every colour it draws.
 
+The confidence terms are stored alongside the combined value, not only the
+value, because "this hex is at 0.42" is not actionable and "this hex is at 0.42
+because the nearest monitor is 90 km away" is.
+`hex_score_low_confidence_idx` is the QA sweep of methodology section 12, a
+partial index on the low and insufficient bands that answers "which hexes did
+this run not trust" in one query:
+
+```sql
+SELECT h3, confidence, confidence_band, c_coverage, c_recency,
+       c_spatial, c_monitor, nearest_monitor_km
+  FROM hex_score
+ WHERE run_id = $1
+   AND confidence_band IN ('low', 'insufficient')
+ ORDER BY confidence;
+```
+
+It is partial because those two bands should be a minority of any run fit to
+publish, so an index covering the healthy rows too would grow with the grid for
+nothing.
+
+The methodology version is not on `hex_score`. It lives on `pipeline_run` and
+every score row reaches it through `run_id`, which is what section 17 asks for
+and what keeps one string out of 150,000 rows.
+
 The contributing facilities on the detail panel are derived at read time from
 `facility` and `hex` through the PostGIS index. Materialising them per hex per
 run would be the largest table in the database by a wide margin, to save a

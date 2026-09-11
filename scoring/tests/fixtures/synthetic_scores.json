@@ -1,0 +1,1067 @@
+{
+  "hexes": {
+    "8844401825fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401827fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401903fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "884440190bfffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401911fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401913fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401915fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401917fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401919fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "884440191bfffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "884440191dfffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401939fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "884440193bfffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401953fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844401957fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "88444019c5fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "88444019cdfffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "88444019e9fffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "88444019edfffff": {
+      "confidence_band": "high",
+      "percentile": 97.0
+    },
+    "8844408507fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408521fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408523fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408527fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884440852bfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408531fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408533fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408535fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408537fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408539fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884440853bfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884440853dfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408ec1fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408ec3fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408ec9fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408ecbfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408ecdfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408ed9fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844408eddfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884440ca89fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440ca8dfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440cac1fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440cac3fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440cac5fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440cac7fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440caebfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884440cc09fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc0bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc19fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc1dfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc43fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc4bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc51fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc53fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc55fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc57fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc59fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc5bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cc5dfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440ce33fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440ce37fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cea5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440ceadfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cee5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440cee7fffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "884440d0a5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d0adfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d181fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d183fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d189fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d18bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d191fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d195fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d199fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d19bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d19dfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1c3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1d1fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1d3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1d5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1d7fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1d9fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1dbfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884440d1ddfffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "884440db05fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db0dfffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db29fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db2dfffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db45fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db47fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db61fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db63fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db65fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db67fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db69fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db6bfffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884440db6dfffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "8844430033fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "8844430085fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "884443008dfffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300a1fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300a5fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300a9fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300abfffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300adfffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300e1fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300e3fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300e5fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300e7fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300e9fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300ebfffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444300edfffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444301d1fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444301d3fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444301d9fffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "88444301dbfffff": {
+      "confidence_band": "high",
+      "percentile": 88.0
+    },
+    "8844436483fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "884443648bfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "8844436491fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "8844436493fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "8844436495fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "8844436497fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "8844436499fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "884443649bfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "884443649dfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88444364d1fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88444364d3fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88444364d5fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88444364d7fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88444364dbfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "8844442513fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444425c1fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444425c5fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444425c7fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444425cdfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444425e9fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444425ebfffff": {
+      "confidence_band": "high",
+      "percentile": 64.0
+    },
+    "884445b2d3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884445b2dbfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88444600c3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88444600cbfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88444600d1fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88444600d5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88444600d9fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88444600ddfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844460161fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844460163fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844460165fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844460167fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844460169fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446016bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446016dfffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "88444602b7fffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "8844464051fffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "8844464053fffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "8844464055fffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "8844464057fffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "8844464059fffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "884446405bfffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "884446405dfffff": {
+      "confidence_band": "insufficient",
+      "percentile": 99.0
+    },
+    "88444642d9fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444642dbfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844464329fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446432dfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844464361fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844464363fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844464365fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844464367fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "8844465533fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444655e1fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444655e5fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444655e7fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444655edfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "88444658dbfffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "8844466b09fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844466b41fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844466b43fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844466b47fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844466b4bfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844466b55fffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "8844466b5dfffff": {
+      "confidence_band": "high",
+      "percentile": 18.0
+    },
+    "884446aa13fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aa81fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aa85fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aa89fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aa8bfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aa8dfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aac1fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aac3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aac5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aac7fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aac9fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aacbfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aacdfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aad5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aaddfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aae1fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aae3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aae9fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "884446aaebfffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "884446acd9fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884446acdbfffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884446ae93fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884446ae97fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884446aeb3fffff": {
+      "confidence_band": "high",
+      "percentile": 40.0
+    },
+    "884446aebbfffff": {
+      "confidence_band": "high",
+      "percentile": 71.2
+    },
+    "884446c925fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884446c927fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "88445d8c35fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8c37fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8d81fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8d89fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8d8bfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8d8dfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dc1fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dc3fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dc5fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dc7fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dc9fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dcbfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dcdfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dd1fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dd5fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dd7fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dd9fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8dddfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d8debfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d914dfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d9321fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d9325fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d9327fffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88445d932dfffff": {
+      "confidence_band": "high",
+      "percentile": 52.0
+    },
+    "88446e4d81fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4d85fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4d87fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4d8dfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4da1fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4da3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4da5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4da7fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4da9fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4dabfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4dadfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4dbdfffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4de1fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4de3fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4de5fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4de7fffff": {
+      "confidence_band": "high",
+      "percentile": 30.0
+    },
+    "88446e4debfffff": {
+      "confidence_band": "high",
+      "percentile": 95.5
+    },
+    "8844732603fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884473260bfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732611fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732613fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732615fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732617fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732619fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884473261bfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884473261dfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732639fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "884473263bfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732653fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "8844732657fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "88447326c5fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "88447326cdfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "88447326e9fffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    },
+    "88447326edfffff": {
+      "confidence_band": "high",
+      "percentile": 61.0
+    }
+  },
+  "methodology_version": "0.1.2",
+  "note": "Built by make_synthetic_scores.py to exercise every branch of the section 13 gate without a database. Deliberately fails, so it cannot be mistaken for a validation result.",
+  "source": "SYNTHETIC HARNESS FIXTURE - invented percentiles, not a scored run"
+}

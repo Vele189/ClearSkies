@@ -9,6 +9,8 @@
     python -m pipeline history          what each check has measured over time
     python -m pipeline runs             the ledger: past nights and the current one
     python -m pipeline provenance       where every number came from, and when
+    python -m pipeline tiles            build the map's PMTiles archive
+    python -m pipeline tiles-hosting    ask the published URL what a browser asks
 
 The nightly job in .github/workflows/etl.yml calls this. Exit status 1 means the
 run produced no usable data, which is the signal the job should fail on; a
@@ -36,6 +38,8 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
+
 from pipeline.adapters import census_acs, fake, get, names, openaq, specs
 from pipeline.context import make_context
 from pipeline.http import build_client
@@ -53,6 +57,13 @@ from pipeline.runner import run_adapter
 from pipeline.schedule import RunPlan, apply_outcomes, plan_run
 from pipeline.sinks import InMemorySink
 from pipeline.snapshots import InMemorySnapshotStore
+from pipeline.tiles.build import (
+    DEFAULT_MAX_ZOOM,
+    DEFAULT_MIN_ZOOM,
+    ScoredHex,
+    build_archive,
+)
+from pipeline.tiles.hosting import check_hosting
 
 # The only place the pipeline reads the environment. Adapters ask for a secret
 # by name from this table, through `ctx.credential`, and never touch os.environ
@@ -371,6 +382,47 @@ def _history(root: Path, check: str | None) -> int:
     return 0
 
 
+def _tiles(scores: Path, out: Path, min_zoom: int, max_zoom: int) -> int:
+    """CS-207: turn a scored run into the archive the map reads.
+
+    A step of the pipeline rather than an export someone performs. The map is
+    only ever as current as this file, so a build that depends on somebody
+    remembering to run a tool is a map that silently goes stale.
+    """
+    payload = json.loads(scores.read_text())
+    rows = [
+        ScoredHex(
+            h3=h3,
+            score=row.get("score"),
+            percentile=row.get("percentile"),
+            confidence=row.get("confidence"),
+            confidence_band=row.get("confidence_band"),
+            no_score_reason=row.get("no_score_reason"),
+        )
+        for h3, row in payload["hexes"].items()
+    ]
+
+    build = build_archive(rows, out, min_zoom=min_zoom, max_zoom=max_zoom)
+    print(build.summary())
+    # Printed so the number in the acceptance criteria is recorded by every run
+    # rather than measured once and quoted forever.
+    print(f"  upload with: make deploy-tiles ARCHIVE={out}")
+    return 0
+
+
+async def _tiles_hosting(url: str, origin: str) -> int:
+    """CS-207: confirm the published archive is servable, from outside.
+
+    A bucket policy that looks right in a dashboard and a bucket that answers a
+    cross-origin Range request with 206 are different claims.
+    """
+    async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
+        report = await check_hosting(url, origin=origin, client=client)
+
+    print(report.summary())
+    return 0 if report.ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pipeline", description=__doc__)
     parser.add_argument("--log-level", default="info")
@@ -478,6 +530,32 @@ def main(argv: list[str] | None = None) -> int:
     runs.add_argument("--state", type=Path, default=DEFAULT_STATE)
     runs.add_argument("--limit", type=int, default=10, help="how many recent runs to show")
 
+    tiles = sub.add_parser("tiles", help="build the map's PMTiles archive from a scored run")
+    tiles.add_argument(
+        "--scores",
+        type=Path,
+        required=True,
+        help="JSON export of a scored run: h3 -> score, percentile, confidence, band, reason",
+    )
+    tiles.add_argument(
+        "--out",
+        type=Path,
+        default=Path("tiles/clearskies-la.pmtiles"),
+        help="where to write the archive",
+    )
+    tiles.add_argument("--min-zoom", type=int, default=DEFAULT_MIN_ZOOM)
+    tiles.add_argument("--max-zoom", type=int, default=DEFAULT_MAX_ZOOM)
+
+    hosting = sub.add_parser(
+        "tiles-hosting", help="check a published archive answers Range and CORS correctly"
+    )
+    hosting.add_argument("--url", required=True, help="the published archive, VITE_TILES_URL")
+    hosting.add_argument(
+        "--origin",
+        default=os.environ.get("TILES_ORIGIN", "http://localhost:5173"),
+        help="the frontend origin the bucket must allow",
+    )
+
     history = sub.add_parser("history", help="what each check has measured across runs")
     history.add_argument("--store", type=Path, default=DEFAULT_STORE)
     history.add_argument("--check", default=None, help="restrict to one check id")
@@ -490,6 +568,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "history":
         return _history(args.store, args.check)
+
+    if args.command == "tiles":
+        return _tiles(args.scores, args.out, args.min_zoom, args.max_zoom)
+
+    if args.command == "tiles-hosting":
+        return asyncio.run(_tiles_hosting(args.url, args.origin))
 
     if args.command == "runs":
         return _runs(args.state, args.limit)
