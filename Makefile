@@ -4,8 +4,10 @@ SHELL := /bin/bash
 API := api
 ETL := etl
 WEB := web
+SCORING := scoring
 VENV := $(API)/.venv
 ETL_VENV := $(ETL)/.venv
+SCORING_VENV := $(SCORING)/.venv
 PY := $(VENV)/bin/python
 
 .PHONY: help
@@ -95,8 +97,74 @@ etl-check: $(ETL_VENV) ## Lint, typecheck and test the ingestion package
 	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning run fake
 	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning check fake --no-store
 
+# ---- Scoring -----------------------------------------------------------
+# Its own environment, and a deliberately empty dependency list. Section 13
+# wants a run reproducible from its inputs, so the arithmetic stays on stdlib
+# floats over an explicitly sorted list.
+
+$(SCORING_VENV): $(SCORING)/pyproject.toml
+	python3 -m venv $(SCORING_VENV)
+	$(SCORING_VENV)/bin/pip install -q -e "$(SCORING)[dev]"
+	@touch $(SCORING_VENV)
+
+.PHONY: scoring-check
+scoring-check: $(SCORING_VENV) ## Lint, typecheck and test the scoring package
+	cd $(SCORING) && .venv/bin/ruff check . && .venv/bin/ruff format --check .
+	cd $(SCORING) && .venv/bin/mypy burden tests
+	cd $(SCORING) && .venv/bin/python -m pytest -q
+
+# ---- Tiles (CS-207) ----------------------------------------------------
+#
+# The map reads one PMTiles archive from R2 and there is no tile server. The
+# build is a pipeline step rather than an export somebody performs, because the
+# map is only ever as current as this file and one that depends on being
+# remembered is one that silently goes stale. infra/r2/README.md has the bucket
+# setup and why it is not on the Railway frontend service.
+
+ARCHIVE ?= tiles/clearskies-la.pmtiles
+
+.PHONY: tiles
+tiles: $(ETL_VENV) ## Build the PMTiles archive: make tiles SCORES=run.json
+	@test -n "$(SCORES)" || { echo "usage: make tiles SCORES=path/to/scores.json"; exit 1; }
+	cd $(ETL) && .venv/bin/python -m pipeline tiles \
+	  --scores $(abspath $(SCORES)) --out $(abspath $(ARCHIVE))
+
+.PHONY: deploy-tiles
+deploy-tiles: ## Upload the archive to R2: make deploy-tiles ARCHIVE=...
+	@test -n "$$CLOUDFLARE_ACCOUNT_ID" || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+	@test -n "$$R2_BUCKET" || { echo "R2_BUCKET is not set"; exit 1; }
+	aws s3 cp "$(ARCHIVE)" "s3://$$R2_BUCKET/$(notdir $(ARCHIVE))" \
+	  --endpoint-url "https://$$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com" \
+	  --content-type application/octet-stream
+
+# Asks the published URL what a browser will ask. A host that ignores Range
+# still renders a correct map while pulling the whole archive on every visit,
+# which is invisible in a browser and visible only in a bill.
+.PHONY: check-tiles
+check-tiles: $(ETL_VENV) ## Confirm the published archive serves Range and CORS
+	@test -n "$(URL)" || { echo "usage: make check-tiles URL=\$$VITE_TILES_URL"; exit 1; }
+	cd $(ETL) && .venv/bin/python -m pipeline tiles-hosting --url "$(URL)" \
+	  $(if $(ORIGIN),--origin "$(ORIGIN)",)
+
+# The section 13 gate. One command, so a validation result is something anyone
+# can reproduce rather than something someone reports. Exits non-zero unless the
+# gate passed, because that is what a gate is for.
+.PHONY: validate
+validate: $(VENV) ## Run the validation protocol: make validate SCORES=run.json
+	@test -n "$(SCORES)" || { echo "usage: make validate SCORES=path/to/scores.json"; exit 1; }
+	$(PY) scripts/run_validation.py --scores $(SCORES) --require-pass $(if $(OUT),--out $(OUT),)
+
+# Proves the command still parses the frozen fixture and applies the criteria
+# without a database, on the same terms as `make ingest-fake`. The scores are
+# invented and the fixture is built to fail, so this asserts that the gate runs,
+# never that it passed.
+.PHONY: validate-harness
+validate-harness: $(VENV) ## Run the gate over the synthetic fixture, proving the command works
+	$(PY) scripts/run_validation.py \
+	  --scores $(SCORING)/tests/fixtures/synthetic_scores.json --out /dev/null
+
 .PHONY: install
-install: $(VENV) $(ETL_VENV) ## Install Python and frontend dependencies
+install: $(VENV) $(ETL_VENV) $(SCORING_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
 
 .PHONY: api
@@ -135,15 +203,19 @@ build: ## Production build of the frontend
 	cd $(WEB) && npm run build
 
 .PHONY: check
-check: lint test etl-check ## Everything CI runs, plus the validation-set guards
+check: lint test etl-check scoring-check ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
 	$(PY) scripts/check_validation_set.py
 	$(PY) scripts/check_requirements_sync.py
 	$(PY) scripts/verify_anchors.py
+	$(MAKE) validate-harness
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 
-.PHONY: ingest score tiles
-ingest score tiles:
+# `tiles` left this list in CS-207 and is a real target above. `score` is still
+# a placeholder: the scoring package is built and tested, but running it end to
+# end needs a populated database, which is CS-204's remaining dependency.
+.PHONY: ingest score
+ingest score:
 	@echo "'$@' arrives in Phase $(if $(filter ingest,$@),1,2). See docs/methodology.md."
 	@exit 1

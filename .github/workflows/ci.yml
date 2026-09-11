@@ -22,6 +22,14 @@ jobs:
         run: python scripts/check_validation_set.py
       - name: Anchors match the external evidence
         run: python scripts/verify_anchors.py
+      # CS-206. Proves the section 13 gate still parses the frozen fixture and
+      # applies its criteria, without a database, on the same terms as
+      # `pipeline run fake`. The scores are invented and the fixture is built to
+      # fail, so this asserts the gate runs and never that it passed. A real
+      # validation run is `make validate SCORES=...` against an actual run.
+      - name: The section 13 gate runs end to end
+        run: python scripts/run_validation.py
+          --scores scoring/tests/fixtures/synthetic_scores.json --out /dev/null
 
   api:
     name: API
@@ -76,6 +84,31 @@ jobs:
       # here on an empty state directory proves it still resolves the graph and
       # reads the cadences. It pulls nothing and writes nothing.
       - run: python -m pipeline plan
+      # CS-207. Builds the map's archive from a fixture of real Louisiana cells
+      # with invented scores, so the tile step is exercised end to end without a
+      # database, on the same terms as `run fake`. The map renders nothing at all
+      # for a source-layer it cannot find, so a broken build is otherwise silent.
+      - name: The tile build runs end to end
+        run: python -m pipeline tiles
+          --scores tests/fixtures/tile_scores.json --out /tmp/ci-tiles.pmtiles
+
+  scoring:
+    name: Scoring
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scoring
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy burden tests
+      - run: python -m pytest -q
 
   web:
     name: Frontend

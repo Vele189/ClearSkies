@@ -881,25 +881,58 @@ will fail the build if that ordering is ever inverted.
 
 ### CS-201 — Percentile ranking utilities
 
-**Size:** S · **Labels:** scoring · **Depends on:** CS-108 · **Owner:** Terrence · **Status:** Not started
+**Size:** S · **Labels:** scoring · **Depends on:** CS-108 · **Owner:** Terrence · **Status:** Done
 
 Shared normalization so every indicator is expressed the same way.
 
 **Acceptance criteria**
 
-- Statewide percentile rank with a documented tie-handling rule.
-- Nulls excluded from the ranking rather than treated as zero.
+- Statewide percentile rank with a documented tie-handling rule. **Done:**
+  `scoring/burden/percentile.py`, the Hazen convention of section 9,
+  `100 · (r − 0.5) / n`, with tied hexes taking the mean of the ranks they
+  occupy. Both choices are argued in the module docstring against the
+  alternatives they beat: `(r−1)/(n−1)` would put the state minimum at exactly
+  0, and section 10 multiplies the components, so one indicator at its minimum
+  would annihilate a hex's whole Pollution Burden.
+- Nulls excluded from the ranking rather than treated as zero. **Done:** a hex
+  with no value for an indicator is left out of `n_k` and comes back with
+  `observed` false carrying neither value nor percentile, which is the shape
+  `hex_indicator` already requires. Zero is an observation and stays one.
 - Hexes that are not scored are excluded from every percentile denominator.
   Section 5 leaves cells under 25 people unscored, and including them would
-  distort the distribution.
+  distort the distribution. **Done:** `rank` takes the scored universe as a
+  required keyword argument rather than inferring it from the values it was
+  handed. Hexes outside it get no row and reach no denominator, and the count of
+  those dropped is reported on the result instead of vanishing.
 - Unit tested against hand-computed cases including ties and heavy
-  zero-inflation.
+  zero-inflation. **Done:** 34 tests, each asserting a constant derived from the
+  formula in the comment above it rather than agreeing with a second
+  implementation. The zero-inflation case is 70 hexes with no facility within
+  10 km against 30 with one, which is the shape section 9 warns about for E3 and
+  F1 through F4.
+
+**The two exclusions are not the same exclusion, and the output says which.** An
+unscored hex is a place the methodology declines to rank. A scored hex with no
+value is a place one indicator could not see. The first gets no row, the second
+gets a row marked unobserved, and neither is ever filled in with a zero or a
+median. That is section 11's rule and the failure the project exists to avoid:
+an unmonitored area is uncertain, not clean.
+
+**The zero block is counted, not smoothed.** `Distribution.zero_block_percentile`
+returns the single percentile every exactly-zero hex shares, `50 · n_zero / n`.
+Section 9 requires that number to be published, because below it a facility
+indicator carries no information at all and a reader cannot tell that from the
+percentile alone.
+
+**No dependencies, on purpose.** The package installs nothing. CS-204 needs a
+scoring run reproducible from its inputs, and a sort plus a division over stdlib
+floats has no reduction order to argue about later.
 
 ---
 
 ### CS-202 — Pollution Burden component
 
-**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-103, CS-107 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-103, CS-107 · **Owner:** Lead · **Status:** Done
 
 The pollution half of the score: the Exposures and Environmental Effects groups.
 
@@ -907,25 +940,66 @@ The pollution half of the score: the Exposures and Environmental Effects groups.
 
 - Indicators and weights match `api/app/indicators.py`, which is the single
   declaration of the fifteen indicators and is itself locked to methodology
-  section 8. Exposures carries weight 1.0, Environmental Effects 0.5.
+  section 8. Exposures carries weight 1.0, Environmental Effects 0.5. **Done:**
+  `scoring/burden/indicators.py` restates group membership, weights and minimums
+  because `api` and `scoring` are separate distributions, and
+  `test_indicators.py::test_the_registry_matches_the_api` loads the registry of
+  record off disk and fails the moment the two disagree. The same arrangement
+  the ingestion package already uses in `quality/cross.py`.
 - Group minimums enforced: at least 2 of 4 Exposures, at least 2 of 4
-  Environmental Effects. Subgroup means are averaged, not pooled.
+  Environmental Effects. Subgroup means are averaged, not pooled. **Done:** below
+  its minimum a group drops out of the combination entirely rather than
+  reporting the one or two indicators it has, since a mean of one Exposures
+  indicator is a different quantity wearing the same name.
 - Missing indicators are dropped from their group mean, never imputed to zero or
-  to the median.
+  to the median. **Done:** and tested in both directions, because zero and the
+  median fail differently and section 11 rules out each by name.
 - If Exposures is not computable, the component falls back to Environmental
   Effects alone with a heavy confidence penalty. If neither is computable the hex
-  is `no_score` with reason `insufficient_pollution_data`.
+  is `no_score` with reason `insufficient_pollution_data`. **Done:** the weights
+  re-normalize over the groups that survived, so the fallback is that group's
+  mean outright rather than a third of it.
 - AirToxScreen is the primary input. OpenAQ contributes without letting sensor
-  absence read as cleanliness.
-- Component rescaled to 0 to 10 per section 10.
+  absence read as cleanliness. **Done:** E1 and E2 stay primary by being two of
+  the four Exposures slots and modeled statewide; the module deliberately does
+  not raise the 2-of-4 minimum to "and one must be AirToxScreen", which would be
+  a stricter rule than section 11 states and belongs in the methodology first.
+  E4 absent is dropped, never zeroed, and the test states the direction of that
+  failure: zero is the bottom of the scale, so an unmonitored hex imputed to it
+  would be painted cleaner than one that was measured and found clean.
+- Component rescaled to 0 to 10 per section 10. **Done:** against the statewide
+  maximum, which is returned alongside the scores because the rescaling is only
+  reproducible beside the number it divided by.
 - Per-hex sub-scores persisted, not just the total. The explain panel needs them,
-  and so does the `observed` flag on every indicator.
+  and so does the `observed` flag on every indicator. **Done:** both group means,
+  the raw component before rescaling, and the used and dropped indicator lists
+  per hex, which map onto `exposures_mean` and `env_effects_mean` on `hex_score`
+  and onto the `observed` flag on `hex_indicator`.
+
+**The assembly is shared with CS-203.** `scoring/burden/component.py` holds
+section 10 steps 1 to 3 once and the two components supply their groups, their
+weights and the name of the reason a hex fails. The two halves of section 11's
+fallback rules are the same rule with different weights, and writing it twice is
+how they would drift.
+
+**The confidence penalty is computed here and applied in CS-205.** Section 12
+owns the confidence value, and rules 3 and 4 ask for a penalty without fixing a
+number. What this reports is the share of the component's weight that survived,
+so losing Exposures costs two thirds and losing Environmental Effects one third.
+That is the asymmetry rule 3 asks for, derived from the weights already in
+section 10 rather than picked to look severe.
+
+**Percentiles from two denominators are refused.** Averaging a percentile ranked
+against 150,000 hexes with one ranked against 900 produces a number that looks
+like a component score and is not one, and the mistake is silent everywhere
+downstream, so the component checks its rankings cover the universe it was asked
+to score and raises otherwise.
 
 ---
 
 ### CS-203 — Population Characteristics component
 
-**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-106 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-106 · **Owner:** Terrence · **Status:** Done
 
 The demographic half of the score: the Sensitive Populations and Socioeconomic
 Factors groups. Named to match `Component.POPULATION_CHARACTERISTICS` in the
@@ -934,54 +1008,134 @@ code rather than the looser "vulnerability" of the original ticket.
 **Acceptance criteria**
 
 - Indicators and weights match `api/app/indicators.py`. Both groups carry weight
-  1.0.
+  1.0. **Done:** through the same restated registry and drift guard CS-202 uses.
 - Group minimums enforced: at least 1 of 2 Sensitive Populations, at least 4 of 5
-  Socioeconomic Factors.
+  Socioeconomic Factors. **Done:** and the 4-of-5 boundary is tested from both
+  sides, since it is the strictest of the four groups.
 - If one subgroup is not computable the component uses the other alone with a
   confidence penalty. If neither is computable the hex is `no_score` with reason
-  `insufficient_population_data`.
+  `insufficient_population_data`. **Done:** both groups weigh 1.0, so either loss
+  costs half the component's weight. The symmetry is asserted against Pollution
+  Burden's 1/3 and 2/3, so neither reads later as an oversight in the other.
 - Hexes below 25 population are `no_score` with reason `low_population`, per
-  section 5, rather than producing unstable percentiles.
+  section 5, rather than producing unstable percentiles. **Done:**
+  `scoring/burden/eligibility.py`, which runs before anything is ranked and
+  returns the scored universe every percentile denominator is computed over. A
+  hex with no population estimate at all is treated as unpopulated, following
+  the reading `interpolate.py` already takes of CS-106's `no_population`. A
+  population that is not a number is refused rather than filtered, because a NaN
+  compares false against every threshold and would sail into a denominator.
 - Race and ethnicity are not inputs. They are carried on the response for display
-  and for CS-213, and nowhere else.
-- Sub-scores persisted per hex.
+  and for CS-213, and nowhere else. **Done:** the seven indicators are age
+  structure and economic circumstance. Two guards rather than a comment: one
+  scans all fifteen registry entries for racial and ethnic terms and fails if any
+  appears, and one hands the component a racial-composition ranking anyway and
+  asserts the output is byte-identical, since the component reads its groups'
+  indicator ids and nothing else.
+- Sub-scores persisted per hex. **Done:** both group means and the raw component,
+  mapping onto `sensitive_mean` and `socioeconomic_mean` on `hex_score`.
+
+**Section 5 is where the denominator is decided.** It is the smallest module in
+the package and the one with the widest blast radius: the set it returns is what
+section 9 ranks against, so an off-by-one at the threshold does not produce a few
+wrong hexes, it moves every percentile in Louisiana. The boundary is pinned in a
+test of its own, because section 5 says "below 25" and "at most 25" differ by
+exactly one hex.
+
+**`low_population` and `insufficient_population_data` are kept apart.** One says
+the methodology declines to score a place with almost nobody in it; the other
+says a populated place had too little data to describe. Collapsing them would
+tell a reader in a rural hex that the census failed them when the cell holds
+eleven people.
+
+**Why the section 14 guard is a test and not a comment.** If racial composition
+were an input, the score would be high where the population is Black partly
+because the formula put it there, the section 13.6 correlation would be a fact
+about the arithmetic rather than a finding, and a Title VI argument resting on it
+would be weaker than one resting on a metric that never reached for race. That is
+worth a check that fails a well-intentioned pull request.
 
 ---
 
 ### CS-204 — Final burden score
 
-**Size:** S · **Labels:** scoring · **Depends on:** CS-202, CS-203 · **Owner:** Lead · **Status:** Not started
+**Size:** S · **Labels:** scoring · **Depends on:** CS-202, CS-203 · **Owner:** Lead · **Status:** Done
 
 Compose the two components into one score per hex.
 
 **Acceptance criteria**
 
-- Pollution Burden × Population Characteristics, per section 10.
+- Pollution Burden × Population Characteristics, per section 10. **Done:**
+  `scoring/burden/score.py`. Nothing is rescaled again; the product of two
+  values in (0, 10] is already in (0, 100], and it cannot reach zero because
+  every percentile is strictly positive. A test states the contrast section 3
+  rests on: 10 × 1 scores 10 and 5 × 5 scores 25, where adding would have
+  ranked them the other way round.
 - Score scaled to 0 to 100 and its statewide distribution recorded, alongside
-  each hex's own percentile.
+  each hex's own percentile. **Done:** the score goes through the same section 9
+  ranking every indicator does, over the hexes that actually got one, so an
+  unscorable hex is absent from this denominator as from every other.
 - All four `no_score` reasons handled and stored: `low_population`,
   `insufficient_pollution_data`, `insufficient_population_data`,
   `outside_pilot_state`. A hex without a score reports why rather than returning
-  a bare null.
+  a bare null. **Done:** `outside_pilot_state` joins `eligibility.py`, where it
+  outranks `low_population`, since a cell in Mississippi is not a Louisiana cell
+  that happens to be empty. A hex failing both components could honestly carry
+  either reason and the column holds one string, so the tie breaks toward
+  pollution. Nothing is hidden by that convention: both components' group means
+  sit on the row, so the panel still shows that both halves failed.
 - Scoring run is reproducible: the same inputs and the same methodology version
-  produce identical output.
+  produce identical output. **Done:** rows ordered by hex rather than by dict
+  insertion, stdlib float arithmetic throughout, and `digest` hashing the
+  canonical form of the run. Tested by building the same run from inputs in
+  reversed order and comparing both the rows and the hash.
 - Methodology version stamped on every scored row, matching the version the API
-  reports from `/indicators`.
+  reports from `/indicators`. **Done, and the two had drifted.** The endpoint was
+  answering 0.1.0 from a string literal while the paper had moved to 0.1.2. The
+  version now has one declaration, `api/app/methodology.py`, which the router
+  reads and the scoring package restates under the usual drift guard, and an API
+  test parses section 18 and fails if the newest entry there is not that string.
+  It is not repeated onto every `hex_score` row: it lives on `pipeline_run` and
+  each row reaches it through `run_id`, which is what section 17 asks for and
+  what the foreign key is for.
 - Written to `hex_score`, the table name the API already probes in `/health` and
-  `GET /hex/{h3}`.
+  `GET /hex/{h3}`. **Done:** `rows_for_sql` emits plain dicts, on the same terms
+  as the ingestion package's provenance module, since this package has no
+  database dependency. A test reads the column list out of migration 0009 and
+  compares, so a column added in a later migration fails there rather than at an
+  insert. Unscored hexes are written too, which is what the table comment
+  promises and what `/health` counts.
+
+**No migration was needed.** `pipeline_run.methodology_version` has existed since
+0002 and its comment already says what it is for. The temptation was to add a
+column to `hex_score`; the run row is the right home and the schema said so
+first.
+
+**The confidence columns are emitted and empty.** CS-205 fills them. Naming them
+now means the insert shape does not change when it does.
 
 ---
 
 ### CS-205 — Confidence value
 
-**Size:** M · **Labels:** scoring · **Depends on:** CS-204, CS-104, CS-110 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** scoring · **Depends on:** CS-204, CS-104, CS-110 · **Owner:** Lead · **Status:** Done
 
 Every hex carries an honest statement of how much its score can be trusted.
 
 **Acceptance criteria**
 
 - Four terms implemented exactly as section 12 specifies: `c_coverage` at 0.35,
-  `c_recency` at 0.20, `c_spatial` at 0.25, `c_monitor` at 0.20.
+  `c_recency` at 0.20, `c_spatial` at 0.25, `c_monitor` at 0.20. **Done, with one
+  flagged gap.** `c_coverage` weights each indicator as section 10 weights its
+  group, so the fifteen come to 13.0 and losing E1 costs twice what losing F1
+  costs. `c_monitor` is section 12's own `min(1, 10 km / d)`. **`c_spatial` is
+  the term section 12 specifies by direction and not by formula**, so the form
+  used is `(1 − high_cv_share) · min(1, hex_area / mean_block_area)`: monotone
+  decreasing in both quantities as required, and borrowing the shape already
+  used for `c_monitor` rather than inventing a second one. It needs ratifying in
+  `docs/methodology.md` with a changelog entry before any score computed with it
+  is published. It is the one place in the package where the code is ahead of
+  the paper.
 - `c_recency` is `exp(−Δt / τ)` with τ of 4 years, computed against the source
   vintages recorded by the adapters, not against pull timestamps.
 - Combined as a weighted geometric mean, with each term floored at 0.05 so a
@@ -993,65 +1147,201 @@ Every hex carries an honest statement of how much its score can be trusted.
 - Low-confidence hexes identifiable in a single query for QA.
 - Hexes in the insufficient band are excluded from validation statistics and are
   barred from the drafting assistant. Both exclusions are enforced in code, not
-  left to the caller.
+  left to the caller. **Done:** `for_validation` returns a sample those hexes
+  are already out of rather than a predicate to remember, and
+  `assert_documentable` raises rather than returning a flag that can be ignored.
+  A low but not insufficient hex is still allowed to produce a document, since
+  section 12 gives the two bands different treatments on purpose and over-barring
+  would be its own failure.
+
+**Other criteria, in short.** `c_recency` is `exp(−Δt / τ)` with τ of 4 years
+against `vintage_end` per indicator, which is the release the adapter read
+rather than the moment it read it; a test pins that distinction, because getting
+it backwards would make a stale pipeline look permanently fresh. The combination
+is the weighted geometric mean with every term floored at 0.05, tested against
+section 12's own example: excellent coverage, recency and spatial support with
+no monitor within 100 km reads 0.63 and moderate under a geometric mean, against
+0.82 and high under an arithmetic one, which is the whole reason the paper chose
+the first. Bands are half-open intervals, so 0.795 is moderate rather than
+stranded. Confidence is computed for every scored hex including fully supported
+ones, and carried on `hex_score` beside the score. Migration 0017 adds a partial
+index on the low and insufficient bands so the QA sweep is one query.
+
+**Unknown support is not good support.** A hex with no block-area record and one
+with no monitor distance both fall to the floor rather than to a default of
+plenty. The dasymetric step being unable to say what it interpolated from is a
+reason to trust the number less.
+
+**No confidence on an unscored hex.** Section 12 measures how well supported a
+score is, and a hex with no score has none to support. A number sitting in that
+column invites being read as one.
 
 ---
 
 ### CS-206 — Validation run against the fixed site set
 
-**Size:** M · **Labels:** validation, gate · **Depends on:** CS-204, CS-003, CS-111 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** validation, gate · **Depends on:** CS-204, CS-003, CS-111 · **Owner:** Lead · **Status:** Harness done, run blocked on data
 
 The phase gate. The score should flag known sites on its own, without being tuned
 to them.
+
+**The harness is finished and the run has not happened.** Every criterion below
+is implemented, tested and reproducible by one command. What does not exist is a
+scored run to point it at: the five real adapters have never been executed
+against live EPA and Census sources, and there is no database holding
+`hex_score` rows. So there is **no validation verdict**, and deliberately **no
+section 18 entry**. Writing one up from invented numbers would be the precise
+failure the pre-registration machinery exists to prevent, and a fabricated
+result is worse than an absent one. The last criterion below is the only one
+outstanding, and it unblocks the moment a real run exists.
 
 **Acceptance criteria**
 
 - Scores computed for every active site in `docs/validation/sites.yml`, using the
   cells frozen in the fixture rather than a radius evaluated at scoring time.
+  **Done:** `scoring/burden/validation.py` reads the frozen `h3_cells` and
+  nothing else. A test hands it a hex at the 99th percentile next door to a
+  site's registered cells and asserts the site still fails, because a gate that
+  re-derived cells from a radius would hand whoever runs it a dial: nudge k from
+  1 to 2 and a missed site gains eighteen more chances to clear the bar.
 - **Primary gate:** at least 8 of the 10 active Louisiana sites have at least one
-  pre-registered cell in the statewide top decile.
+  pre-registered cell in the statewide top decile. **Done:** tested at exactly
+  eight and exactly seven, and at a cell of exactly 90.
 - **Negative controls:** all 4 of 4 fall below the statewide median. Every scored
-  cell of the site, not just one.
+  cell of the site, not just one. **Done:** a single cell at exactly 50 fails the
+  site. A control passes only if the score declines to flag any part of it, which
+  is what makes it a control.
 - **Stress case A, not a poverty map:** the three high-poverty low-industry Delta
   parishes are expected between roughly the 40th and 75th percentiles. Reported,
   not gating. A result outside the band triggers a documented investigation.
+  **Done:** the band is two-sided, and a site outside it in either direction is
+  flagged without failing the run. A gating stress case would itself be a lever
+  for tuning the score toward the band.
 - **Stress case B, not an emissions map:** the three high-emission low-population
   industrial sites are expected below the top decile. Reported, not gating.
+  **Done.** Both stress cases are judged on the site's highest cell, which is an
+  implementation choice on a criterion the fixture left open: it is the statistic
+  the primary gate already uses, and both stress cases ask whether the score
+  over-flagged a place. The median is reported beside it.
 - A site with no scored cell is reported as `not_applicable` and never counted as
-  a pass.
+  a pass. **Done, including the part that is easy to get wrong:** the gate stays
+  eight of *ten*, so an unscored site counts against it. Dropping such sites from
+  the denominator would let a run that scored almost nothing clear the bar.
+  Cells in the insufficient confidence band are removed first, per section 12, so
+  a site whose cells are all untrusted comes out `not_applicable` rather than
+  passing on a number the system says it does not trust.
 - Results written up: which sites pass, which don't, and the likely reason for
-  each miss.
+  each miss. **Done:** `report()` renders the run, and each miss carries its own
+  reason. "Scored but did not rank" and "never scored" are different problems
+  and the write-up distinguishes them.
 - Failure protocol from section 13.7 applies. Permitted responses are a code
   fix, a data-handling fix, or a methodology revision whose rationale stands
   independently of the validation outcome, followed by re-running every check
   from the beginning. Adjusting a weight because it makes a site pass is not one
-  of them, and the validation set itself is never edited.
+  of them, and the validation set itself is never edited. **Done:** the three
+  permitted responses are printed at the foot of every report, so a reader
+  looking at a red gate finds them before reaching for the weights. The criteria
+  are read from the fixture rather than defaulted in code, because a default is
+  one edit away from being loosened without the fixture recording it.
 - Every run, passing or failing, recorded in methodology section 18 against the
-  document version it ran under.
-- Validation run reproducible via a single command in CI.
+  document version it ran under. **Not done, and cannot be.** No run has
+  happened, so there is nothing to record. See the note above.
+- Validation run reproducible via a single command in CI. **Done:**
+  `make validate SCORES=run.json`, which exits non-zero unless the gate passed.
+  CI runs `make validate-harness` over a synthetic fixture, which proves the
+  command still parses the frozen fixture and applies its criteria without a
+  database, on the same terms as `pipeline run fake` proves the adapter contract
+  without an upstream. That fixture is built to **fail** on purpose: one that
+  produced a green result would sooner or later be quoted as one.
+
+**What is needed to finish this ticket.** A real scoring run: the five adapters
+executed against live sources, the interpolation and quality gate passed, and
+`hex_score` populated. Then `make validate SCORES=...` produces the verdict and
+its write-up, and that write-up is recorded in methodology section 18 against
+version 0.1.2, passing or failing.
 
 ---
 
 ### CS-207 — Vector tile build and hosting
 
-**Size:** M · **Labels:** frontend, infra · **Depends on:** CS-204 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** frontend, infra · **Depends on:** CS-204 · **Owner:** Terrence · **Status:** Build done, bucket not provisioned
 
 Serve scored hexes as static tiles, with no tile server to run.
 
 **Acceptance criteria**
 
 - Scored hexes exported to PMTiles with score, percentile, confidence value,
-  confidence band, H3 index and `no_score_reason` as attributes.
-- Hosted on Cloudflare R2, not on the Railway frontend service. PMTiles are read
-  with HTTP Range requests against one large archive, which is a poor fit for an
-  edge cache keyed on whole URLs, and Railway bills egress at $0.05/GB while R2
-  charges nothing.
+  confidence band, H3 index and `no_score_reason` as attributes. **Done:**
+  `etl/pipeline/tiles/build.py`, written with the `pmtiles` and
+  `mapbox-vector-tile` reference libraries rather than by shelling out to
+  tippecanoe, so the step needs no system binary and the tests read the archive
+  back with the same library a browser uses. Every hex with a row is in the
+  tiles, scored or not: `no_score_reason` is an attribute precisely so the map
+  can explain a hole, and a grey cell reading "fewer than 25 residents" is a
+  different thing from a cell that failed to draw.
+- Hosted on Cloudflare R2, not on the Railway frontend service. **Configured,
+  not provisioned.** `infra/r2/` holds the CORS policy and the setup, and
+  `make deploy-tiles` uploads through the S3-compatible endpoint. Creating the
+  bucket needs a Cloudflare account and an API token, which this work did not
+  have. Nothing else is blocked by it.
 - CORS configured on the bucket for the frontend origin, and Range requests
-  confirmed working.
+  confirmed working. **The check is written and tested; it has not been run
+  against a real bucket.** `make check-tiles URL=...` asks the published URL what
+  a browser asks: 206 rather than 200 to a Range request, the CORS origin echoed
+  back, `Content-Range` exposed, the bytes really being the head of a PMTiles v3
+  file, and the archive not sitting on the app's own origin. Fifteen tests cover
+  each failure separately, because every one of them leaves a map that looks
+  perfectly fine: a host that ignores Range renders correctly while pulling the
+  whole archive on every visit.
 - The archive URL is read from `VITE_TILES_URL`, already present in
-  `.env.example`.
+  `.env.example`. **Done, and unchanged:** `MapView` already read it. A malformed
+  value is now refused with a sentence naming the variable rather than a stack
+  trace from inside the HTTP client.
 - Tile generation is a repeatable step in the pipeline, not a manual export.
+  **Done:** `python -m pipeline tiles`, wired as `make tiles SCORES=...`, and run
+  end to end in CI against a fixture of real Louisiana cells on the same terms as
+  `pipeline run fake`. The build is deterministic: the same run in any order
+  writes identical bytes, which a test asserts, because the archive is part of
+  what a reproducible run produced.
 - Total archive size and initial load size recorded and kept reasonable.
+  **Done, and it changed the design.** Measured over 294,398 res-8 cells, a
+  rectangle larger than Louisiana's land area and so an upper bound on the real
+  grid:
+
+  | | |
+  |---|---|
+  | Archive | 20.5 MB |
+  | Cold load before the first frame | 35 kB |
+  | Largest single tile | 26 kB |
+  | Tiles | 4,733 |
+  | Build time | 256 s |
+
+  The cold load is the number that decides whether the map feels broken, and it
+  is two thousandths of the archive because the opening zoom draws parent cells
+  rather than the whole grid. Every build prints all of it, so the figure is
+  re-recorded each run rather than measured once and quoted forever.
+
+**The size criterion is what forced the low-zoom pyramid.** Drawing res-8 cells
+at every zoom puts every cell in the state into each zoom-6 tile, where one
+screen pixel covers about two kilometres and a cell is under half a pixel. It is
+not merely expensive, it is invisible. A full-state build that way did not finish
+in twenty-five minutes, and the measured trend put the cold load around 2.4 MB
+of sub-pixel polygons.
+
+So each zoom draws the coarsest H3 resolution still a few pixels across, which
+is what section 5 chose the grid for: hexagons nest hierarchically for
+aggregation. On the same 10,981 cells the pyramid cut the archive by 43%, the
+largest tile by 6x and the cold load by 8.5x, and built faster.
+
+**The parent cell is a selection, not an aggregate.** No mean, no median, no
+invented statistic. A parent carries the attributes of one real child, the one
+with the highest percentile, plus `aggregated` and how many cells it stood in
+for. Every number on a low-zoom cell is therefore true of some actual hexagon,
+the colour and the opacity describe the same cell, and clicking it drills into
+the most burdened hexagon in that area. A mean would hide the hotspot the map
+exists to find, and the mean of a set of percentiles is not a percentile of
+anything. **This is a presentation rule the methodology does not yet describe and
+it needs a section and a changelog entry before the map is published.**
 
 ---
 
@@ -1107,7 +1397,7 @@ One request returns everything the explain panel shows.
 
 ### CS-210 — Map shell
 
-**Size:** L · **Labels:** frontend · **Depends on:** CS-207 · **Owner:** Terrence · **Status:** Partly done
+**Size:** L · **Labels:** frontend · **Depends on:** CS-207 · **Owner:** Terrence · **Status:** Done, ramp awaiting Lead sign-off
 
 React and MapLibre GL frontend rendering the scored hexes.
 
@@ -1117,21 +1407,68 @@ React and MapLibre GL frontend rendering the scored hexes.
   builds, with `MapView` and `HexPanel` components and a typed API client.
 - PMTiles wired up. **Done:** the protocol is registered and torn down with the
   map, and the vector source is added from `VITE_TILES_URL` when one is set.
-  There is no archive to point it at until CS-207.
-- A documented, colourblind-safe choropleth ramp and a visible legend.
-  **Not done.** Ramp and legend need Lead sign-off.
+  CS-207 now produces an archive in the shape it expects.
+- A documented, colourblind-safe choropleth ramp and a visible legend. **Built;
+  the sign-off is what is outstanding.** The ramp is ColorBrewer YlOrRd,
+  sequential and published as colourblind-safe, chosen because it is monotonic
+  in lightness. That is the property doing the work twice over: the ordering
+  survives deuteranopia and protanopia because lightness rather than hue carries
+  it, and it survives greyscale printing, which a tool whose output gets
+  attached to a public comment should not ignore. A test asserts the
+  monotonicity rather than trusting the hex codes. There is an extra stop at the
+  90th so the top decile the validation protocol gates on is the band the eye
+  can find, and the legend sits on the map with the Louisiana-percentile caveat,
+  the three confidence treatments and the toggle. `web/src/lib/ramp.ts` is the
+  one declaration both the map and the legend read, because a legend that has
+  drifted from the map it labels is worse than no legend.
 - Confidence is drawn, not just reported. Section 12 specifies the treatment:
   full opacity for high and moderate, hatched fill for low, and the insufficient
-  band hidden by default behind a toggle.
+  band hidden by default behind a toggle. **Done:** four fill layers rather than
+  one, because an expression cannot switch a fill pattern on and off. The hatch
+  is generated as a bitmap at runtime so it cannot go missing from a build and
+  the map needs no sprite sheet for a single texture. A hex whose confidence was
+  never computed draws plainly rather than vanishing: a run from before CS-205
+  has scores and no confidence, and treating absent as zero would blank the map.
 - Free basemap configured from `VITE_BASEMAP_STYLE`, currently OpenFreeMap
-  Positron.
+  Positron. **Done**, and now set per environment in the Railway config rather
+  than relying on the client's fallback.
 - Pan, zoom and search-to-location work across desktop and mobile viewports.
+  **Done:** the search box takes an H3 index, a latitude and longitude, or a
+  place name, and says which of the three it tried when nothing happens, because
+  a box that clears itself and does nothing is the least debuggable control on a
+  page. An index resolves through `GET /hex/{h3}`, which returns the centroid to
+  fly to and the panel's contents in one round trip, so the frontend needs no H3
+  library. Place-name search needs a geocoder and is **off unless
+  `VITE_GEOCODER_URL` is set**: sending everything a user types to a third party
+  is not a default worth having, and the box says so rather than doing nothing.
+  On a phone the panel stacks under the map instead of taking 24rem beside it,
+  and two-finger rotation is off so it does not fight pinch-zoom.
 - Deployed on the Railway `web` service with the CDN enabled, built by Vite and
   served by `serve -s dist`. Preview environments per pull request if Railway
   supports it on the plan; otherwise document that previews are not available.
+  **Configured, not deployed.** `.railway/railway.ts` now passes
+  `VITE_TILES_URL`, `VITE_BASEMAP_STYLE` and `VITE_GEOCODER_URL` to `web`, the
+  first and last preserved so an apply cannot clear a sealed value. **Previews
+  are not available**: Railway builds them from additional environments, which
+  the Hobby plan this project runs on does not include. That is written into the
+  IaC file, because a reviewer hunting for a preview URL that was never going to
+  exist will assume the deploy is broken. The deploy itself remains blocked on
+  CS-009, as CS-208 already records.
 - Loading and error states handled; a tile fetch failure does not leave a blank
   screen. The Phase 0 banner explaining that no hexagon is scored yet is the
-  current example of this and should not be deleted until scores exist.
+  current example of this and should not be deleted until scores exist. **Done,
+  and the banner is untouched.** A source error on the hex layer raises an alert
+  naming the two likely causes, an unreachable archive or a bucket not sending
+  CORS headers for this origin. Without it the map sits on the basemap looking
+  finished, which is the worst of the three outcomes: a reader cannot tell an
+  unscored state from a broken one.
+
+**A real bug fixed on the way.** The ramp coalesced a missing percentile to 0,
+so an unscored hexagon rendered as the palest colour on the scale. A cell nobody
+measured was being painted as the cleanest in Louisiana, which is the
+zero-for-missing failure section 11 spends a page ruling out, arriving in the
+render layer by the back door. Unscored cells are now off the ramp entirely, in
+a neutral grey, and the legend says the panel will explain why.
 
 ---
 

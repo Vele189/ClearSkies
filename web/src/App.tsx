@@ -63,12 +63,14 @@ export default function App() {
 
       <Banner health={health} />
 
-      <main className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1">
+      {/* Column on a phone and a row on a desktop: a 24rem panel beside a map
+          on a 390px screen leaves a strip of map nobody can pan. */}
+      <main className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div className="min-h-0 min-w-0 flex-1">
           <MapView onSelect={handleSelect} />
         </div>
         {(hex || error) && (
-          <div className="w-[24rem] shrink-0">
+          <div className="max-h-[55%] shrink-0 overflow-y-auto md:max-h-none md:w-[24rem]">
             {hex ? (
               <HexPanel hex={hex} onClose={() => setHex(null)} />
             ) : (
