@@ -14,7 +14,16 @@ SITES="docs/validation/sites.yml"
 SCORING="scoring/"
 
 first_commit_adding() {
-    git log --diff-filter=A --format=%H --reverse -- "$1" | head -1
+    # Deliberately not `git log ... | head -1`. Once head has the line it wants
+    # it closes the pipe, git takes SIGPIPE, and `set -o pipefail` above turns
+    # that into exit 141 and a red build. That stayed invisible for as long as
+    # only one commit had ever added a file under the path, since git then had
+    # nothing left to write: the first follow-up commit under scoring/ was
+    # always going to be the one that broke it. Reading the whole list and
+    # taking its first line has no pipe to break.
+    local commits
+    commits="$(git log --diff-filter=A --format=%H --reverse -- "$1")"
+    printf '%s\n' "${commits%%$'\n'*}"
 }
 
 scoring_commit="$(first_commit_adding "$SCORING")"
