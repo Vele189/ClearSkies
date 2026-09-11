@@ -120,6 +120,16 @@ jobs:
         working-directory: api
         run: python -m app.migrate up | grep -qx "0 applied"
 
+      # The spatial tests need PostGIS to answer, so they skip in the `api` job
+      # and run here, where a migrated database is already up. They seed inside a
+      # transaction and roll it back, so the down-migration step below still sees
+      # the schema it expects.
+      - name: The neighbour query behaves against real PostGIS
+        working-directory: api
+        env:
+          CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
+        run: python -m pytest tests/test_facility_hex_sql.py -q
+
       - name: Down migrations unwind the whole set
         working-directory: api
         run: |

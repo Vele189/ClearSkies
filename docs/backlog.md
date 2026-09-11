@@ -537,10 +537,25 @@ implements it.
 
 ### CS-107 — Facility-to-hex spatial assignment
 
-**Size:** M · **Labels:** geospatial · **Depends on:** CS-101, CS-007 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** geospatial · **Depends on:** CS-101, CS-007 · **Owner:** Terrence · **Status:** Done
 
 Attach facilities to hexes, both for the drill-down list and for the
 distance-decayed proximity indicators.
+
+**Shipped.** The assignment rules are `etl/pipeline/geo`, shared by every source
+that publishes a point rather than living in the ECHO adapter. The neighbour
+query is migration `0011`: `hex_facility_links` for one hexagon,
+`hex_facility_links_all` for the grid, `facilities_near_hex` for the panel, all
+over one geography index and one decay kernel, so the panel and the score cannot
+disagree about what is near a hexagon. `api/app/facilities.py` is the read path
+`GET /hex/{h3}` calls once CS-205 has a score to attach it to.
+
+One thing the query is ready for and the pipeline is not. Nothing filters on
+state, so an out-of-state facility within the interaction radius contributes as
+section 5 requires — but the ECHO adapter queries one state at a time, so there
+are no Texas facilities in the table yet to contribute. Until a neighbouring-
+state pull lands, hexes along the state lines understate F1 through F4, and the
+adapter declares that as a known gap rather than leaving it to be discovered.
 
 **Acceptance criteria**
 

@@ -34,22 +34,18 @@ import io
 import json
 import zipfile
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
-from math import asin, cos, radians, sin, sqrt
 from typing import ClassVar
-
-import h3
 
 from pipeline.adapters.base import FetchResult, SourceAdapter
 from pipeline.adapters.registry import register
 from pipeline.context import RunContext
 from pipeline.errors import PermanentSourceError, RecordRejected
+from pipeline.geo import Geocode, classify, containing_cell
 from pipeline.metadata import KnownGap, SourceSpec
 from pipeline.policy import RateLimit, SourcePolicy
 from pipeline.records import NormalizedRecord
-
-HEX_RESOLUTION = 8
 
 ECHO = "https://echodata.epa.gov/echo"
 GET_FACILITIES = f"{ECHO}/air_rest_services.get_facilities"
@@ -95,19 +91,6 @@ GAZETTEER_URL = (
     f"{GAZETTEER_YEAR}_Gazetteer/{GAZETTEER_YEAR}_Gaz_zcta_national.zip"
 )
 
-# Section 6. A self-reported coordinate this far from the ZIP code the operator
-# also reported is not trustworthy enough to attribute releases to a hexagon.
-ZIP_MISMATCH_KM = 2.0
-
-# Crude envelope with roughly a 10 km buffer. The state boundary geometry lives
-# in the geography loader, not here; a bounding box is enough to catch a
-# coordinate in the wrong state, which is what section 6 is about, and it is
-# deliberately loose so a genuine coastal facility is not flagged.
-PILOT_ENVELOPE: dict[str, tuple[float, float, float, float]] = {
-    # south, north, west, east
-    "LA": (28.83, 33.10, -94.14, -88.73),
-}
-
 QUARTERS = 12
 
 # Established empirically; see the module docstring. ECHO returns only '_' and
@@ -134,10 +117,18 @@ class Facility(NormalizedRecord):
     zip5: str | None
     county_fips: str | None
     naics_code: str | None
+    # The coordinate worth storing as geometry, which is None when upstream
+    # reported no point or reported one that is not a place on Earth. The
+    # reported_* pair below is what upstream actually said, kept whatever the
+    # verdict so a quarantine can be audited rather than taken on trust.
     latitude: float | None
     longitude: float | None
+    reported_latitude: float | None
+    reported_longitude: float | None
     h3: str | None
     coordinate_status: str
+    geocode_quality: str
+    geocode_accuracy_m: float | None
     is_major_source: bool
     has_title_v: bool
     echo_url: str
@@ -187,16 +178,15 @@ class EchoSite:
     facility, which is what makes the runner's duplicate-key check mean
     something.
 
-    `coordinate_status` is settled here rather than in `normalize` because the
-    runner asks an adapter for its known gaps before the first record is
-    normalized. A count discovered during normalize could never reach the
-    manifest, and section 6 requires the exclusion count to be published.
+    `geocode` is settled here rather than in `normalize` because the runner asks
+    an adapter for its known gaps before the first record is normalized. A count
+    discovered during normalize could never reach the manifest, and section 6
+    requires the exclusion count to be published.
     """
 
     registry_id: str
     sources: tuple[dict[str, str], ...]
-    coordinate_status: str = "ok"
-    zip_checked: bool = True
+    geocode: Geocode = field(default_factory=lambda: Geocode(status="ok", quality="unverified"))
 
     def first(self, key: str) -> str | None:
         """The first non-empty value any of this site's permits reports."""
@@ -208,14 +198,6 @@ class EchoSite:
 
     def any_equals(self, key: str, value: str) -> bool:
         return any((source.get(key) or "").strip() == value for source in self.sources)
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r_lat1, r_lat2 = radians(lat1), radians(lat2)
-    d_lat = r_lat2 - r_lat1
-    d_lon = radians(lon2 - lon1)
-    a = sin(d_lat / 2) ** 2 + cos(r_lat1) * cos(r_lat2) * sin(d_lon / 2) ** 2
-    return 2 * 6371.0088 * asin(sqrt(a))
 
 
 def quarter_start(day: date) -> date:
@@ -368,11 +350,12 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         artifacts.append(gazetteer.artifact)
         self._zip_centroids = load_zip_centroids(gazetteer.content)
 
-        sites = tuple(self._classify(site) for site in self._group_by_site(rows))
+        sites = tuple(self._classify(site, state) for site in self._group_by_site(rows))
         flagged: dict[str, int] = {}
         for site in sites:
-            flagged[site.coordinate_status] = flagged.get(site.coordinate_status, 0) + 1
-        unchecked = sum(1 for site in sites if not site.zip_checked)
+            status = site.geocode.status
+            flagged[status] = flagged.get(status, 0) + 1
+        unchecked = sum(1 for site in sites if not site.geocode.zip_checked)
 
         notes = [
             f"{len(rows)} air permits over {len(sites)} FRS sites",
@@ -455,15 +438,16 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         yield from self._enforcement(record, facility.facility_id)
 
     def _facility(self, site: EchoSite) -> Facility:
-        latitude = _parse_float(site.first("FacLat"))
-        longitude = _parse_float(site.first("FacLong"))
+        reported_lat = _parse_float(site.first("FacLat"))
+        reported_lon = _parse_float(site.first("FacLong"))
+        # A verdict that leaves no storable point takes the geometry with it. A
+        # placeholder zero written into the table would put a Louisiana refinery
+        # in the Gulf of Guinea; the reported_* pair keeps what upstream said so
+        # the quarantine is still auditable.
+        latitude = reported_lat if site.geocode.has_point else None
+        longitude = reported_lon if site.geocode.has_point else None
         zip5 = (site.first("AIRZip") or "")[:5] or None
         fips = site.first("FacFIPSCode") or ""
-        cell = (
-            str(h3.latlng_to_cell(latitude, longitude, HEX_RESOLUTION))
-            if latitude is not None and longitude is not None
-            else None
-        )
         operating = site.first("AIRStatus")
 
         return Facility(
@@ -479,8 +463,12 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             naics_code=(site.first("AIRNAICS") or "").split(" ")[0] or None,
             latitude=latitude,
             longitude=longitude,
-            h3=cell,
-            coordinate_status=site.coordinate_status,
+            reported_latitude=reported_lat,
+            reported_longitude=reported_lon,
+            h3=containing_cell(latitude, longitude),
+            coordinate_status=site.geocode.status,
+            geocode_quality=site.geocode.quality,
+            geocode_accuracy_m=site.geocode.accuracy_m,
             is_major_source=site.any_equals("AIRMajorFlag", "Y"),
             has_title_v=site.any_equals("AIRClassification", "Major Emissions"),
             echo_url=DFR_URL.format(registry_id=site.registry_id),
@@ -490,34 +478,32 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             operating_status=operating,
         )
 
-    def _classify(self, site: EchoSite) -> EchoSite:
-        """Methodology section 6, in the four outcomes the schema knows about.
+    def _classify(self, site: EchoSite, state: str) -> EchoSite:
+        """Methodology section 6, delegated to `pipeline.geo`.
+
+        The rules live there rather than here because TRI publishes the same
+        kind of self-reported coordinate and must reach the same verdict on it.
+        What stays the adapter's business is where the inputs come from: ECHO's
+        reported ZIP, and its own positional accuracy estimate.
 
         Flagged facilities are kept, not dropped. The exclusion count is
         published, and proximity indicators filter on 'ok'; deleting the rows
         would hide the problem and make the count unrecoverable.
         """
-        latitude = _parse_float(site.first("FacLat"))
-        longitude = _parse_float(site.first("FacLong"))
         zip5 = (site.first("AIRZip") or "")[:5]
-
-        if latitude is None or longitude is None:
-            return replace(site, coordinate_status="missing")
-        if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
-            return replace(site, coordinate_status="outside_state")
-
-        south, north, west, east = PILOT_ENVELOPE["LA"]
-        if not (south <= latitude <= north and west <= longitude <= east):
-            return replace(site, coordinate_status="outside_state")
-
-        centroid = self._zip_centroids.get(zip5)
-        if centroid is None:
-            # No ZIP, or one the gazetteer does not carry. The check could not
-            # run, which is not the same as passing it, so it is counted.
-            return replace(site, coordinate_status="ok", zip_checked=False)
-        if haversine_km(latitude, longitude, centroid[0], centroid[1]) > ZIP_MISMATCH_KM:
-            return replace(site, coordinate_status="zip_mismatch")
-        return site
+        return replace(
+            site,
+            geocode=classify(
+                _parse_float(site.first("FacLat")),
+                _parse_float(site.first("FacLong")),
+                state=state,
+                # None both when no ZIP was reported and when the pinned
+                # gazetteer does not carry it. Either way the check could not
+                # run, which is not the same as passing it.
+                zip_centroid=self._zip_centroids.get(zip5),
+                accuracy_m=_parse_float(site.first("CalculatedAccuracyMeters")),
+            ),
+        )
 
     @staticmethod
     def _positional_gaps(
@@ -681,10 +667,24 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             KnownGap(
                 scope="geographic",
                 detail=(
-                    "The pilot-state check is a bounding envelope with roughly a 10 km "
-                    "buffer, not the state boundary. It catches a coordinate in the wrong "
-                    "state, which is what section 6 asks for, and is deliberately loose so "
-                    "a genuine coastal facility is not flagged."
+                    "The pilot-state check is the state's bounding box widened by the "
+                    "10 km interaction radius, not the state boundary. It is that wide on "
+                    "purpose: section 5 counts out-of-state facilities close enough to "
+                    "affect a Louisiana hexagon, so a coordinate is only treated as wrong "
+                    "for being outside the state when it cannot be about Louisiana at "
+                    "all. Which facilities actually reach which hexagons is settled by "
+                    "the neighbour query on real geometry, not by this box."
+                ),
+                affects=("F1", "F2", "F3", "F4"),
+            ),
+            KnownGap(
+                scope="geographic",
+                detail=(
+                    "This adapter queries ECHO one state at a time, so the out-of-state "
+                    "facilities section 5 asks for are not ingested yet even though the "
+                    "neighbour query includes any that are present. Until a neighbouring-"
+                    "state pull lands, hexes along the Texas, Arkansas and Mississippi "
+                    "lines understate F1 through F4."
                 ),
                 affects=("F1", "F2", "F3", "F4"),
             ),

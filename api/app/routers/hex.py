@@ -53,6 +53,9 @@ async def get_hex(
         )
 
     # Phase 2 replaces this with the real query against hex_score and its joins.
+    # The facilities half of that payload is already here and already indexed:
+    # app.facilities.contributing, over the neighbour query in migration 0011.
+    # What is still missing is the score itself, which nothing has computed yet.
     raise HTTPException(
         status_code=404,
         detail=f"No scored hex {h3_index} in the pilot state.",

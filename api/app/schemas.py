@@ -66,6 +66,11 @@ class Facility(BaseModel):
     distance_km: float
     program: str = Field(description="e.g. CAA Title V, RCRA, TRI")
     echo_url: str
+    in_hex: bool = Field(
+        default=False,
+        description="True when this hexagon is the one containing the facility, rather than "
+        "merely within the 10 km interaction radius. Methodology section 8.1.",
+    )
     quarters_in_noncompliance: int | None = None
     formal_actions_5yr: int | None = None
 
