@@ -152,6 +152,12 @@ etl/
 │   │   ├── base.py        the interface: four stages, one class
 │   │   ├── registry.py    name to adapter
 │   │   └── fake.py        reference implementation
+│   ├── dasymetric/        methodology section 7: tracts to hexes
+│   │   ├── weights.py     the crosswalk, built from 2020 block populations
+│   │   ├── quantities.py  extensive vs intensive, and margins of error
+│   │   ├── interpolate.py the two section 7 formulas, and derived rates
+│   │   ├── reconcile.py   statewide totals, and the tolerance they must meet
+│   │   └── postgis.py     the block-hex intersection, and storing the result
 │   ├── policy.py          retry, rate limit, partial failure
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata
