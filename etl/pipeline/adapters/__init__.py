@@ -16,6 +16,7 @@ from pipeline.adapters.airtoxscreen import AirToxScreenAdapter
 from pipeline.adapters.base import FetchResult, SourceAdapter
 from pipeline.adapters.echo import EpaEchoAdapter
 from pipeline.adapters.fake import FakeAirAdapter
+from pipeline.adapters.openaq import OpenAqAdapter
 from pipeline.adapters.registry import REGISTRY, get, names, register, specs
 from pipeline.adapters.tri import EpaTriAdapter
 
@@ -26,6 +27,7 @@ __all__ = [
     "EpaTriAdapter",
     "FakeAirAdapter",
     "FetchResult",
+    "OpenAqAdapter",
     "SourceAdapter",
     "get",
     "names",

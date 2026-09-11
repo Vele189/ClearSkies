@@ -195,6 +195,7 @@ Confusing the two is, per the paper, the most common way this step goes wrong.
 | `hex_exposure` | Hex, AirToxScreen vintage | E1, E2 |
 | `monitor` | One OpenAQ location | E4, and the c_monitor confidence term |
 | `monitor_measurement` | Monitor, parameter, day | E4 |
+| `hex_air_quality` | Hex, parameter | E4, and the c_monitor confidence term |
 | `tract_demographics` | Tract, ACS vintage, variable | S1, S2, P1 to P5 |
 | `hex_demographics` | Run, hex | The displayed profile |
 
@@ -217,6 +218,17 @@ ECHO and TRI coordinates are self-reported and some land in the wrong parish or
 in open water. Flagged facilities stay in the table, because the exclusion
 count is published; proximity indicators filter on `coordinate_status = 'ok'`.
 Deleting them would hide the problem and make the count unrecoverable.
+
+`hex_air_quality` exists so that "nobody has measured here" is a stored fact
+rather than a missing row. Section 8.1 gives a hex beyond 25 km of a monitor no
+E4 value, never zero and never the state median, and the row carries the
+distance to the nearest monitor either way, because that distance is the
+`c_monitor` term of section 12 and the detail panel displays it. It is the only
+hex-grained table that is not keyed by run: the monitor network is a fact about
+a snapshot of OpenAQ, not about a scoring pass. Its `h3` is deliberately not a
+foreign key; coverage is computed over an envelope wider than the state
+boundary, and every read joins `hex` to it rather than the reverse, so the few
+cells outside the grid are inert.
 
 `tract_demographics` is long rather than wide because section 7 forbids
 recomputing a rate from independently interpolated parts. Storing each

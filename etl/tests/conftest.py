@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 
 import httpx
@@ -82,6 +82,7 @@ def make_context(
     now: datetime = FIXED_NOW,
     pilot_state: str = "LA",
     dry_run: bool = False,
+    credentials: Mapping[str, str] | None = None,
 ) -> RunContext:
     return RunContext(
         source=source,
@@ -91,6 +92,7 @@ def make_context(
         policy=policy,
         pilot_state=pilot_state,
         dry_run=dry_run,
+        credentials=dict(credentials or {}),
     )
 
 

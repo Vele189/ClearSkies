@@ -348,8 +348,11 @@ repo.
 - Absent LLM key degrades rather than crashes. **Done:** the draft endpoint is
   specified to return 503 rather than failing at import.
 - `.env.example` committed; real `.env` gitignored. **Done.**
-- GitHub Actions secrets configured for the scheduled job. **Not started.** The
-  nightly workflow currently needs none, because no adapter authenticates yet.
+- GitHub Actions secrets configured for the scheduled job. **Not started.**
+  CS-104 made this real: the OpenAQ adapter reads `OPENAQ_API_KEY` through
+  `ctx.credential`, so the nightly workflow needs that secret before E4 can be
+  pulled. Without it the pull fails with a legible reason and the other sources
+  are unaffected.
 - Secret scanning enabled on the repo. **Unverified:** a GitHub setting, not a
   file.
 
@@ -466,7 +469,7 @@ area evenly. Feeds indicators E1 and E2.
 
 ### CS-104 — OpenAQ adapter with sparse-coverage flagging
 
-**Size:** M · **Labels:** etl · **Depends on:** CS-005, CS-007 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** etl · **Depends on:** CS-005, CS-007 · **Owner:** Terrence · **Status:** Done
 
 Measured daily air quality, plus honest signalling of where sensors don't exist.
 Feeds indicator E4 and the `c_monitor` confidence term.
@@ -481,6 +484,47 @@ Feeds indicator E4 and the `c_monitor` confidence term.
 - Observation count and measurement recency stored per hex.
 - Documented rule for outlier and obviously faulty sensor readings, applied in
   `validate` so rejections are counted like any other.
+
+**What landed:** `etl/pipeline/adapters/openaq.py`. Daily PM2.5 for the pilot
+envelope from OpenAQ v3, each location placed on its resolution 8 cell, each
+daily mean stored with the hourly observations behind it. Migration `0011` adds
+`hex_air_quality`, one row per hex per pollutant: the inverse-distance weighted
+annual mean where a monitor is within 25 km, `Measurement.absent()` where none
+is, and the distance to the nearest reporting monitor either way. Two check
+constraints hold the missing-data rule at the schema level: an unobserved hex
+cannot carry a value, and an observed one cannot claim a measurement with no
+monitor-days behind it.
+
+Two radii, doing different jobs. Twenty-five kilometres is section 8.1's
+interpolation cutoff. Two hundred is where `min(1, 10 / d)` reaches the 0.05
+floor section 12 puts on every confidence term, so past it a stored distance
+cannot change a score; hexes beyond it get no row and the pull counts them as a
+known gap, which checks the assumption that Louisiana has none rather than
+believing it.
+
+Screening is one predicate per grain, shared by `fetch` and `validate` so the
+two can never disagree: negative concentrations, the `-999` family of sentinels,
+daily means above the 500 µg/m³ AQI ceiling, days flagged by the provider, days
+built from under 75% of expected hours, and a fortnight of the identical value,
+which is a stuck instrument. Each rejection is counted and sampled like any
+other. A high wildfire-smoke day is exactly the observation E4 exists to capture
+and survives all of it. A monitor reporting fewer than 274 usable days still
+anchors `c_monitor` — it exists and is being read — but its mean does not enter
+E4, and a monitor that has gone silent anchors nothing.
+
+OpenAQ is the first source that authenticates, so `RunContext` grew
+`credential()` and `pipeline/__main__.py` grew `CREDENTIAL_ENV`, the one place
+in the package that reads the environment. A missing key is a `PermanentSourceError`:
+a failed pull with a legible reason, not a crash that takes the nightly job
+down. Forty tests against a synthetic network, `0011` applied and reverted
+against the project image, ruff and mypy strict clean.
+
+**Not yet verified against the live service.** No OpenAQ key was available, so
+the request and response shapes come from the service's published OpenAPI
+document rather than from a recorded extract. Two details it settles are worth
+re-checking on the first authenticated run: the PM2.5 `parameters_id` of 2, and
+that `/v3/sensors/{id}/days` takes `date_from` and `date_to` where its hourly
+siblings take `datetime_from` and `datetime_to`.
 
 ---
 
