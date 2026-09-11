@@ -1877,7 +1877,7 @@ prints the report and `REQUIRE_RECALL=0.9` makes it a gate.
 
 ### CS-303 — Pydantic schemas for the four document types
 
-**Size:** M · **Labels:** llm, backend · **Depends on:** CS-004 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** llm, backend · **Depends on:** CS-004 · **Owner:** Lead · **Status:** Done
 
 Public comment letter, agency complaint draft, community briefing sheet,
 journalist fact sheet.
@@ -1890,6 +1890,51 @@ journalist fact sheet.
 - Structured output enforced via Pydantic AI. A response that doesn't conform is
   rejected rather than repaired by hand.
 - Schema validation covered by tests including deliberately malformed responses.
+
+**What landed:** `api/app/assistant/documents.py` and `structured.py`, with
+`tests/test_draft_schemas.py` and `tests/test_structured_output.py`.
+
+Runtime code sits under `api/app/` rather than in the top-level `assistant/`
+package that CS-301 created, because Railway builds the api service with Root
+Directory `/api` and nothing outside that directory reaches the image.
+`assistant/` is the offline corpus build; this is what serves a request.
+
+- Four models, one per document type, each with a required and non-empty
+  `citations` field. Citation entries are a discriminated union of a statute
+  section and a dataset record, never free text; a model writing "see the Clean
+  Air Act" where a citation belongs produces nothing.
+- **Citations hang off paragraphs and carry the proposition they support.** A
+  bibliography at the end would tell the verifier that a section was cited and
+  not what it was cited *for*, and rule 3 requires checking the proposition
+  against the retrieved chunk. The document-level field is computed from the
+  paragraphs rather than supplied separately, because asking the model to keep
+  the same list in two places produces disagreements, and a disagreement would
+  reject a draft that was otherwise fine.
+- Structured output enforced through Pydantic AI's `output_type`. A response
+  that does not conform is rejected. Retrying is allowed, because that is the
+  model correcting its own output against the same schema; editing the output
+  ourselves is not, because the part we would fill in is by construction the
+  part the model could not produce, and the audit trail would then say a model
+  wrote something a human wrote.
+
+**Three rules moved out of the prompt and into the type.** Each is now a thing
+that cannot be expressed rather than a thing that is checked:
+
+- `confidence_band` has no `insufficient` member, so a draft for a hexagon the
+  system does not trust is not refused, it is unconstructable.
+- `AgencyComplaintDraft.forum` has exactly one legal value,
+  `administrative_complaint`. A Title VI disparate-impact claim is a complaint
+  to EPA's External Civil Rights Compliance Office and not a lawsuit a resident
+  can file; that is the holding of *Sandoval* and the reason it is in the
+  corpus. The schema cannot express the other, and the document states on its
+  face that filing it does not begin a lawsuit.
+- `draft_notice` is computed and constant, so rule 5's statement cannot be
+  softened, reworded or left out. A response attempting to set it is refused.
+
+Thirty-eight tests, most of them about refusal: a missing required field,
+free-text citations, an unknown citation kind, an extra field, prose instead of
+a document, an empty paragraph list, a complaint proceeding on a dataset record,
+a fact sheet with no caveats, and the insufficient band.
 
 ---
 

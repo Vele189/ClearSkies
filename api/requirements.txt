@@ -18,3 +18,4 @@ asyncpg>=0.30
 pydantic>=2.9
 pydantic-settings>=2.6
 h3>=4.1
+pydantic-ai-slim[openai]>=1.0
