@@ -64,6 +64,10 @@ jobs:
       # --require here: on a pull request the point is that the gate still runs,
       # not that every source was pulled.
       - run: python -m pipeline check fake --no-store
+      # CS-109. The planner decides what a scheduled night would pull; running it
+      # here on an empty state directory proves it still resolves the graph and
+      # reads the cadences. It pulls nothing and writes nothing.
+      - run: python -m pipeline plan
 
   web:
     name: Frontend

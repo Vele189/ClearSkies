@@ -4,7 +4,10 @@
     python -m pipeline run fake         run one adapter end to end
     python -m pipeline run fake --dry-run
     python -m pipeline check fake       run adapters, then the quality gate
+    python -m pipeline plan             what tonight would pull, and why
+    python -m pipeline nightly          plan, pull, gate, promote
     python -m pipeline history          what each check has measured over time
+    python -m pipeline runs             the ledger: past nights and the current one
 
 The nightly job in .github/workflows/etl.yml calls this. Exit status 1 means the
 run produced no usable data, which is the signal the job should fail on; a
@@ -12,8 +15,14 @@ run produced no usable data, which is the signal the job should fail on; a
 
 `check` is the CS-108 gate. It runs the adapters into one shared sink so the
 cross-source checks can see all of them at once, applies the per-source
-thresholds, and exits 1 if the night's load should not be scored. That exit
-status is what keeps a bad load from becoming the current run.
+thresholds, and exits 1 if the night's load should not be scored.
+
+`nightly` is CS-109 and is what the schedule actually invokes. It wraps `check`
+in the three things a scheduled job needs and a manual one does not: a plan that
+decides which sources are due before spending a minute on them, a ledger that
+remembers the night, and a promotion that only happens if the gate passed. That
+last one is what "a failed run leaves the previous dataset intact" means at the
+level of the whole run rather than one source.
 """
 
 import argparse
@@ -27,13 +36,25 @@ from pathlib import Path
 from pipeline.adapters import fake, get, names, specs
 from pipeline.context import make_context
 from pipeline.http import build_client
+from pipeline.ledger import NightlyRun, RunLedger, carried, finish, outcome_from
 from pipeline.metadata import PullMetadata
-from pipeline.quality import JsonQualityStore, QualityReport, run_gate, summarise_history
+from pipeline.quality import (
+    JsonQualityStore,
+    QualityReport,
+    run_gate,
+    run_id_for,
+    summarise_history,
+)
 from pipeline.runner import run_adapter
+from pipeline.schedule import RunPlan, apply_outcomes, plan_run
 from pipeline.sinks import InMemorySink
 from pipeline.snapshots import InMemorySnapshotStore
 
 DEFAULT_STORE = Path("quality-runs")
+# Kept apart from the quality store because the two have different lifetimes. A
+# quality report is evidence about one night and is uploaded as an artifact; the
+# ledger is the state the next night reads, and the workflow caches it.
+DEFAULT_STATE = Path("pipeline-state")
 
 
 def _list_sources() -> int:
@@ -94,6 +115,131 @@ async def _check(
     return report, manifests
 
 
+async def _nightly(
+    sources: list[str],
+    *,
+    pilot_state: str,
+    required: list[str],
+    state: Path,
+    store: Path | None,
+    force: list[str],
+    force_all: bool,
+    git_sha: str,
+) -> tuple[NightlyRun, QualityReport, RunPlan, bool]:
+    """One scheduled night: plan, pull what is due, gate, record, promote.
+
+    The order is the point. Planning before pulling is what lets the run say "four
+    of six are carried" on the run page before it spends the minutes proving it,
+    and recording before promoting is what leaves a failed night in the ledger,
+    visible, without letting it become the run the map serves.
+    """
+    ledger = RunLedger(state)
+    now = datetime.now(UTC)
+    run_id = ledger.unique_run_id(run_id_for(now))
+    plan = plan_run(
+        sources,
+        now=now,
+        last_success=ledger.last_success(),
+        force=force,
+        force_all=force_all,
+    )
+
+    sink = InMemorySink()
+    manifests: list[PullMetadata] = []
+    for name in plan.to_pull:
+        manifests.append(await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink))
+
+    succeeded = {m.source for m in manifests if m.ok}
+    plan = apply_outcomes(plan, succeeded=succeeded)
+
+    # A source that was carried produced no manifest tonight, so requiring it
+    # would fail the run for having obeyed its own cadence. `--require` means
+    # "this source must have produced what it was asked for", and a carried
+    # source was asked for nothing.
+    #
+    # A source that is required and is not in the plan at all is a different
+    # thing entirely, and it is enforced. It was not carried by a cadence; it was
+    # never considered, because it is unregistered or was excluded from the
+    # source list. Waiving that would let a typo in `--require` read as a night
+    # that went fine.
+    pulling = set(plan.to_pull)
+    considered = {p.source for p in plan.planned}
+    waived = [name for name in required if name in considered and name not in pulling]
+    enforced = [name for name in required if name not in waived]
+
+    report = run_gate(
+        manifests=manifests,
+        data=sink,
+        now=now,
+        run_id=run_id,
+        required=enforced,
+        adapters={name: get(name) for name in plan.to_pull},
+        pilot_state=pilot_state,
+    )
+
+    outcomes = []
+    for planned in plan.planned:
+        manifest = next((m for m in manifests if m.source == planned.source), None)
+        if manifest is None:
+            outcomes.append(carried(planned.source, planned.reason, action=planned.action))
+        else:
+            outcomes.append(outcome_from(manifest, action=planned.action, reason=planned.reason))
+
+    notes = list(plan.notes)
+    if waived:
+        notes.append(
+            f"{', '.join(waived)} was required but is carried tonight by its cadence, "
+            "so the requirement was not enforced against this run."
+        )
+
+    # A night on which every source was carried loaded nothing, so its gate had
+    # nothing to check and passed by having no opinion. Promoting it would
+    # replace a run that scored data with one that did not, and would do it on
+    # the strength of a green report made entirely of skips -- the exact shape
+    # CS-108 exists to refuse. Nothing changed, so the run already current is
+    # still the right one.
+    idle = not plan.to_pull
+    if idle:
+        notes.append(
+            "No source was due, so nothing was pulled and the run already current "
+            "stays current. A night that loaded nothing does not become the night "
+            "the map serves."
+        )
+
+    run = finish(
+        NightlyRun(run_id=run_id, started_at=now, git_sha=git_sha),
+        outcomes=outcomes,
+        passed=report.passed,
+        verdict=report.status,
+        finished_at=datetime.now(UTC),
+        notes=notes,
+    )
+    ledger.record(run)
+    promoted = False if idle else ledger.promote(run)
+
+    if store is not None:
+        JsonQualityStore(store).save(report, manifests)
+    return run, report, plan, promoted
+
+
+def _surface_plan(plan: RunPlan, *, github: bool) -> None:
+    for planned in plan.planned:
+        print(planned.line())
+    print()
+    print(plan.summary())
+    if github:
+        _append_summary(plan.markdown())
+
+
+def _append_summary(markdown: str) -> None:
+    """Write to the Actions step summary, which renders on the run page."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    with open(summary_path, "a", encoding="utf-8") as handle:
+        handle.write(markdown)
+
+
 def _surface(report: QualityReport, *, github: bool) -> None:
     """Put the report where a person will see it, not only in the log.
 
@@ -110,10 +256,34 @@ def _surface(report: QualityReport, *, github: bool) -> None:
         return
     for command in report.annotations():
         print(command)
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary_path:
-        with open(summary_path, "a", encoding="utf-8") as handle:
-            handle.write(report.markdown())
+    _append_summary(report.markdown())
+
+
+def _runs(state: Path, limit: int) -> int:
+    """The ledger, newest last, with the served run marked.
+
+    Reads rather than runs anything, so it is what a person opens after a failed
+    night to see whether the map is still on the run before it.
+    """
+    ledger = RunLedger(state)
+    history = ledger.runs()
+    if not history:
+        print(f"no runs recorded under {state}; run `python -m pipeline nightly` first")
+        return 0
+    current = ledger.current()
+    current_id = current.run_id if current else None
+    for run in history[-limit:]:
+        marker = " <- current" if run.run_id == current_id else ""
+        print(f"{run.summary()}{marker}")
+        for outcome in run.sources:
+            detail = f"{outcome.status or outcome.action}"
+            if outcome.vintage:
+                detail += f" {outcome.vintage}, {outcome.records} records"
+            print(f"    {outcome.source:14} {detail}")
+    if current_id is None:
+        print()
+        print("No run has been promoted, so nothing is being served yet.")
+    return 0
 
 
 def _history(root: Path, check: str | None) -> int:
@@ -168,6 +338,58 @@ def main(argv: list[str] | None = None) -> int:
         help="emit workflow annotations and write the step summary",
     )
 
+    for name, help_text in (
+        ("plan", "show what tonight would pull, and why, without pulling it"),
+        ("nightly", "the scheduled run: plan, pull what is due, gate, record, promote"),
+    ):
+        job = sub.add_parser(name, help=help_text)
+        job.add_argument(
+            "sources",
+            nargs="*",
+            help="sources to consider; default is every registered source",
+        )
+        job.add_argument("--state", type=Path, default=DEFAULT_STATE, help="where the ledger lives")
+        job.add_argument(
+            "--force",
+            action="append",
+            default=[],
+            metavar="SOURCE",
+            help="pull this source regardless of its cadence; repeatable",
+        )
+        job.add_argument(
+            "--all",
+            dest="force_all",
+            action="store_true",
+            help="pull every source, ignoring cadence",
+        )
+        job.add_argument("--pilot-state", default="LA")
+        job.add_argument(
+            "--github",
+            action="store_true",
+            default=bool(os.environ.get("GITHUB_ACTIONS")),
+            help="emit workflow annotations and write the step summary",
+        )
+        if name == "nightly":
+            job.add_argument(
+                "--require",
+                action="append",
+                default=[],
+                metavar="SOURCE",
+                help="a source this run must produce when its cadence says it is due",
+            )
+            job.add_argument("--store", type=Path, default=DEFAULT_STORE)
+            job.add_argument("--no-store", action="store_true", help="do not persist the report")
+            job.add_argument("--json", action="store_true", help="print the report as JSON")
+            job.add_argument(
+                "--git-sha",
+                default=os.environ.get("GITHUB_SHA", ""),
+                help="the commit this run implemented, recorded in the ledger",
+            )
+
+    runs = sub.add_parser("runs", help="the ledger: past nights and the one being served")
+    runs.add_argument("--state", type=Path, default=DEFAULT_STATE)
+    runs.add_argument("--limit", type=int, default=10, help="how many recent runs to show")
+
     history = sub.add_parser("history", help="what each check has measured across runs")
     history.add_argument("--store", type=Path, default=DEFAULT_STORE)
     history.add_argument("--check", default=None, help="restrict to one check id")
@@ -180,6 +402,61 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "history":
         return _history(args.store, args.check)
+
+    if args.command == "runs":
+        return _runs(args.state, args.limit)
+
+    if args.command == "plan":
+        plan = plan_run(
+            args.sources or list(names()),
+            now=datetime.now(UTC),
+            last_success=RunLedger(args.state).last_success(),
+            force=args.force,
+            force_all=args.force_all,
+        )
+        _surface_plan(plan, github=args.github)
+        return 0
+
+    if args.command == "nightly":
+        night, report, plan, promoted = asyncio.run(
+            _nightly(
+                args.sources or list(names()),
+                pilot_state=args.pilot_state,
+                required=args.require,
+                state=args.state,
+                store=None if args.no_store else args.store,
+                force=args.force,
+                force_all=args.force_all,
+                git_sha=args.git_sha,
+            )
+        )
+        if args.json:
+            print(report.model_dump_json(indent=2))
+        else:
+            _surface_plan(plan, github=args.github)
+            print()
+            _surface(report, github=args.github)
+        print()
+        print(night.summary())
+
+        served = RunLedger(args.state).current()
+        still = f"still serving {served.run_id}" if served else "nothing has been promoted yet"
+        if promoted:
+            print(f"promoted {night.run_id}: this is the run the map serves")
+        elif not plan.to_pull:
+            # Not a failure. Every source obeyed its cadence and there was
+            # nothing to load, so the dataset is unchanged and so is what serves
+            # it. Saying this in the same words as a failed gate would train a
+            # reader to ignore both.
+            print(f"nothing was due tonight, so no run was promoted; {still}")
+        else:
+            print(f"not promoted; the gate said {report.status} and {still}")
+            if args.github:
+                print(
+                    "::error title=Nightly ETL::"
+                    f"run {night.run_id} failed its quality gate and was not promoted; {still}"
+                )
+        return 0 if night.succeeded else 1
 
     if args.command == "check":
         chosen = args.sources or list(names())
