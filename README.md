@@ -127,9 +127,11 @@ clearskies/
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
 │   └── README.md                 How to add a new data source
 ├── scoring/                      The burden score
+│   ├── burden/eligibility.py     Who gets scored: the 25-person rule, section 5
 │   ├── burden/percentile.py      Statewide percentile rank, section 9
 │   ├── burden/component.py       Subgroup means into a component, section 10
 │   ├── burden/pollution.py       The Pollution Burden half
+│   ├── burden/population.py      The Population Characteristics half
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector

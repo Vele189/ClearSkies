@@ -999,7 +999,7 @@ to score and raises otherwise.
 
 ### CS-203 — Population Characteristics component
 
-**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-106 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-106 · **Owner:** Terrence · **Status:** Done
 
 The demographic half of the score: the Sensitive Populations and Socioeconomic
 Factors groups. Named to match `Component.POPULATION_CHARACTERISTICS` in the
@@ -1008,17 +1008,52 @@ code rather than the looser "vulnerability" of the original ticket.
 **Acceptance criteria**
 
 - Indicators and weights match `api/app/indicators.py`. Both groups carry weight
-  1.0.
+  1.0. **Done:** through the same restated registry and drift guard CS-202 uses.
 - Group minimums enforced: at least 1 of 2 Sensitive Populations, at least 4 of 5
-  Socioeconomic Factors.
+  Socioeconomic Factors. **Done:** and the 4-of-5 boundary is tested from both
+  sides, since it is the strictest of the four groups.
 - If one subgroup is not computable the component uses the other alone with a
   confidence penalty. If neither is computable the hex is `no_score` with reason
-  `insufficient_population_data`.
+  `insufficient_population_data`. **Done:** both groups weigh 1.0, so either loss
+  costs half the component's weight. The symmetry is asserted against Pollution
+  Burden's 1/3 and 2/3, so neither reads later as an oversight in the other.
 - Hexes below 25 population are `no_score` with reason `low_population`, per
-  section 5, rather than producing unstable percentiles.
+  section 5, rather than producing unstable percentiles. **Done:**
+  `scoring/burden/eligibility.py`, which runs before anything is ranked and
+  returns the scored universe every percentile denominator is computed over. A
+  hex with no population estimate at all is treated as unpopulated, following
+  the reading `interpolate.py` already takes of CS-106's `no_population`. A
+  population that is not a number is refused rather than filtered, because a NaN
+  compares false against every threshold and would sail into a denominator.
 - Race and ethnicity are not inputs. They are carried on the response for display
-  and for CS-213, and nowhere else.
-- Sub-scores persisted per hex.
+  and for CS-213, and nowhere else. **Done:** the seven indicators are age
+  structure and economic circumstance. Two guards rather than a comment: one
+  scans all fifteen registry entries for racial and ethnic terms and fails if any
+  appears, and one hands the component a racial-composition ranking anyway and
+  asserts the output is byte-identical, since the component reads its groups'
+  indicator ids and nothing else.
+- Sub-scores persisted per hex. **Done:** both group means and the raw component,
+  mapping onto `sensitive_mean` and `socioeconomic_mean` on `hex_score`.
+
+**Section 5 is where the denominator is decided.** It is the smallest module in
+the package and the one with the widest blast radius: the set it returns is what
+section 9 ranks against, so an off-by-one at the threshold does not produce a few
+wrong hexes, it moves every percentile in Louisiana. The boundary is pinned in a
+test of its own, because section 5 says "below 25" and "at most 25" differ by
+exactly one hex.
+
+**`low_population` and `insufficient_population_data` are kept apart.** One says
+the methodology declines to score a place with almost nobody in it; the other
+says a populated place had too little data to describe. Collapsing them would
+tell a reader in a rural hex that the census failed them when the cell holds
+eleven people.
+
+**Why the section 14 guard is a test and not a comment.** If racial composition
+were an input, the score would be high where the population is Black partly
+because the formula put it there, the section 13.6 correlation would be a fact
+about the arithmetic rather than a finding, and a Title VI argument resting on it
+would be weaker than one resting on a metric that never reached for race. That is
+worth a check that fails a well-intentioned pull request.
 
 ---
 
