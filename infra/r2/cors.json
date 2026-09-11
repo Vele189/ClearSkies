@@ -1,0 +1,12 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://clearskies.up.railway.app",
+      "http://localhost:5173"
+    ],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["range", "if-match", "if-none-match"],
+    "ExposeHeaders": ["content-range", "content-length", "etag"],
+    "MaxAgeSeconds": 3600
+  }
+]

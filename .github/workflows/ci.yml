@@ -84,6 +84,13 @@ jobs:
       # here on an empty state directory proves it still resolves the graph and
       # reads the cadences. It pulls nothing and writes nothing.
       - run: python -m pipeline plan
+      # CS-207. Builds the map's archive from a fixture of real Louisiana cells
+      # with invented scores, so the tile step is exercised end to end without a
+      # database, on the same terms as `run fake`. The map renders nothing at all
+      # for a source-layer it cannot find, so a broken build is otherwise silent.
+      - name: The tile build runs end to end
+        run: python -m pipeline tiles
+          --scores tests/fixtures/tile_scores.json --out /tmp/ci-tiles.pmtiles
 
   scoring:
     name: Scoring

@@ -1264,24 +1264,84 @@ version 0.1.2, passing or failing.
 
 ### CS-207 — Vector tile build and hosting
 
-**Size:** M · **Labels:** frontend, infra · **Depends on:** CS-204 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** frontend, infra · **Depends on:** CS-204 · **Owner:** Terrence · **Status:** Build done, bucket not provisioned
 
 Serve scored hexes as static tiles, with no tile server to run.
 
 **Acceptance criteria**
 
 - Scored hexes exported to PMTiles with score, percentile, confidence value,
-  confidence band, H3 index and `no_score_reason` as attributes.
-- Hosted on Cloudflare R2, not on the Railway frontend service. PMTiles are read
-  with HTTP Range requests against one large archive, which is a poor fit for an
-  edge cache keyed on whole URLs, and Railway bills egress at $0.05/GB while R2
-  charges nothing.
+  confidence band, H3 index and `no_score_reason` as attributes. **Done:**
+  `etl/pipeline/tiles/build.py`, written with the `pmtiles` and
+  `mapbox-vector-tile` reference libraries rather than by shelling out to
+  tippecanoe, so the step needs no system binary and the tests read the archive
+  back with the same library a browser uses. Every hex with a row is in the
+  tiles, scored or not: `no_score_reason` is an attribute precisely so the map
+  can explain a hole, and a grey cell reading "fewer than 25 residents" is a
+  different thing from a cell that failed to draw.
+- Hosted on Cloudflare R2, not on the Railway frontend service. **Configured,
+  not provisioned.** `infra/r2/` holds the CORS policy and the setup, and
+  `make deploy-tiles` uploads through the S3-compatible endpoint. Creating the
+  bucket needs a Cloudflare account and an API token, which this work did not
+  have. Nothing else is blocked by it.
 - CORS configured on the bucket for the frontend origin, and Range requests
-  confirmed working.
+  confirmed working. **The check is written and tested; it has not been run
+  against a real bucket.** `make check-tiles URL=...` asks the published URL what
+  a browser asks: 206 rather than 200 to a Range request, the CORS origin echoed
+  back, `Content-Range` exposed, the bytes really being the head of a PMTiles v3
+  file, and the archive not sitting on the app's own origin. Fifteen tests cover
+  each failure separately, because every one of them leaves a map that looks
+  perfectly fine: a host that ignores Range renders correctly while pulling the
+  whole archive on every visit.
 - The archive URL is read from `VITE_TILES_URL`, already present in
-  `.env.example`.
+  `.env.example`. **Done, and unchanged:** `MapView` already read it. A malformed
+  value is now refused with a sentence naming the variable rather than a stack
+  trace from inside the HTTP client.
 - Tile generation is a repeatable step in the pipeline, not a manual export.
+  **Done:** `python -m pipeline tiles`, wired as `make tiles SCORES=...`, and run
+  end to end in CI against a fixture of real Louisiana cells on the same terms as
+  `pipeline run fake`. The build is deterministic: the same run in any order
+  writes identical bytes, which a test asserts, because the archive is part of
+  what a reproducible run produced.
 - Total archive size and initial load size recorded and kept reasonable.
+  **Done, and it changed the design.** Measured over 294,398 res-8 cells, a
+  rectangle larger than Louisiana's land area and so an upper bound on the real
+  grid:
+
+  | | |
+  |---|---|
+  | Archive | 20.5 MB |
+  | Cold load before the first frame | 35 kB |
+  | Largest single tile | 26 kB |
+  | Tiles | 4,733 |
+  | Build time | 256 s |
+
+  The cold load is the number that decides whether the map feels broken, and it
+  is two thousandths of the archive because the opening zoom draws parent cells
+  rather than the whole grid. Every build prints all of it, so the figure is
+  re-recorded each run rather than measured once and quoted forever.
+
+**The size criterion is what forced the low-zoom pyramid.** Drawing res-8 cells
+at every zoom puts every cell in the state into each zoom-6 tile, where one
+screen pixel covers about two kilometres and a cell is under half a pixel. It is
+not merely expensive, it is invisible. A full-state build that way did not finish
+in twenty-five minutes, and the measured trend put the cold load around 2.4 MB
+of sub-pixel polygons.
+
+So each zoom draws the coarsest H3 resolution still a few pixels across, which
+is what section 5 chose the grid for: hexagons nest hierarchically for
+aggregation. On the same 10,981 cells the pyramid cut the archive by 43%, the
+largest tile by 6x and the cold load by 8.5x, and built faster.
+
+**The parent cell is a selection, not an aggregate.** No mean, no median, no
+invented statistic. A parent carries the attributes of one real child, the one
+with the highest percentile, plus `aggregated` and how many cells it stood in
+for. Every number on a low-zoom cell is therefore true of some actual hexagon,
+the colour and the opacity describe the same cell, and clicking it drills into
+the most burdened hexagon in that area. A mean would hide the hotspot the map
+exists to find, and the mean of a set of percentiles is not a percentile of
+anything. **This is a presentation rule the methodology does not yet describe and
+it needs a section and a changelog entry before the map is published.**
 
 ---
 

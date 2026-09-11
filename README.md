@@ -125,6 +125,7 @@ clearskies/
 │   ├── pipeline/adapters/base.py The data source interface: four stages
 │   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
+│   ├── pipeline/tiles/build.py   The map's PMTiles archive
 │   └── README.md                 How to add a new data source
 ├── scoring/                      The burden score
 │   ├── burden/eligibility.py     Who gets scored: the 25-person rule, section 5
@@ -138,6 +139,7 @@ clearskies/
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
+├── infra/r2/                     Tile bucket: CORS policy and why not Railway
 ├── scripts/                      Pre-registration and fixture guards
 ├── .railway/railway.ts           Railway service definitions
 ├── .github/workflows/            CI and the nightly ETL job

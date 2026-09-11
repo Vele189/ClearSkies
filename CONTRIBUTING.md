@@ -26,6 +26,7 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 | Python types | `mypy` in strict mode, in `api`, `etl` and `scoring` |
 | Python tests | `pytest`, in `api`, `etl` and `scoring` |
 | Adapter contract | `python -m pipeline run fake`, the reference source end to end |
+| Tile build | `python -m pipeline tiles` over a fixture, no database needed |
 | Frontend lint | `eslint` |
 | Frontend types | `tsc --noEmit` |
 | Frontend tests | `vitest run` |
