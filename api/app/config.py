@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     # Absent in Phase 0; the draft endpoint reports 503 rather than failing at import.
     openai_api_key: str = ""
 
+    # The model that writes drafts, and the one that embeds. Both are settings
+    # rather than constants because the embedding model is pinned to a corpus
+    # version and changing it means a re-embed, while the drafting model can be
+    # changed between deploys without invalidating anything but the draft cache.
+    draft_model: str = "gpt-4o"
+    embedding_model: str = "text-embedding-3-small"
+
     # Keep startup fast when the database is not running, so the API still
     # serves /health and reports the database as unavailable.
     db_connect_timeout: float = 5.0

@@ -30,6 +30,7 @@ from pydantic_ai import Agent, UnexpectedModelBehavior
 from pydantic_ai.models import Model
 
 from app.assistant.documents import DraftDocument, model_for
+from app.assistant.guardrails import Refusal
 
 log = logging.getLogger(__name__)
 
@@ -55,12 +56,23 @@ class DraftRejected(RuntimeError):
 
 @dataclass(frozen=True)
 class DraftResult:
-    """A conforming document, and what it cost to get it."""
+    """A conforming document or a refusal, and what it cost to get it.
 
-    document: DraftDocument
+    A refusal is a result, not an error. The model was given a legitimate way to
+    decline and used it, which is the behaviour CS-304 is trying to produce; the
+    caller renders the explanation rather than retrying into a document that was
+    never supportable.
+    """
+
+    document: DraftDocument | None
+    refusal: Refusal | None
     request_tokens: int
     response_tokens: int
     model_name: str
+
+    @property
+    def refused(self) -> bool:
+        return self.refusal is not None
 
     @property
     def total_tokens(self) -> int:
@@ -81,7 +93,12 @@ def build_agent(
     """
     return Agent(
         model,
-        output_type=model_for(document_type),
+        # Two outputs, and the second is the safety feature. A model given only
+        # the document schema has no way to say the passages do not support the
+        # document; its options are to produce one anyway or to fail validation,
+        # and it will produce one, because producing the requested shape is what
+        # the schema asks for. Refusal has to be something it can return.
+        output_type=[model_for(document_type), Refusal],
         instructions=instructions,
         retries=MAX_SCHEMA_ATTEMPTS,
     )
@@ -117,11 +134,18 @@ async def generate(
             document_type, "the response failed schema validation", str(exc)
         ) from exc
 
-    document = result.output
-    if not isinstance(document, DraftDocument):  # pragma: no cover - output_type pins this
+    output = result.output
+    document: DraftDocument | None = None
+    refusal: Refusal | None = None
+    if isinstance(output, Refusal):
+        refusal = output
+        log.info("draft refused: %s (%s)", refusal.reason, document_type)
+    elif isinstance(output, DraftDocument):
+        document = output
+    else:  # pragma: no cover - output_type pins this
         raise DraftRejected(
             document_type,
-            f"the model returned {type(document).__name__}, not a draft document",
+            f"the model returned {type(output).__name__}, not a draft document",
         )
 
     # A property on Pydantic AI 2.x, a method on 1.x. Accepting both keeps a
@@ -131,6 +155,7 @@ async def generate(
         usage = usage()
     return DraftResult(
         document=document,
+        refusal=refusal,
         request_tokens=getattr(usage, "input_tokens", 0) or 0,
         response_tokens=getattr(usage, "output_tokens", 0) or 0,
         model_name=str(model),

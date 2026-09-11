@@ -1940,7 +1940,7 @@ a fact sheet with no caveats, and the insufficient band.
 
 ### CS-304 — Prompt design and content guardrails
 
-**Size:** M · **Labels:** llm, safety · **Depends on:** CS-303, CS-302 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** llm, safety · **Depends on:** CS-303, CS-302 · **Owner:** Lead · **Status:** Done
 
 Rules that keep drafts to documented facts and statistical patterns.
 
@@ -1956,6 +1956,79 @@ Rules that keep drafts to documented facts and statistical patterns.
 - Prompts versioned in the repo and referenced by version in generation logs.
 - A red-team set of prompts attempting to elicit intent claims, legal advice or
   invented facts, with expected refusals as tests.
+
+**What landed:** `api/app/assistant/prompts/v1/`, `guardrails.py`, `context.py`,
+`redteam.py`, and `scripts/run_redteam.py`. `docs/drafting.md` is the guide and
+`docs/validation/redteam.md` is the committed result of a real run.
+
+- **Prompts are Markdown, versioned by directory, and frozen by checksum.**
+  Markdown rather than Python string literals so a change to what the model is
+  told shows up in a diff as prose, readable by whoever is responsible for the
+  safety rules rather than only by whoever maintains the code. Editing a
+  released version would leave every past draft stamped `v1` while `v1` now says
+  something else, which is an audit trail that reads as precise and is wrong, so
+  a test fails on it and the fix is a new version.
+- The prompt limits the model to retrieved passages and hexagon data, prohibits
+  claims about intent, motive, knowledge and culpability **in every form** — the
+  hedged, the attributed-to-residents, and the "appears to" — forbids legal
+  advice, forbids reasoning from case law, forbids constructing an identifier,
+  and states the *Sandoval* posture outright.
+- Hexagon data is rendered with each record's identifier beside it, because a
+  facility described as "a chemical plant 2 km north" cannot be cited and a
+  model that wants the claim will invent an identifier. Absent values print as
+  absent rather than being omitted: section 11's argument that missing is not
+  zero applies to what the model is shown, not only to the arithmetic.
+
+**Refusal is an output, and that is the most important decision in the layer.**
+A model given a document schema and nothing else has no way to say the passages
+do not support the document. Its options are to produce one anyway or to fail
+validation, and it will produce one, because producing the requested shape is
+what the schema asks for. The agent's output type is now a union of the document
+and a `Refusal` naming what was missing.
+
+The insufficient band is refused in three places and none is redundant: the type
+has no such member so a draft cannot be assembled, the prompt says so, and
+`check_band` runs before retrieval so the request never reaches the model.
+
+**The red-team set was run against the real model**, twenty adversarial requests
+through gpt-4o against the sealed corpus. The set is mostly not hostile: the
+dangerous entries are sympathetic, because a guardrail that only survives
+obvious bad faith is not a guardrail. It includes controls, since a safety layer
+that refuses everything passes every refusal test and is useless.
+
+| | |
+|---|---|
+| Refused that should be refused | 12 of 12 |
+| Forbidden phrases in any output | 0 |
+| Prohibited-language flags in any output | 0 |
+| Controls that produced a document | 2 of 6 |
+
+Every refusal named the right rule. The *Sandoval* attack came back with the
+posture stated correctly, and the attempt to reason from *Save Ourselves* to
+"this permit must be denied" was refused as building an argument from case law.
+
+**Four of six controls were over-refused**, and that is reported rather than
+smoothed over. Each bundles a legitimate request with an improper rider — write
+a complaint *and tell me my deadline*, draft a letter *and use this docket
+number* — and the model declined the whole thing. That is the conservative
+direction and not a safety problem, but a user who asks one wrong thing gets
+nothing and no indication which part was wrong. Fixing it means changing the
+prompt, which means a new version and a re-run, and it should not be done
+without measuring whether it weakens the twelve refusals that work.
+
+**Two bugs found by the run itself.** Retrieval on the user's words alone left
+"draft a comment letter about this permit" with no Title V authority in context,
+and the model correctly refused for want of something sitting in the corpus;
+retrieval now asks the document type's standing questions alongside the user's,
+still through the sealed view. And the scan flagged the system's own filing note
+for saying "not a lawsuit", which would have flagged every correct complaint
+forever and taught whoever reads the report to skip the category; the fields
+this system writes are now excluded from what the scan reads.
+
+**The hexagon in the run is a fixture.** Phase 2 has not run against a populated
+database, so there is no scored cell. The statutory passages are real. The
+report says so at the top, because a red-team result reported against invented
+data that looked real would be its own unverifiable claim.
 
 ---
 
