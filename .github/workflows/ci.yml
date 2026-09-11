@@ -20,6 +20,8 @@ jobs:
       - run: pip install h3 pyyaml
       - name: Validation set is internally consistent
         run: python scripts/check_validation_set.py
+      - name: Anchors match the external evidence
+        run: python scripts/verify_anchors.py
 
   api:
     name: API

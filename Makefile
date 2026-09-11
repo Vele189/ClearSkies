@@ -128,6 +128,7 @@ build: ## Production build of the frontend
 check: lint test etl-check ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
 	$(PY) scripts/check_validation_set.py
+	$(PY) scripts/verify_anchors.py
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 
