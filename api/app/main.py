@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__, db
 from app.config import get_settings
 from app.logging_config import REQUEST_ID_HEADER, RequestLogMiddleware, configure_logging
-from app.routers import health, hex, meta, provenance
+from app.routers import draft, health, hex, meta, provenance
 
 settings = get_settings()
 configure_logging(settings.log_level, settings.log_format)
@@ -62,3 +62,4 @@ app.include_router(health.router)
 app.include_router(meta.router)
 app.include_router(provenance.router)
 app.include_router(hex.router)
+app.include_router(draft.router)

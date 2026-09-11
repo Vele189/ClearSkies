@@ -2123,7 +2123,7 @@ which is the thing this component exists to prevent.
 
 ### CS-306 — Generation endpoint with caching and spend controls
 
-**Size:** M · **Labels:** backend, llm, cost · **Depends on:** CS-305, CS-208 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** backend, llm, cost · **Depends on:** CS-305, CS-208 · **Owner:** Terrence · **Status:** Done, provider cap outstanding
 
 Generation wired into the API without an open-ended bill.
 
@@ -2140,6 +2140,50 @@ Generation wired into the API without an open-ended bill.
   `api/app/config.py` already anticipates.
 - Graceful, explanatory failure when the cap or the provider's limits are hit.
 - The endpoint is a POST and must never sit behind the CDN.
+
+**What landed:** `POST /draft` and `GET /draft/spend`, `app/assistant/service.py`
+and `cost.py`, and migration `0021_draft_cache`.
+
+- **A POST, and never behind the CDN.** Not idempotent from the client's side,
+  because the first call for a hexagon spends money at a third-party API and a
+  GET is something browsers, proxies and link previewers issue on their own. A
+  cached response would hand one hexagon's draft to whoever asked next.
+  `.railway/railway.ts` already forbade the CDN on `api`; the endpoint now
+  relies on it.
+- **The cache key is the design.** A draft is a function of the hexagon, the
+  document type, and the three versions that decide what it says: methodology,
+  corpus and prompt. Key on all of them and a revision invalidates exactly what
+  it should, with no invalidation step to remember. The user's free text is
+  deliberately *not* in the key: two people asking for the same document in
+  different words should get the same document, and keying on phrasing makes
+  the cache miss almost always, which is the same as not having one.
+- Every failure is a distinct status with a sentence a person can act on,
+  because the failures here are not exceptional. 409 for a hexagon in the
+  insufficient band, rendered as plain language rather than an error code. 422
+  for a draft discarded by the verifier, saying that this is the system working
+  as intended. 503 for an unconfigured key, an unsealed corpus, or a provider
+  limit, with the last saying nothing is wrong with the request.
+- `llm_usage` records every attempt, including refusals, verifier rejections and
+  provider errors, because cost is incurred by attempts and not by successes. A
+  usage table that recorded only successes would understate the bill by exactly
+  the amount worth worrying about.
+
+**A bug the cache test caught, which would only have appeared on the second
+request.** `model_dump_json` includes computed fields, the document models forbid
+extra fields, and so a document serialised whole could not be read back at all:
+every cache hit would have failed to deserialise. Drafts are now stored as input
+fields only, which loses nothing because every computed field is derived from
+what remains.
+
+**Not done, and it is an operator step rather than code.** The hard monthly
+spend cap has to be set on the API key in the OpenAI dashboard, and cannot be
+set from a repository. That is the point rather than a limitation: a limit the
+application enforces is a limit that stops working when the application has a
+bug, and the bug that matters is the one that calls the API in a loop.
+`GET /draft/spend` and the usage table make the bill legible before it arrives,
+and both are explicitly indicative — the prices are a table in an application
+the provider can change without telling it. **The cap must be set before this
+key is used on a deployment anyone else can reach.**
 
 ---
 

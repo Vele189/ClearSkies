@@ -260,3 +260,71 @@ It over-flags on purpose, with one exception: the system's own constant
 disclaimers are excluded. The complaint's filing note says "not a lawsuit", and
 flagging every correct complaint forever teaches whoever reads the report to
 skip the category.
+
+---
+
+## 8. The endpoint, the cache and the bill
+
+`POST /draft`. A POST for two reasons and the second is the one that matters: it
+is not idempotent from the client's side, because the first call for a hexagon
+spends money at a third-party API and a GET is something browsers, proxies, link
+previewers and prefetchers issue on their own. And **it must never sit behind
+the CDN**, because a cached response would hand one hexagon's draft to whoever
+asked next. `.railway/railway.ts` says so beside the service definition; the
+CDN is enabled on `web` only.
+
+### What happens, in order
+
+1. **Band check**, before anything is spent. An insufficient-confidence hexagon
+   never reaches retrieval, let alone the model.
+2. **Cache**, keyed on the hexagon, the document type, and the methodology,
+   corpus and prompt versions.
+3. **Retrieve** from the sealed corpus.
+4. **Generate**, with refusal available.
+5. **Verify** every citation. A draft that fails is logged and discarded.
+6. **Store** only what passed.
+
+### The cache key is the design
+
+A draft is a function of the hexagon, the document type, and the three versions
+that decide what it says. Key on all of them and a revision invalidates exactly
+what it should, with no invalidation step for anybody to remember and no stale
+draft served under a new methodology version.
+
+What is deliberately **not** in the key is the user's free text. Two people
+asking for a comment letter on the same hexagon in different words should get
+the same document, because the document is about the hexagon. Keying on the
+phrasing would make the cache miss almost always, which is the same as not
+having one.
+
+A cache hit is not re-verified, because nothing that failed verification was
+ever written, and the corpus version is part of the key.
+
+### Failures that are answers
+
+| Status | When | What the reader is told |
+|---|---|---|
+| 409 | The hexagon is in the insufficient band | The tool does not trust its own number here, in plain language, not an error code |
+| 422 | A citation could not be verified | A draft was produced and discarded; this is the system working |
+| 422 | The model did not produce the schema | Nothing was shown; trying again may work |
+| 503 | No API key configured | The rest of the API works normally |
+| 503 | No sealed corpus | Nothing could be verified even if it were cited |
+| 503 | Provider rate limit or spend cap | Nothing is wrong with the request; try later |
+
+A provider limit is recognised from the exception's name and message rather than
+by importing the SDK's exception classes. That hierarchy changes between major
+versions, and the cost of getting it wrong is a 500 where a legible "try later"
+belonged.
+
+### The spend cap is not in this repository
+
+`llm_usage` records every call, including the refused, the rejected and the
+failed, because cost is incurred by attempts and not by successes. `GET
+/draft/spend` reports the month to date. Both are **indicative**: the prices are
+a table in an application that the provider can change without telling it.
+
+**The hard monthly cap is set on the API key in the OpenAI dashboard.** That is
+an operator step and it cannot be done from here, which is the point: a limit
+the application enforces is a limit that stops working when the application has
+a bug, and the bug that matters is the one that calls the API in a loop. Set it
+before the key is used in a deployment anyone else can reach.
