@@ -119,6 +119,29 @@ jobs:
       - run: mypy burden tests
       - run: python -m pytest -q
 
+  assistant:
+    name: Statute corpus
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assistant
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy corpus tests
+      - run: python -m pytest -q
+      # Appendix B.4 rule 4. An authority may be in the corpus only if the
+      # methodology says it is, and the paper may not promise one that nothing
+      # ingests. Both directions, and no network needed for either.
+      - name: The manifest matches Appendix B
+        run: python -m corpus check
+
   web:
     name: Frontend
     runs-on: ubuntu-latest

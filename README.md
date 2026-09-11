@@ -57,7 +57,7 @@ Four document types: public comment letter, agency complaint draft, community br
 Four guardrails that keep it honest:
 
 1. **Structured output.** Pydantic schemas with a required citations field. No free-form prose escapes the schema.
-2. **Curated retrieval.** Statutes come only from a versioned corpus — Clean Air Act, Title VI, the Louisiana Environmental Quality Act and the state's public trust provision — retrieved via pgvector. The model cannot cite a statute that isn't in the corpus.
+2. **Curated retrieval.** Statutes come only from a versioned corpus — Clean Air Act, Title VI, the Louisiana Environmental Quality Act and the state's public trust provision — retrieved via pgvector. The model cannot cite a statute that isn't in the corpus, and the corpus cannot grow at runtime: a sealed version refuses writes at the database, not by convention. [docs/corpus.md](docs/corpus.md) covers what is in it, and which authorities are not in it yet.
 3. **Citation verification.** Every record ID and statute section is checked against the database before the draft is rendered. A draft with an unverifiable citation is rejected, not shown with a warning.
 4. **Facts-only language rules.** Documented facts and statistical patterns only. Never claims about corporate intent.
 
@@ -140,6 +140,10 @@ clearskies/
 │   ├── burden/confidence.py      How well supported a score is, section 12
 │   ├── burden/validation.py      The section 13 phase gate
 │   └── tests/
+├── assistant/                    The statute corpus, Appendix B as code
+│   ├── corpus/manifest.py        The sixteen authorities and where to get them
+│   ├── corpus/parse.py           Publisher markup to citable sections
+│   └── corpus/chunking.py        Rule 2: never across a section boundary
 ├── web/                          React, MapLibre GL, PMTiles
 │   ├── src/lib/ramp.ts           The ramp, section 12's bands, and the legend's source of truth
 │   └── src/components/           MapView, Legend, SearchBox, HexPanel
@@ -159,7 +163,7 @@ clearskies/
 
 `etl/pipeline/analysis/` is the disparity analysis of methodology §13.6, and it sits outside `scoring/` on purpose. §14 keeps racial composition out of every query that computes a score, and this is the only code in the project that reads those columns; a package boundary is one a reviewer sees in a diff, where a stray column reference inside a scoring module would look ordinary. It computes no score, and it returns no verdict: §13.6 is a reported result with no threshold to meet.
 
-`etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), the two components and the burden score itself (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
+`assistant/` is the statute corpus: the Appendix B manifest as code, the fetchers for the four publishers it draws on, the chunker, and the versioning that seals a corpus once and never reopens it. It is an offline build, like `etl/`, and it writes a versioned artifact to the database. Retrieval, the prompts and the citation verifier live under `api/app/` instead, because Railway builds the api service with Root Directory `/api` and nothing outside that directory reaches the image; [docs/corpus.md](docs/corpus.md) covers the split and the operator commands.
 
 ---
 

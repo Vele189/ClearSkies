@@ -5,9 +5,11 @@ API := api
 ETL := etl
 WEB := web
 SCORING := scoring
+ASSISTANT := assistant
 VENV := $(API)/.venv
 ETL_VENV := $(ETL)/.venv
 SCORING_VENV := $(SCORING)/.venv
+ASSISTANT_VENV := $(ASSISTANT)/.venv
 PY := $(VENV)/bin/python
 
 .PHONY: help
@@ -113,6 +115,53 @@ scoring-check: $(SCORING_VENV) ## Lint, typecheck and test the scoring package
 	cd $(SCORING) && .venv/bin/mypy burden tests
 	cd $(SCORING) && .venv/bin/python -m pytest -q
 
+# ---- Statute corpus (CS-301) -------------------------------------------
+#
+# Its own environment, like the others. The corpus is built from public
+# publishers over the network and written to the database as a versioned,
+# sealed artifact; docs/corpus.md is the operator guide and
+# docs/methodology.md Appendix B is the manifest of record.
+
+$(ASSISTANT_VENV): $(ASSISTANT)/pyproject.toml
+	python3 -m venv $(ASSISTANT_VENV)
+	$(ASSISTANT_VENV)/bin/pip install -q -e "$(ASSISTANT)[dev]"
+	@touch $(ASSISTANT_VENV)
+
+.PHONY: corpus-manifest
+corpus-manifest: $(ASSISTANT_VENV) ## Print the Appendix B manifest and its sources
+	cd $(ASSISTANT) && .venv/bin/python -m corpus manifest
+
+# Appendix B.4 rule 4: an authority exists in the corpus only if the paper says
+# it does. Both directions, so the paper cannot promise one that nothing pulls.
+.PHONY: corpus-check
+corpus-check: $(ASSISTANT_VENV) ## Compare the manifest with docs/methodology.md
+	cd $(ASSISTANT) && .venv/bin/python -m corpus check
+
+.PHONY: corpus-build
+corpus-build: $(ASSISTANT_VENV) ## Fetch, parse and chunk without writing anything
+	cd $(ASSISTANT) && .venv/bin/python -m corpus build
+
+.PHONY: corpus-ingest
+corpus-ingest: $(ASSISTANT_VENV) ## Build and write a corpus version, unsealed
+	cd $(ASSISTANT) && .venv/bin/python -m corpus ingest
+
+# Exits non-zero unless the build covers every authority in Appendix B. An
+# incomplete corpus stays open, and an open version is invisible to retrieval.
+.PHONY: corpus-seal
+corpus-seal: $(ASSISTANT_VENV) ## Build, write and seal a corpus version
+	cd $(ASSISTANT) && .venv/bin/python -m corpus ingest --seal
+
+.PHONY: corpus-versions
+corpus-versions: $(ASSISTANT_VENV) ## What corpus versions the database holds
+	cd $(ASSISTANT) && .venv/bin/python -m corpus versions
+
+.PHONY: assistant-check
+assistant-check: $(ASSISTANT_VENV) ## Lint, typecheck and test the assistant package
+	cd $(ASSISTANT) && .venv/bin/ruff check . && .venv/bin/ruff format --check .
+	cd $(ASSISTANT) && .venv/bin/mypy corpus tests
+	cd $(ASSISTANT) && .venv/bin/python -m pytest -q
+	cd $(ASSISTANT) && .venv/bin/python -m corpus check
+
 # ---- Tiles (CS-207) ----------------------------------------------------
 #
 # The map reads one PMTiles archive from R2 and there is no tile server. The
@@ -185,7 +234,7 @@ robustness-harness: $(SCORING_VENV) ## Run the 13.5 checks over the synthetic fi
 	  --values $(SCORING)/tests/fixtures/synthetic_values.json --out /dev/null
 
 .PHONY: install
-install: $(VENV) $(ETL_VENV) $(SCORING_VENV) ## Install Python and frontend dependencies
+install: $(VENV) $(ETL_VENV) $(SCORING_VENV) $(ASSISTANT_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
 
 .PHONY: api
@@ -224,7 +273,7 @@ build: ## Production build of the frontend
 	cd $(WEB) && npm run build
 
 .PHONY: check
-check: lint test etl-check scoring-check ## Everything CI runs, plus the validation-set guards
+check: lint test etl-check scoring-check assistant-check ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
 	$(PY) scripts/check_validation_set.py
 	$(PY) scripts/check_requirements_sync.py
