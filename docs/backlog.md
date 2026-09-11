@@ -1800,7 +1800,7 @@ subdivision the statute does not have is not.
 
 ### CS-302 — pgvector retrieval over the corpus
 
-**Size:** M · **Labels:** llm, backend · **Depends on:** CS-301 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** llm, backend · **Depends on:** CS-301 · **Owner:** Terrence · **Status:** Done
 
 Retrieval that only ever returns real, in-corpus sections.
 
@@ -1814,6 +1814,64 @@ Retrieval that only ever returns real, in-corpus sections.
   expected-section pairs.
 - Retrieval cannot return anything outside the versioned corpus, by construction
   rather than by prompt instruction.
+
+**What landed:** `assistant/corpus/embed.py` and `spotcheck.py` on the offline
+side, `api/app/assistant/retrieval.py` on the runtime side, and migration
+`0019_active_corpus_tiebreak`.
+
+- All 2,850 chunks embedded with `text-embedding-3-small` at 1024 dimensions,
+  the width `statute_chunk.embedding` declares, over the HNSW cosine index
+  migration 0010 already created. 700,322 tokens, about 1.4 cents.
+- **Embedding runs before sealing, and the order is forced rather than chosen.**
+  A sealed version refuses every write, embeddings included, so a version sealed
+  with vectors missing would have gaps that can never be filled: retrieval would
+  rank the chunks it has and silently never return the rest. `seal` now refuses
+  to close a version that is not fully embedded, which makes "sealed" mean
+  "complete and searchable" rather than "complete on paper".
+- Re-running ingestion does not re-embed. Only chunks with no vector are sent,
+  so the one paid step in the build costs nothing on a second run.
+- Retrieval returns the section label and the document id with every passage, so
+  a citation traces to something CS-305 can look up, and carries
+  `may_reason_from` out of the database so the prompt layer and the verifier
+  read one flag rather than each deciding for itself what counts as case law.
+
+**The "cannot return anything outside the corpus" guarantee is one line of
+SQL.** Every read goes through `statute_corpus_active`, the view over the newest
+sealed version. There is no version column to filter on in the query, so a
+caller cannot forget to filter, cannot reach a version still being built, and
+cannot reach a superseded one; reaching anything else needs a different query
+written by hand against `statute_chunk`, which is a diff a reviewer sees.
+`api/tests/test_retrieval_sql.py` seeds a current sealed version, a superseded
+sealed one and an open one against real Postgres and asserts only the first
+comes back, and that the API's own connection cannot insert a chunk.
+
+**A bug in 0018, found by that test.** The view ordered by `sealed_at` alone,
+which is not a total order: `now()` is the transaction timestamp, so anything
+sealing two versions in one transaction gives both the same value and Postgres
+returns whichever row the planner reaches first. The corpus a draft is written
+against could therefore change between two queries with no write in between,
+which is worse than reading the wrong corpus because that at least is a bug
+somebody can find. Migration 0019 adds `version` as a deterministic tie-break.
+`active_version()` had the same ordering written out a second time and had to
+match it, or the function would name one corpus while retrieval read another,
+stamping drafts with a version they were not written against.
+
+**Retrieval quality, measured rather than asserted.** `corpus/questions.py` is
+twenty hand-written question and expected-section pairs, each written by reading
+the statute and asking what somebody drafting a comment would type. None was
+produced by running retrieval and writing down what came back.
+
+| | |
+|---|---|
+| recall@8 | 19 of 20 (95%) |
+| mean rank of a hit | 1.84 |
+
+The miss is "What can a federal agency do if a recipient of its funds
+discriminates?", which expects 42 U.S.C. § 2000d-1 and returns 40 C.F.R. § 7.35:
+the regulation implementing that very authority, so a reasonable neighbour and
+still the wrong answer. It is recorded rather than tuned away, because a
+question set edited until it passes measures nothing. `make corpus-spotcheck`
+prints the report and `REQUIRE_RECALL=0.9` makes it a gate.
 
 ---
 

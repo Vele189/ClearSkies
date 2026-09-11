@@ -10,7 +10,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Embedding is the one step that calls a paid API. It is an extra so that
+# `manifest`, `check` and `build` — everything CI runs — need neither the SDK
+# nor a key.
+embed = [
+    "openai>=1.50",
+]
 dev = [
+    "openai>=1.50",
     "mypy>=1.13",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",

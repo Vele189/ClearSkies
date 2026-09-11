@@ -21,6 +21,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from corpus import embed
 from corpus.ingest import Build
 from corpus.manifest import MANIFEST, manifest_sha256
 
@@ -161,6 +162,20 @@ async def seal(conn: Any, version: str, build: Build, force: bool = False) -> No
             "Sealing it would publish a corpus the methodology does not describe. "
             "Fix the fetch, or pass --force to seal a deliberately partial corpus "
             "and accept that drafts will cite only what is in it."
+        )
+
+    # A sealed version cannot be written to, embeddings included, so a version
+    # sealed with vectors missing is a version whose gaps can never be filled.
+    # Retrieval would rank the chunks it has and silently never return the rest,
+    # which is the worst available failure: a corpus that is complete on paper
+    # and partial in practice, with nothing reporting the difference.
+    total, embedded = await embed.counts(conn, version)
+    if embedded < total:
+        raise SealError(
+            f"corpus version {version} has {total - embedded} of {total} chunks "
+            "without an embedding. Sealing would make them permanently "
+            "unreachable, because a sealed version refuses writes. "
+            "Run the embedding step first."
         )
 
     await conn.execute(

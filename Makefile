@@ -151,6 +151,21 @@ corpus-ingest: $(ASSISTANT_VENV) ## Build and write a corpus version, unsealed
 corpus-seal: $(ASSISTANT_VENV) ## Build, write and seal a corpus version
 	cd $(ASSISTANT) && .venv/bin/python -m corpus ingest --seal
 
+# Embedding calls a paid API. It is implied by corpus-seal, because a sealed
+# version refuses writes and one sealed without vectors has gaps that can never
+# be filled.
+.PHONY: corpus-embed
+corpus-embed: $(ASSISTANT_VENV) ## Generate embeddings for the open corpus version
+	cd $(ASSISTANT) && .venv/bin/python -m corpus ingest --embed
+
+# Retrieval against the hand-written question set in corpus/questions.py.
+# Not a benchmark: twenty pairs cannot say retrieval is good, only that it has
+# stopped returning things it used to.
+.PHONY: corpus-spotcheck
+corpus-spotcheck: $(ASSISTANT_VENV) ## Measure retrieval against the question set
+	cd $(ASSISTANT) && .venv/bin/python -m corpus spotcheck \
+	  $(if $(REQUIRE_RECALL),--require-recall $(REQUIRE_RECALL),)
+
 .PHONY: corpus-versions
 corpus-versions: $(ASSISTANT_VENV) ## What corpus versions the database holds
 	cd $(ASSISTANT) && .venv/bin/python -m corpus versions
@@ -259,7 +274,7 @@ test: $(VENV) ## Run the API and frontend test suites
 .PHONY: test-spatial
 test-spatial: $(VENV) ## Run the neighbour-query tests against the local database
 	cd $(API) && CLEARSKIES_TEST_DATABASE_URL="$${DATABASE_URL:-postgresql://clearskies:clearskies@localhost:$${POSTGRES_PORT:-5432}/clearskies}" \
-	  .venv/bin/python -m pytest tests/test_facility_hex_sql.py -q
+	  .venv/bin/python -m pytest tests/test_facility_hex_sql.py tests/test_retrieval_sql.py -q
 
 .PHONY: lint
 lint: $(VENV) ## Lint and typecheck the API and frontend
