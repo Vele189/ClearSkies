@@ -46,7 +46,7 @@ RunStatus = Literal["running", "succeeded", "failed"]
 # because `etl` ships without the docs tree; `test_ledger.py` reads the document
 # off disk and fails if the two disagree, the same guard CS-108 uses to keep the
 # indicator groups in step with the API.
-METHODOLOGY_VERSION = "0.1.2"
+METHODOLOGY_VERSION = "0.1.3"
 
 RUNS = "runs.jsonl"
 CURRENT = "current.json"
