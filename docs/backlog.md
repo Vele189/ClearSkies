@@ -881,19 +881,52 @@ will fail the build if that ordering is ever inverted.
 
 ### CS-201 — Percentile ranking utilities
 
-**Size:** S · **Labels:** scoring · **Depends on:** CS-108 · **Owner:** Terrence · **Status:** Not started
+**Size:** S · **Labels:** scoring · **Depends on:** CS-108 · **Owner:** Terrence · **Status:** Done
 
 Shared normalization so every indicator is expressed the same way.
 
 **Acceptance criteria**
 
-- Statewide percentile rank with a documented tie-handling rule.
-- Nulls excluded from the ranking rather than treated as zero.
+- Statewide percentile rank with a documented tie-handling rule. **Done:**
+  `scoring/burden/percentile.py`, the Hazen convention of section 9,
+  `100 · (r − 0.5) / n`, with tied hexes taking the mean of the ranks they
+  occupy. Both choices are argued in the module docstring against the
+  alternatives they beat: `(r−1)/(n−1)` would put the state minimum at exactly
+  0, and section 10 multiplies the components, so one indicator at its minimum
+  would annihilate a hex's whole Pollution Burden.
+- Nulls excluded from the ranking rather than treated as zero. **Done:** a hex
+  with no value for an indicator is left out of `n_k` and comes back with
+  `observed` false carrying neither value nor percentile, which is the shape
+  `hex_indicator` already requires. Zero is an observation and stays one.
 - Hexes that are not scored are excluded from every percentile denominator.
   Section 5 leaves cells under 25 people unscored, and including them would
-  distort the distribution.
+  distort the distribution. **Done:** `rank` takes the scored universe as a
+  required keyword argument rather than inferring it from the values it was
+  handed. Hexes outside it get no row and reach no denominator, and the count of
+  those dropped is reported on the result instead of vanishing.
 - Unit tested against hand-computed cases including ties and heavy
-  zero-inflation.
+  zero-inflation. **Done:** 34 tests, each asserting a constant derived from the
+  formula in the comment above it rather than agreeing with a second
+  implementation. The zero-inflation case is 70 hexes with no facility within
+  10 km against 30 with one, which is the shape section 9 warns about for E3 and
+  F1 through F4.
+
+**The two exclusions are not the same exclusion, and the output says which.** An
+unscored hex is a place the methodology declines to rank. A scored hex with no
+value is a place one indicator could not see. The first gets no row, the second
+gets a row marked unobserved, and neither is ever filled in with a zero or a
+median. That is section 11's rule and the failure the project exists to avoid:
+an unmonitored area is uncertain, not clean.
+
+**The zero block is counted, not smoothed.** `Distribution.zero_block_percentile`
+returns the single percentile every exactly-zero hex shares, `50 · n_zero / n`.
+Section 9 requires that number to be published, because below it a facility
+indicator carries no information at all and a reader cannot tell that from the
+percentile alone.
+
+**No dependencies, on purpose.** The package installs nothing. CS-204 needs a
+scoring run reproducible from its inputs, and a sort plus a division over stdlib
+floats has no reduction order to argue about later.
 
 ---
 

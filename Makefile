@@ -4,8 +4,10 @@ SHELL := /bin/bash
 API := api
 ETL := etl
 WEB := web
+SCORING := scoring
 VENV := $(API)/.venv
 ETL_VENV := $(ETL)/.venv
+SCORING_VENV := $(SCORING)/.venv
 PY := $(VENV)/bin/python
 
 .PHONY: help
@@ -95,8 +97,24 @@ etl-check: $(ETL_VENV) ## Lint, typecheck and test the ingestion package
 	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning run fake
 	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning check fake --no-store
 
+# ---- Scoring -----------------------------------------------------------
+# Its own environment, and a deliberately empty dependency list. Section 13
+# wants a run reproducible from its inputs, so the arithmetic stays on stdlib
+# floats over an explicitly sorted list.
+
+$(SCORING_VENV): $(SCORING)/pyproject.toml
+	python3 -m venv $(SCORING_VENV)
+	$(SCORING_VENV)/bin/pip install -q -e "$(SCORING)[dev]"
+	@touch $(SCORING_VENV)
+
+.PHONY: scoring-check
+scoring-check: $(SCORING_VENV) ## Lint, typecheck and test the scoring package
+	cd $(SCORING) && .venv/bin/ruff check . && .venv/bin/ruff format --check .
+	cd $(SCORING) && .venv/bin/mypy burden tests
+	cd $(SCORING) && .venv/bin/python -m pytest -q
+
 .PHONY: install
-install: $(VENV) $(ETL_VENV) ## Install Python and frontend dependencies
+install: $(VENV) $(ETL_VENV) $(SCORING_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
 
 .PHONY: api
@@ -135,7 +153,7 @@ build: ## Production build of the frontend
 	cd $(WEB) && npm run build
 
 .PHONY: check
-check: lint test etl-check ## Everything CI runs, plus the validation-set guards
+check: lint test etl-check scoring-check ## Everything CI runs, plus the validation-set guards
 	./scripts/check_preregistration.sh
 	$(PY) scripts/check_validation_set.py
 	$(PY) scripts/check_requirements_sync.py

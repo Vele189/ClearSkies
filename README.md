@@ -126,6 +126,9 @@ clearskies/
 │   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
 │   └── README.md                 How to add a new data source
+├── scoring/                      The burden score
+│   ├── burden/percentile.py      Statewide percentile rank, section 9
+│   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
 ├── scripts/                      Pre-registration and fixture guards
@@ -138,9 +141,9 @@ clearskies/
 └── docker-compose.yml            Local database only
 ```
 
-`scoring/` is deliberately absent. The methodology requires the validation set to be committed before any scoring code exists, and CI enforces that ordering by comparing commit history. Creating the directory early would defeat the check it is meant to pass.
+`scoring/` was deliberately absent until the validation set had been committed. The methodology requires the pre-registered set to exist before any scoring code does, and CI compares commit history to enforce it: the first commit adding a file under `scoring/` must be a descendant of the one adding `docs/validation/sites.yml`. That ordering is now fixed in the history and the check keeps it that way.
 
-`etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), `scoring/` (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
+`etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), the two components and the burden score itself (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
 
 ---
 

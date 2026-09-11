@@ -22,9 +22,9 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 
 | Check | Command |
 |---|---|
-| Python lint and format | `ruff check`, `ruff format --check`, in `api` and `etl` |
-| Python types | `mypy` in strict mode, in `api` and `etl` |
-| Python tests | `pytest`, in `api` and `etl` |
+| Python lint and format | `ruff check`, `ruff format --check`, in `api`, `etl` and `scoring` |
+| Python types | `mypy` in strict mode, in `api`, `etl` and `scoring` |
+| Python tests | `pytest`, in `api`, `etl` and `scoring` |
 | Adapter contract | `python -m pipeline run fake`, the reference source end to end |
 | Frontend lint | `eslint` |
 | Frontend types | `tsc --noEmit` |
