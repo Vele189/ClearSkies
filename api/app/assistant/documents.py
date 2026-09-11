@@ -177,6 +177,22 @@ class DraftDocument(BaseModel):
         """Rule 5, in the schema. Constant, and not the model's to write."""
         return DRAFT_NOTICE
 
+    def stored_json(self) -> str:
+        """The document as it is written to the cache: input fields only.
+
+        Computed fields are excluded, and leaving them in is a real bug rather
+        than a tidiness question. `model_dump_json` includes them, these models
+        forbid extra fields, and so a document serialised whole cannot be read
+        back at all: every cache hit would fail to deserialise, which is a
+        failure that only appears on the *second* request for a hexagon.
+
+        Excluding them loses nothing. Every one is derived from the fields that
+        remain, so reconstructing the document reconstructs them, and a cached
+        `draft_notice` would in any case be a copy of a constant that the code
+        is the authority on.
+        """
+        return self.model_dump_json(exclude=set(type(self).model_computed_fields))
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def citations(self) -> list[Citation]:

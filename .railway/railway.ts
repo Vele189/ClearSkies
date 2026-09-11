@@ -100,7 +100,22 @@ export default defineRailway(() => {
       LOG_LEVEL: "info",
       // Absent in Phase 0; the draft endpoint reports 503 rather than failing
       // at import. Sealed in the dashboard when it is issued.
+      //
+      // The hard monthly spend cap is set on this key WITH THE PROVIDER, in the
+      // OpenAI dashboard, and not here. A limit the application enforces is a
+      // limit that stops working when the application has a bug, and the bug
+      // that matters is the one that calls the API in a loop. docs/drafting.md
+      // section 8 is the operator step.
       OPENAI_API_KEY: preserve(),
+      // Which model writes drafts. Changing it invalidates the draft cache by
+      // nothing at all — the cache keys on the methodology, corpus and prompt
+      // versions, not the model — so a change here should be paired with a
+      // deliberate cache clear if the old drafts are no longer wanted.
+      DRAFT_MODEL: "gpt-4o",
+      // Pinned to the corpus. Changing this without re-embedding gives vectors
+      // from two models in one space, which returns quietly worse retrievals
+      // rather than failing. See docs/corpus.md section 5.
+      EMBEDDING_MODEL: "text-embedding-3-small",
     },
   });
 
