@@ -187,6 +187,8 @@ What an adapter does not write is as important as what it does. Retries, rate li
 
 Two rules the types enforce. A missing value is stored as missing, never as zero, because imputing an unmonitored area to zero or to the median would systematically pull unmonitored high-burden areas toward the middle. And the release vintage is recorded separately from the download time, because downloading a six-year-old file today does not make it current.
 
+An adapter also declares what a good load of it looks like: the row count range to expect, how often a field may be null, what values are physically plausible. The gate applies those, then the checks no adapter can make about itself, and refuses to let a bad night become the current run. A check that could not run reports as skipped rather than passed, because a green report over missing data is the failure the gate exists to prevent. [docs/quality.md](docs/quality.md) covers it.
+
 The full contract, a worked example, and step-by-step instructions are in [`etl/README.md`](etl/README.md). The reference implementation in `etl/pipeline/adapters/fake.py` runs against a fixture with no network:
 
 ```bash

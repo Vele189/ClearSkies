@@ -93,6 +93,7 @@ etl-check: $(ETL_VENV) ## Lint, typecheck and test the ingestion package
 	cd $(ETL) && .venv/bin/mypy pipeline tests
 	cd $(ETL) && .venv/bin/python -m pytest -q
 	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning run fake
+	cd $(ETL) && .venv/bin/python -m pipeline --log-level warning check fake --no-store
 
 .PHONY: install
 install: $(VENV) $(ETL_VENV) ## Install Python and frontend dependencies

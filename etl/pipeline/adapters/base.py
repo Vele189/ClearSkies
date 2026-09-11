@@ -31,6 +31,7 @@ from typing import ClassVar
 from pipeline.context import RunContext
 from pipeline.metadata import Artifact, KnownGap, SourceSpec
 from pipeline.policy import DEFAULT_POLICY, SourcePolicy
+from pipeline.quality.checks import SourceExpectations
 from pipeline.records import NormalizedRecord, group_by_table
 
 
@@ -71,6 +72,16 @@ class SourceAdapter[Raw](ABC):
     # field expected to vary is `rate_limit`, because each upstream publishes
     # its own. See pipeline/policy.py.
     policy: ClassVar[SourcePolicy] = DEFAULT_POLICY
+
+    # What a good load of this source looks like: how many rows to expect, which
+    # fields may be null and how often, what values are physically plausible.
+    # `policy` decides whether a pull lost too many records; this decides whether
+    # the records it kept are believable, which needs domain knowledge and so
+    # belongs with the adapter that has it. See pipeline/quality/checks.py.
+    #
+    # Left unset a source is checked only by the generic tolerance rule, and the
+    # gate reports that as a gap rather than a pass.
+    expectations: ClassVar[SourceExpectations | None] = None
 
     @property
     def name(self) -> str:

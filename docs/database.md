@@ -255,6 +255,32 @@ The embedding dimension is fixed by the model. Changing models means a
 migration and a re-embed, which is the intended friction: a corpus holding
 vectors from two models returns quietly worse retrievals rather than failing.
 
+### Data quality (`0011`)
+
+| Table | Grain |
+|---|---|
+| `quality_run` | One CS-108 gate run: the verdict over one night's load |
+| `quality_check_result` | One check of one run, with the value it measured |
+
+The gate in `etl/pipeline/quality` decides whether a night's load may be
+scored. `quality_run.verdict` is the worst status among its checks, and
+`passed` is false only for `fail`; a `CHECK` constraint ties the two together
+so a failed run can never be recorded as having passed.
+
+Passing checks are stored, not only failures, and that is the point of the
+table rather than an oversight. Most per-source thresholds are deliberately
+loose envelopes set before the adapters had run against live upstream, and
+narrowing one safely needs a month of observed values. A table holding only
+failures cannot show that the ECHO facility count has fallen four percent a
+week since August, which is the failure nobody catches in a single night's
+green tick.
+
+`status` has four values, not two. A check that could not run is `skip`, which
+is neither a pass nor a failure: a gate reporting all-green because half its
+checks found no data is the exact failure CS-108 exists to close. The gate
+promotes a skip on a source the run was told to produce into a `fail` before
+it gets here.
+
 ---
 
 ## 5. Troubleshooting

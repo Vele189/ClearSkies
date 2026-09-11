@@ -27,3 +27,7 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# Quality gate output (CS-108). The report is regenerated every run; the
+# durable copy is the quality_check_result table, not a file in the repo.
+quality-runs/
