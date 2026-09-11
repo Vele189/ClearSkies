@@ -133,6 +133,7 @@ clearskies/
 │   ├── burden/pollution.py       The Pollution Burden half
 │   ├── burden/population.py      The Population Characteristics half
 │   ├── burden/score.py           The two halves multiplied, section 10 step 4
+│   ├── burden/confidence.py      How well supported a score is, section 12
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector

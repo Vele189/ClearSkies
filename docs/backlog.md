@@ -1118,14 +1118,24 @@ now means the insert shape does not change when it does.
 
 ### CS-205 — Confidence value
 
-**Size:** M · **Labels:** scoring · **Depends on:** CS-204, CS-104, CS-110 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** scoring · **Depends on:** CS-204, CS-104, CS-110 · **Owner:** Lead · **Status:** Done
 
 Every hex carries an honest statement of how much its score can be trusted.
 
 **Acceptance criteria**
 
 - Four terms implemented exactly as section 12 specifies: `c_coverage` at 0.35,
-  `c_recency` at 0.20, `c_spatial` at 0.25, `c_monitor` at 0.20.
+  `c_recency` at 0.20, `c_spatial` at 0.25, `c_monitor` at 0.20. **Done, with one
+  flagged gap.** `c_coverage` weights each indicator as section 10 weights its
+  group, so the fifteen come to 13.0 and losing E1 costs twice what losing F1
+  costs. `c_monitor` is section 12's own `min(1, 10 km / d)`. **`c_spatial` is
+  the term section 12 specifies by direction and not by formula**, so the form
+  used is `(1 − high_cv_share) · min(1, hex_area / mean_block_area)`: monotone
+  decreasing in both quantities as required, and borrowing the shape already
+  used for `c_monitor` rather than inventing a second one. It needs ratifying in
+  `docs/methodology.md` with a changelog entry before any score computed with it
+  is published. It is the one place in the package where the code is ahead of
+  the paper.
 - `c_recency` is `exp(−Δt / τ)` with τ of 4 years, computed against the source
   vintages recorded by the adapters, not against pull timestamps.
 - Combined as a weighted geometric mean, with each term floored at 0.05 so a
@@ -1137,7 +1147,34 @@ Every hex carries an honest statement of how much its score can be trusted.
 - Low-confidence hexes identifiable in a single query for QA.
 - Hexes in the insufficient band are excluded from validation statistics and are
   barred from the drafting assistant. Both exclusions are enforced in code, not
-  left to the caller.
+  left to the caller. **Done:** `for_validation` returns a sample those hexes
+  are already out of rather than a predicate to remember, and
+  `assert_documentable` raises rather than returning a flag that can be ignored.
+  A low but not insufficient hex is still allowed to produce a document, since
+  section 12 gives the two bands different treatments on purpose and over-barring
+  would be its own failure.
+
+**Other criteria, in short.** `c_recency` is `exp(−Δt / τ)` with τ of 4 years
+against `vintage_end` per indicator, which is the release the adapter read
+rather than the moment it read it; a test pins that distinction, because getting
+it backwards would make a stale pipeline look permanently fresh. The combination
+is the weighted geometric mean with every term floored at 0.05, tested against
+section 12's own example: excellent coverage, recency and spatial support with
+no monitor within 100 km reads 0.63 and moderate under a geometric mean, against
+0.82 and high under an arithmetic one, which is the whole reason the paper chose
+the first. Bands are half-open intervals, so 0.795 is moderate rather than
+stranded. Confidence is computed for every scored hex including fully supported
+ones, and carried on `hex_score` beside the score. Migration 0017 adds a partial
+index on the low and insufficient bands so the QA sweep is one query.
+
+**Unknown support is not good support.** A hex with no block-area record and one
+with no monitor distance both fall to the floor rather than to a default of
+plenty. The dasymetric step being unable to say what it interpolated from is a
+reason to trust the number less.
+
+**No confidence on an unscored hex.** Section 12 measures how well supported a
+score is, and a hex with no score has none to support. A number sitting in that
+column invites being read as one.
 
 ---
 

@@ -50,10 +50,12 @@ matches, because a score means "this, under these rules".
 """
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from burden.component import ComponentResult, HexComponent
+from burden.confidence import HexConfidence
 from burden.eligibility import Eligibility, NoScoreReason
 from burden.methodology import METHODOLOGY_VERSION
 from burden.percentile import Distribution, rank
@@ -86,6 +88,9 @@ class HexScore:
     socioeconomic_mean: float | None
     no_score_reason: NoScoreReason | None
     methodology_version: str
+    # Section 12, attached by CS-205. Empty on a hex with no score: confidence
+    # describes how well supported a score is, and there is nothing to support.
+    confidence: HexConfidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,9 +146,9 @@ class ScoreRun:
         on the same terms as `rows_for_sql` in the ingestion package's
         provenance module.
 
-        The confidence columns are present and empty. CS-205 fills them, and
-        naming them here means the insert shape does not change when it does.
-        `methodology_version` is deliberately not among them: it lives on
+        The confidence columns are filled from section 12 when a run was given
+        confidence, and are empty on a hex with no score, which has nothing for
+        them to describe. `methodology_version` is deliberately not among them: it lives on
         `pipeline_run`, and every row reaches it through `run_id`. Repeating one
         string across 150,000 rows is what the foreign key is for, and one
         version per run is what section 17 actually asks for.
@@ -160,13 +165,13 @@ class ScoreRun:
                 "env_effects_mean": row.env_effects_mean,
                 "sensitive_mean": row.sensitive_mean,
                 "socioeconomic_mean": row.socioeconomic_mean,
-                "confidence": None,
-                "confidence_band": None,
-                "c_coverage": None,
-                "c_recency": None,
-                "c_spatial": None,
-                "c_monitor": None,
-                "nearest_monitor_km": None,
+                "confidence": _c(row, "value"),
+                "confidence_band": _c(row, "band"),
+                "c_coverage": _c(row, "c_coverage"),
+                "c_recency": _c(row, "c_recency"),
+                "c_spatial": _c(row, "c_spatial"),
+                "c_monitor": _c(row, "c_monitor"),
+                "nearest_monitor_km": _c(row, "nearest_monitor_km"),
                 "no_score_reason": row.no_score_reason,
             }
             for row in self.hexes
@@ -178,6 +183,7 @@ def burden_score(
     eligibility: Eligibility,
     pollution: ComponentResult,
     population: ComponentResult,
+    confidence: Mapping[str, HexConfidence] | None = None,
     methodology_version: str = METHODOLOGY_VERSION,
 ) -> ScoreRun:
     """Compose the two components into one score per hex, per section 10 step 4.
@@ -249,6 +255,9 @@ def burden_score(
                     None if score is not None else _failure(pollution_row, population_row)
                 ),
                 methodology_version=methodology_version,
+                # Only a scored hex carries one. Section 12 measures how well
+                # supported a score is, and an unscored hex has none to support.
+                confidence=None if score is None or confidence is None else confidence.get(h3),
             )
         )
 
@@ -282,6 +291,13 @@ def _require_same_universe(name: str, result: ComponentResult, scored: set[str])
         )
 
 
+def _c(row: HexScore, field: str) -> Any:
+    """One confidence column, or None where the hex has no confidence at all."""
+    if row.confidence is None:
+        return None
+    return getattr(row.confidence, field)
+
+
 def _canonical(row: HexScore) -> str:
     """One line per hex, in a form that does not vary between equal runs."""
     fields = (
@@ -295,6 +311,10 @@ def _canonical(row: HexScore) -> str:
         _number(row.sensitive_mean),
         _number(row.socioeconomic_mean),
         row.no_score_reason or "",
+        # Confidence is part of what a run published, so two runs that differ
+        # only in how well supported they were are different runs.
+        "" if row.confidence is None else _number(row.confidence.value),
+        "" if row.confidence is None else row.confidence.band,
     )
     return "|".join(fields) + "\n"
 

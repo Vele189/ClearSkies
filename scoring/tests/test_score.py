@@ -9,10 +9,12 @@ retyped here.
 
 import re
 from collections.abc import Mapping
+from datetime import date
 
 import pytest
 
 from burden.component import ComponentResult, GroupMean, HexComponent
+from burden.confidence import HexConfidence, HexEvidence, confidence_for_run, indicator_ids
 from burden.eligibility import eligible
 from burden.methodology import METHODOLOGY_VERSION
 from burden.percentile import rank_indicators
@@ -23,6 +25,7 @@ from tests.registry import REPO_ROOT
 
 POLLUTION_GROUPS = ("exposures", "environmental_effects")
 POPULATION_GROUPS = ("sensitive_populations", "socioeconomic_factors")
+RUN_DATE = date(2026, 9, 11)
 
 
 def fabricate(
@@ -554,3 +557,90 @@ def test_a_run_from_populations_and_indicators_through_to_rows() -> None:
     assert by_h3["industrial"].score == pytest.approx(100.0)
     assert by_h3["industrial"].percentile == pytest.approx(100 * 2.5 / 3)
     assert len(run.rows_for_sql(run_id=1)) == 5
+
+
+# ---- section 12 travels with the row -------------------------------------
+
+
+def confidences(*hexes: str) -> dict[str, HexConfidence]:
+    """Fully supported confidence for each hex, so a test can vary one thing."""
+    return confidence_for_run(
+        [
+            HexEvidence(
+                h3=h3,
+                observed_indicators=frozenset(indicator_ids()),
+                mean_block_area_km2=0.1,
+                nearest_monitor_km=1.0,
+            )
+            for h3 in hexes
+        ],
+        vintages=dict.fromkeys(indicator_ids(), RUN_DATE),
+        as_of=RUN_DATE,
+    )
+
+
+def test_the_confidence_columns_are_filled_when_a_run_has_confidence() -> None:
+    grid = eligible(populated("town"))
+
+    (row,) = burden_score(
+        eligibility=grid,
+        pollution=pollution({"town": 5.0}),
+        population=population({"town": 5.0}),
+        confidence=confidences("town"),
+    ).rows_for_sql(run_id=7)
+
+    assert row["confidence"] == pytest.approx(1.0)
+    assert row["confidence_band"] == "high"
+    assert row["c_coverage"] == pytest.approx(1.0)
+    assert row["nearest_monitor_km"] == pytest.approx(1.0)
+
+
+def test_a_hex_with_no_score_carries_no_confidence() -> None:
+    # Confidence measures how well supported a score is. An unscored hex has
+    # none to support, and a number sitting there invites being read as one.
+    grid = eligible({"town": 900.0, "marsh": 2.0})
+
+    rows = {
+        row["h3"]: row
+        for row in burden_score(
+            eligibility=grid,
+            pollution=pollution({"town": 5.0}),
+            population=population({"town": 5.0}),
+            confidence=confidences("town", "marsh"),
+        ).rows_for_sql(run_id=7)
+    }
+
+    assert rows["marsh"]["confidence"] is None
+    assert rows["marsh"]["confidence_band"] is None
+    assert rows["town"]["confidence"] is not None
+
+
+def test_a_run_given_no_confidence_still_emits_the_columns_empty() -> None:
+    # CS-204 ran before CS-205 existed and the insert shape did not change.
+    grid = eligible(populated("town"))
+
+    (row,) = burden_score(
+        eligibility=grid,
+        pollution=pollution({"town": 5.0}),
+        population=population({"town": 5.0}),
+    ).rows_for_sql(run_id=7)
+
+    assert row["confidence"] is None
+    assert "confidence_band" in row
+
+
+def test_two_runs_differing_only_in_confidence_are_different_runs() -> None:
+    # Confidence is part of what a run published, so the reproducibility digest
+    # covers it. Identical scores with different support are not one result.
+    grid = eligible(populated("town"))
+    args = {
+        "eligibility": grid,
+        "pollution": pollution({"town": 5.0}),
+        "population": population({"town": 5.0}),
+    }
+
+    bare = burden_score(**args)  # type: ignore[arg-type]
+    measured = burden_score(**args, confidence=confidences("town"))  # type: ignore[arg-type]
+
+    assert [row.score for row in bare.hexes] == [row.score for row in measured.hexes]
+    assert bare.digest() != measured.digest()
