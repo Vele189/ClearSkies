@@ -14,7 +14,7 @@ matters and the one nobody notices in a single night's green tick.
 
 **Two shapes, one record.** `JsonQualityStore` writes a directory per run, works
 with no database, and is what the nightly job uses today. The `quality_run` and
-`quality_check_result` tables in migration 0011 are the durable home; the store
+`quality_check_result` tables in migration 0015 are the durable home; the store
 that writes to them lands with the Postgres sink, and `rows_for_sql` below is the
 payload it will insert, kept here so the two cannot describe a run differently.
 
@@ -108,7 +108,7 @@ class JsonQualityStore:
 
 
 def rows_for_sql(report: QualityReport) -> list[dict[str, Any]]:
-    """One flat row per check, matching `quality_check_result` in migration 0011.
+    """One flat row per check, matching `quality_check_result` in migration 0015.
 
     Flat on purpose. The question this table exists to answer is "what has this
     check measured over the last thirty runs", and that is a `WHERE check = ...

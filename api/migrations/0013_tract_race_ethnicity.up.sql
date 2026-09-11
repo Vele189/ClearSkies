@@ -1,4 +1,4 @@
--- 0011: tract-level race and ethnicity, deliberately not in tract_demographics
+-- 0013: tract-level race and ethnicity, deliberately not in tract_demographics
 --
 -- Section 8.5 ingests race and ethnicity; section 14 keeps them out of the
 -- score. 0008 already honours that after interpolation, where the three hex

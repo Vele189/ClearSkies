@@ -60,8 +60,6 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, ClassVar
 
-import h3
-
 from pipeline.adapters.base import FetchResult, SourceAdapter
 from pipeline.adapters.echo import (
     DFR_URL,
@@ -69,16 +67,13 @@ from pipeline.adapters.echo import (
     GAZETTEER_YEAR,
     GET_FACILITIES,
     GET_QID,
-    HEX_RESOLUTION,
-    PILOT_ENVELOPE,
-    ZIP_MISMATCH_KM,
     Facility,
-    haversine_km,
     load_zip_centroids,
 )
 from pipeline.adapters.registry import register
 from pipeline.context import RunContext
 from pipeline.errors import PermanentSourceError, RecordRejected
+from pipeline.geo import Geocode, classify, containing_cell
 from pipeline.metadata import KnownGap, SourceSpec
 from pipeline.policy import RateLimit, SourcePolicy
 from pipeline.records import Measurement, NormalizedRecord
@@ -211,8 +206,15 @@ class TriSite:
     longitude: float | None
     forms: tuple[TriForm, ...]
     owns_facility_row: bool
-    coordinate_status: str = "ok"
-    zip_checked: bool = True
+    geocode: Geocode = Geocode(status="ok", quality="unverified")
+
+    @property
+    def coordinate_status(self) -> str:
+        return self.geocode.status
+
+    @property
+    def zip_checked(self) -> bool:
+        return self.geocode.zip_checked
 
 
 def to_pounds(value: float, unit: str) -> float:
@@ -324,7 +326,7 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
         self._zip_centroids = load_zip_centroids(gazetteer.content)
 
         sites = tuple(
-            self._classify(site) for site in self._group_by_site(rows, registry, echo_ids)
+            self._classify(site, state) for site in self._group_by_site(rows, registry, echo_ids)
         )
 
         return FetchResult(
@@ -486,31 +488,28 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
             stack=_number(row, COL_STACK),
         )
 
-    def _classify(self, site: TriSite) -> TriSite:
-        """Methodology section 6, in the four outcomes the schema knows about.
+    def _classify(self, site: TriSite, state: str) -> TriSite:
+        """Methodology section 6, delegated to `pipeline.geo`.
 
-        Deliberately the same rule the ECHO adapter applies. Both adapters write
-        rows into one `facility` table and the proximity indicators filter that
-        table on `coordinate_status = 'ok'`, so a coordinate judged leniently here
-        would mean something different depending on which adapter happened to
-        write the row.
+        The rule lives there rather than here because ECHO publishes the same
+        kind of self-reported coordinate and both adapters write into one
+        `facility` table that the proximity indicators filter on
+        `coordinate_status = 'ok'`. A coordinate judged leniently here would
+        mean something different depending on which adapter wrote the row.
+
+        TRI publishes no positional accuracy estimate of its own, so
+        `accuracy_m` stays None and the verdict rests on the envelope and the
+        ZIP centroid alone.
         """
-        latitude, longitude = site.latitude, site.longitude
-        if latitude is None or longitude is None:
-            return replace(site, coordinate_status="missing")
-        if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
-            return replace(site, coordinate_status="outside_state")
-
-        south, north, west, east = PILOT_ENVELOPE["LA"]
-        if not (south <= latitude <= north and west <= longitude <= east):
-            return replace(site, coordinate_status="outside_state")
-
-        centroid = self._zip_centroids.get(site.zip5 or "")
-        if centroid is None:
-            return replace(site, coordinate_status="ok", zip_checked=False)
-        if haversine_km(latitude, longitude, centroid[0], centroid[1]) > ZIP_MISMATCH_KM:
-            return replace(site, coordinate_status="zip_mismatch")
-        return site
+        return replace(
+            site,
+            geocode=classify(
+                site.latitude,
+                site.longitude,
+                state=state,
+                zip_centroid=self._zip_centroids.get(site.zip5 or ""),
+            ),
+        )
 
     # ---- validate ------------------------------------------------------
 
@@ -563,11 +562,12 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
         and enforcement knowledge with this adapter's defaults, because the sink
         upserts a whole record on its natural key.
         """
-        cell = (
-            str(h3.latlng_to_cell(site.latitude, site.longitude, HEX_RESOLUTION))
-            if site.latitude is not None and site.longitude is not None
-            else None
-        )
+        # A quarantined coordinate that is still a real place keeps its geometry,
+        # so a reviewer can see where the row was excluded from; one that is not a
+        # place at all stores no point. The reported_* pair keeps what upstream
+        # said either way.
+        latitude = site.latitude if site.geocode.has_point else None
+        longitude = site.longitude if site.geocode.has_point else None
         return Facility(
             facility_id=site.facility_id,
             registry_id=site.registry_id or "",
@@ -579,10 +579,15 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
             zip5=site.zip5,
             county_fips=site.county_fips,
             naics_code=site.naics_code,
-            latitude=site.latitude,
-            longitude=site.longitude,
-            h3=cell,
-            coordinate_status=site.coordinate_status,
+            latitude=latitude,
+            longitude=longitude,
+            reported_latitude=site.latitude,
+            reported_longitude=site.longitude,
+            h3=containing_cell(latitude, longitude),
+            coordinate_status=site.geocode.status,
+            geocode_quality=site.geocode.quality,
+            # TRI publishes no positional accuracy estimate.
+            geocode_accuracy_m=None,
             # TRI says nothing about Clean Air Act permitting. These stay false
             # rather than being guessed from the fact that a site reports.
             is_major_source=False,

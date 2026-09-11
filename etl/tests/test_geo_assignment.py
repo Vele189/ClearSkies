@@ -257,7 +257,7 @@ def test_a_facility_with_no_point_gets_no_cell() -> None:
 
 
 def test_an_out_of_state_facility_still_gets_its_own_cell() -> None:
-    """The reason migration 0011 drops the foreign key from facility.h3 to hex.
+    """The reason migration 0014 drops the foreign key from facility.h3 to hex.
 
     A Beaumont facility sits in a cell. That cell is not in the Louisiana grid,
     and the facility is still a real facility with a real location, so the

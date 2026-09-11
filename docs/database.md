@@ -182,7 +182,7 @@ serve, and a partial unique index allows only one.
 are averaged over `population`. Both formulas in that section become one join.
 Confusing the two is, per the paper, the most common way this step goes wrong.
 
-### Sources (`0004` to `0008`, and `0011`)
+### Sources (`0004` to `0008`, and `0011` to `0013`)
 
 | Table | Grain | Feeds |
 |---|---|---|
@@ -197,7 +197,7 @@ Confusing the two is, per the paper, the most common way this step goes wrong.
 | `monitor_measurement` | Monitor, parameter, day | E4 |
 | `hex_air_quality` | Hex, parameter | E4, and the c_monitor confidence term |
 | `tract_demographics` | Tract, ACS vintage, variable | S1, S2, P1 to P5 |
-| `tract_race_ethnicity` | Tract, ACS vintage, variable | nothing; see `0011` |
+| `tract_race_ethnicity` | Tract, ACS vintage, variable | nothing; see `0013` |
 | `hex_demographics` | Run, hex | The displayed profile |
 
 Four things in here are load-bearing rather than incidental:
@@ -220,7 +220,7 @@ in open water. Flagged facilities stay in the table, because the exclusion
 count is published; proximity indicators filter on `coordinate_status = 'ok'`.
 Deleting them would hide the problem and make the count unrecoverable.
 
-`0011` widens that column from four verdicts to six, because a published count
+`0014` widens that column from four verdicts to six, because a published count
 is only actionable if it says what went wrong. `null_island` is a placeholder
 zero somebody wrote into an empty field, `out_of_range` is not a point on Earth
 at all, and `outside_state` is a real point too far away to be about Louisiana.
@@ -233,7 +233,7 @@ said whatever the verdict, so a quarantine is auditable rather than taken on
 trust. The rules themselves live in `etl/pipeline/geo/assignment.py`, shared by
 every source that publishes a point.
 
-`facility.h3` is not a foreign key, and `0011` is where it stopped being one.
+`facility.h3` is not a foreign key, and `0014` is where it stopped being one.
 It records the resolution 8 cell containing the facility, full stop. Section 5
 counts out-of-state facilities within the interaction radius, so that a hex on
 the Texas line near a Beaumont-area facility is not artificially clean, and
@@ -263,7 +263,7 @@ to the score. Section 14 argues that at length: keeping race out of the
 arithmetic is what makes the disparity finding an independent result rather
 than a built-in one.
 
-### Race and ethnicity before interpolation (`0011`)
+### Race and ethnicity before interpolation (`0013`)
 
 | Table | Grain | Feeds |
 |---|---|---|
@@ -320,7 +320,7 @@ The embedding dimension is fixed by the model. Changing models means a
 migration and a re-embed, which is the intended friction: a corpus holding
 vectors from two models returns quietly worse retrievals rather than failing.
 
-### The neighbour query (`0011`)
+### The neighbour query (`0014`)
 
 Not a table. Four functions and the index that makes them fast, which together
 are the one definition of "this facility is near that hexagon".
@@ -357,7 +357,7 @@ sequential scan of every facility in the state, once per hexagon — so
 results. Those tests need a real database and run in CI's `database` job;
 `make test-spatial` runs them locally.
 
-### Data quality (`0011`)
+### Data quality (`0015`)
 
 | Table | Grain |
 |---|---|
@@ -383,7 +383,7 @@ checks found no data is the exact failure CS-108 exists to close. The gate
 promotes a skip on a source the run was told to produce into a `fail` before
 it gets here.
 
-### Source pulls (`0012`)
+### Source pulls (`0016`)
 
 | Table | Grain |
 |---|---|

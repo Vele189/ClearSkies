@@ -4,7 +4,7 @@
 data, so the map can show it next to a hexagon instead of asking someone to open
 a Markdown file in another tab. CS-406 renders it.
 
-The endpoint reads `source_pull`, the manifest history migration 0012 adds, and
+The endpoint reads `source_pull`, the manifest history migration 0016 adds, and
 returns the most recent pull of each source. Most recent, not most recent
 successful: if last night's ECHO pull failed, that is the fact the page and this
 endpoint both have to publish, because a reader shown a green row from three
@@ -72,7 +72,7 @@ async def get_provenance(
     async with p.acquire() as conn:
         recorded = await conn.fetchval("SELECT to_regclass('public.source_pull') IS NOT NULL")
         if not recorded:
-            # The table arrives with migration 0012 and fills on the first
+            # The table arrives with migration 0016 and fills on the first
             # nightly run. Saying so beats an empty list, which would read as
             # "no source has ever been pulled".
             raise HTTPException(

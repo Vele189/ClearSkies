@@ -10,7 +10,7 @@ night's quality report and the next night overwrote the directory. But the
 question the provenance page answers is "where did this number come from", and a
 reader checking a claim from a month ago needs the manifest from a month ago, not
 tonight's. So every pull appends to a history that outlives the run that wrote
-it, and `rows_for_sql` emits the exact shapes migration 0012's three tables take,
+it, and `rows_for_sql` emits the exact shapes migration 0016's three tables take,
 kept beside the model they mirror so the two cannot drift.
 
 **The page was written by hand.** `docs/provenance.md` had a generated block with
@@ -56,7 +56,7 @@ class ProvenanceStore:
 
     A file rather than a database for the same reason the run ledger is one: the
     nightly job has to be able to record where its data came from on a night the
-    database was the thing that broke. The durable home is migration 0012, and
+    database was the thing that broke. The durable home is migration 0016, and
     `rows_for_sql` is the payload the Postgres sink will insert.
 
     Append-only. The value of the file is that it is longer than the run that
@@ -176,7 +176,7 @@ def write_page(path: Path, pulls: Sequence[PullMetadata]) -> bool:
 
 
 def rows_for_sql(manifest: PullMetadata, *, run_id: str | None = None) -> dict[str, Any]:
-    """One manifest as the three rows migration 0012 stores it in.
+    """One manifest as the three rows migration 0016 stores it in.
 
     Returned together rather than as three functions because they are inserted
     together: the gaps and the artifacts are meaningless without the pull they

@@ -1,4 +1,4 @@
--- 0011: data quality checks, kept per run (CS-108)
+-- 0015: data quality checks, kept per run (CS-108)
 --
 -- The adapter interface already records what a pull did, in source_snapshot and
 -- in the manifest each run produces. What it has never recorded is what anyone

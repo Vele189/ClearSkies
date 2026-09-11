@@ -1,4 +1,4 @@
--- Reverts 0012_source_pulls.
+-- Reverts 0016_source_pulls.
 --
 -- The two child tables go first. Both reference source_pull, and dropping the
 -- parent while a child stands would leave the schema describing pulls that no

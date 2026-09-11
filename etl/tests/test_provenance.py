@@ -187,7 +187,7 @@ def test_writing_reports_whether_the_file_changed(tmp_path: Path) -> None:
 # ---- the shapes the database will take ----------------------------------
 
 
-def test_the_pull_row_matches_migration_0012() -> None:
+def test_the_pull_row_matches_migration_0016() -> None:
     rows = rows_for_sql(pull("epa_echo"), run_id="20260911T070000Z")
     assert set(rows) == {"source_pull", "source_pull_gap", "source_pull_artifact"}
     assert set(rows["source_pull"]) == {
@@ -209,7 +209,7 @@ def test_the_pull_row_matches_migration_0012() -> None:
 
 
 def test_a_failed_pull_reports_no_loaded_rows() -> None:
-    """Migration 0012 constrains this; a row count for absent data is a lie."""
+    """Migration 0016 constrains this; a row count for absent data is a lie."""
     rows = rows_for_sql(pull("epa_echo", status="failed", loaded=0))
     assert rows["source_pull"]["status"] == "failed"
     assert rows["source_pull"]["records_loaded"] == 0

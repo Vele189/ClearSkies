@@ -72,6 +72,7 @@ def _credentials() -> dict[str, str]:
         if (value := os.environ.get(variable, "").strip())
     }
 
+
 DEFAULT_STORE = Path("quality-runs")
 # Kept apart from the quality store because the two have different lifetimes. A
 # quality report is evidence about one night and is uploaded as an artifact; the

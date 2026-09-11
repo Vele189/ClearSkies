@@ -250,7 +250,7 @@ def test_history_is_empty_rather_than_an_error_before_the_first_run(tmp_path: Pa
 
 
 def test_the_sql_payload_matches_the_migration(tmp_path: Path) -> None:
-    """`rows_for_sql` is what the Postgres store will insert into 0011."""
+    """`rows_for_sql` is what the Postgres store will insert into 0015."""
     report = run_gate(
         manifests=[manifest("demo")], data=facilities(50), now=NOW, adapters={"demo": Adapter}
     )

@@ -1,4 +1,4 @@
--- 0011: attaching facilities to hexagons, and the neighbour query that decays them
+-- 0014: attaching facilities to hexagons, and the neighbour query that decays them
 --
 -- Migration 0004 gave a facility a containing cell and a positional verdict.
 -- This one makes both of them do the work methodology sections 5, 6 and 8

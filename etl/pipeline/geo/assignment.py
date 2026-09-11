@@ -39,7 +39,7 @@ The box is a loose outer bound and nothing more: because Louisiana's western
 boundary is the Sabine River rather than a meridian, a point inside the box can
 still be tens of kilometres from the state. Deciding which facilities actually
 reach which hexagons is the neighbour query's job, on real geometry, in
-migration 0011. This only throws out coordinates that cannot be about Louisiana
+migration 0014. This only throws out coordinates that cannot be about Louisiana
 at all, where being outside the state is evidence about the coordinate rather
 than about the facility.
 """
@@ -115,7 +115,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
     Used for the ZIP-centroid check and nothing else. Distances that reach an
     indicator are computed by PostGIS on the spheroid, in the neighbour query of
-    migration 0011, so that one definition of "within 10 km" serves both the
+    migration 0014, so that one definition of "within 10 km" serves both the
     drill-down panel and the scoring step. The two differ by roughly 0.3%, which
     matters at a cutoff and does not matter against a 2 km plausibility test.
     """
@@ -269,7 +269,7 @@ def containing_cell(latitude: float | None, longitude: float | None) -> str | No
     Deliberately not conditional on the cell existing in the `hex` table. A
     facility outside the grid still sits in a cell, and `facility.h3` records
     which one so that a Beaumont-area facility can be told apart from a facility
-    with no location at all. Migration 0011 drops the foreign key that used to
+    with no location at all. Migration 0014 drops the foreign key that used to
     say otherwise; joins from `facility` to `hex` are outer joins for the same
     reason.
     """

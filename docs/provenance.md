@@ -24,7 +24,7 @@ nights ago would tell a reader the data is current when it is not.
 **Every pull is kept, not just the one shown.** The row below answers "where
 does this number come from today". A reader checking a claim made last month
 needs last month's manifest, so each pull is recorded in `source_pull` and its
-two child tables (migration 0012) and the history is queryable per source. The
+two child tables (migration 0016) and the history is queryable per source. The
 same content is served as JSON at `GET /provenance`, which is what the map's
 detail panel reads; `GET /provenance?source=epa_echo` returns that source's
 history newest first.

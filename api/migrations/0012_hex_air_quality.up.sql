@@ -1,4 +1,4 @@
--- 0011: measured air quality as each hex sees it, including the hexes that see none
+-- 0012: measured air quality as each hex sees it, including the hexes that see none
 --
 -- 0007 holds the monitors and their daily means at their native geography. This
 -- is the other half of E4: what a hex can say about measured PM2.5, which for

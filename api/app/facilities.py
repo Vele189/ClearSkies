@@ -1,6 +1,6 @@
 """The contributing facilities behind one hexagon.
 
-This is the read path migration 0011 exists to serve, and it is deliberately
+This is the read path migration 0014 exists to serve, and it is deliberately
 thin: one call to `facilities_near_hex`, which is the same neighbour relation
 the scoring step aggregates into F1 through F4. The panel and the score
 therefore cannot disagree about which facilities are near a hexagon, because

@@ -1,4 +1,4 @@
--- Reverts 0011_hex_air_quality.
+-- Reverts 0012_hex_air_quality.
 
 DROP TABLE IF EXISTS hex_air_quality;
 

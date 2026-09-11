@@ -1,4 +1,4 @@
--- 0012: every pull, kept, not just the latest one (CS-110)
+-- 0016: every pull, kept, not just the latest one (CS-110)
 --
 -- `source_snapshot` records the bytes a run downloaded. `pipeline_run` records
 -- that a night happened. Neither records what one adapter's pull of one source

@@ -494,7 +494,7 @@ Feeds indicator E4 and the `c_monitor` confidence term.
 
 **What landed:** `etl/pipeline/adapters/openaq.py`. Daily PM2.5 for the pilot
 envelope from OpenAQ v3, each location placed on its resolution 8 cell, each
-daily mean stored with the hourly observations behind it. Migration `0011` adds
+daily mean stored with the hourly observations behind it. Migration `0012` adds
 `hex_air_quality`, one row per hex per pollutant: the inverse-distance weighted
 annual mean where a monitor is within 25 km, `Measurement.absent()` where none
 is, and the distance to the nearest reporting monitor either way. Two check
@@ -523,7 +523,7 @@ OpenAQ is the first source that authenticates, so `RunContext` grew
 `credential()` and `pipeline/__main__.py` grew `CREDENTIAL_ENV`, the one place
 in the package that reads the environment. A missing key is a `PermanentSourceError`:
 a failed pull with a legible reason, not a crash that takes the nightly job
-down. Forty tests against a synthetic network, `0011` applied and reverted
+down. Forty tests against a synthetic network, `0012` applied and reverted
 against the project image, ruff and mypy strict clean.
 
 **Not yet verified against the live service.** No OpenAQ key was available, so
@@ -595,7 +595,7 @@ distance-decayed proximity indicators.
 
 **Shipped.** The assignment rules are `etl/pipeline/geo`, shared by every source
 that publishes a point rather than living in the ECHO adapter. The neighbour
-query is migration `0011`: `hex_facility_links` for one hexagon,
+query is migration `0014`: `hex_facility_links` for one hexagon,
 `hex_facility_links_all` for the grid, `facilities_near_hex` for the panel, all
 over one geography index and one decay kernel, so the panel and the score cannot
 disagree about what is near a hexagon. `api/app/facilities.py` is the read path
@@ -647,13 +647,13 @@ failures. What remains is source-specific and cross-source.
   **Done:** `etl/pipeline/quality/cross.py`.
 - Check results persisted per run alongside the manifests, so trends over time
   are visible. **Done:** a directory per run plus an append-only history file,
-  and the `quality_run` and `quality_check_result` tables in migration `0011`.
+  and the `quality_run` and `quality_check_result` tables in migration `0015`.
 - Failure surfaces somewhere visible rather than only in a log. **Done:** the
   Actions step summary, a workflow annotation per failure, a non-zero exit
   status, the persisted tables, and a thirty-day run artifact.
 
 **What landed:** `etl/pipeline/quality/`, `python -m pipeline check` and
-`python -m pipeline history`, migration `0011`, `docs/quality.md`, and 68 tests.
+`python -m pipeline history`, migration `0015`, `docs/quality.md`, and 68 tests.
 The gate runs in CI on every pull request and in the nightly job.
 
 **Four statuses, not two.** `skip` is a first-class result. A check that could
@@ -754,7 +754,7 @@ later.
 - The page exists and explains itself. **Done:** `docs/provenance.md`, with a
   generated block and the column definitions.
 - Manifests persisted so history is queryable, not just the latest run.
-  **Done:** migration 0012 adds `source_pull` with `source_pull_gap` and
+  **Done:** migration 0016 adds `source_pull` with `source_pull_gap` and
   `source_pull_artifact`, and `pipeline/provenance.py` records every pull to an
   append-only history whose `rows_for_sql` emits those exact shapes. The history
   matters because the page's question is "where did this number come from", and
@@ -778,7 +778,7 @@ successful one, since a green row from three nights ago tells a reader the data
 is current when it is not.
 
 **Interim, and named as such.** The history is a file carried between runs by the
-Actions cache, on the same terms as the CS-109 ledger. It moves into the 0012
+Actions cache, on the same terms as the CS-109 ledger. It moves into the 0016
 tables with the Postgres sink.
 
 ---

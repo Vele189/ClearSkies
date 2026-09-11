@@ -1,11 +1,11 @@
--- Reverts 0011_facility_hex_assignment.
+-- Reverts 0014_facility_hex_assignment.
 --
 -- Down migrations exist so a review branch can be unwound locally. Production
 -- rolls forward: to undo a shipped migration, write the next one.
 --
 -- One thing to know before running this against a database that holds data.
 -- Restoring the foreign key from facility.h3 to hex.h3 will fail if any facility
--- sits outside the pilot-state grid, which is exactly the case 0011 exists to
+-- sits outside the pilot-state grid, which is exactly the case 0014 exists to
 -- allow. That is not a defect in this file: the old key and out-of-state
 -- contributors cannot both be true, and unwinding means going back to the schema
 -- that forbade them. Reload the facilities afterwards.

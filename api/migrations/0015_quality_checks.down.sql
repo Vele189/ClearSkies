@@ -1,4 +1,4 @@
--- Reverts 0011_quality_checks.
+-- Reverts 0015_quality_checks.
 --
 -- quality_check_result goes first: it references quality_run, and dropping the
 -- parent while the child stands would leave the ledger describing a schema that

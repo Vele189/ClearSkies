@@ -129,7 +129,7 @@ Not only in a log:
 - **Annotations.** Each failure raises a `::error` and each warning a
   `::warning`, which attach to the run rather than sitting in scrollback.
 - **The exit status.** Non-zero fails the job, which is what GitHub notifies on.
-- **The database.** `quality_run` and `quality_check_result` (migration `0011`)
+- **The database.** `quality_run` and `quality_check_result` (migration `0015`)
   hold every check of every run, so the history is queryable rather than
   scrolled.
 - **The artifact.** The nightly job keeps `etl/quality-runs/` for thirty days.
