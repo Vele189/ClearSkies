@@ -33,8 +33,10 @@ signal to read before treating them as a grid defect.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import AbstractAsyncContextManager
 from typing import Any, Protocol, runtime_checkable
 
+from pipeline.dasymetric.quantities import Kind, TractEstimate
 from pipeline.dasymetric.weights import (
     BlockOverlap,
     Crosswalk,
@@ -60,6 +62,12 @@ class Connection(Protocol):
     async def execute(self, query: str, *args: Any) -> Any: ...
 
     async def executemany(self, query: str, args: Iterable[Sequence[Any]]) -> Any: ...
+
+    # `store_crosswalk` deletes a county's weights before inserting its new
+    # ones, and a reader between those two statements would see the county as
+    # empty rather than as mid-rebuild. Wrapping the pair is not optional, so
+    # the protocol asks for it rather than trusting the caller to remember.
+    def transaction(self) -> AbstractAsyncContextManager[Any]: ...
 
 
 COUNTIES_IN_STATE = """
@@ -124,6 +132,18 @@ FROM tract_hex_weight
 ORDER BY tract_geoid, h3
 """
 
+#: One published ACS variable across every tract, with the kind it was stored
+#: under. `is_extensive` is read rather than inferred here for the reason
+#: migration 0008 gives: section 7 calls confusing extensive and intensive
+#: quantities the most common error in this step, so the decision is made once
+#: at ingest and carried, never re-guessed from a variable name.
+LOAD_TRACT_ESTIMATES = """
+SELECT tract_geoid, variable, estimate, margin_of_error, is_extensive
+FROM tract_demographics
+WHERE variable = $1 AND acs_vintage = $2
+ORDER BY tract_geoid
+"""
+
 
 async def counties(conn: Connection, *, state_fips: str) -> tuple[str, ...]:
     """Five-digit county FIPS codes with tracts in the pilot state."""
@@ -142,6 +162,30 @@ async def load_block_overlaps(conn: Connection, *, county_fips: str) -> list[Blo
             block_population=int(row["block_population"]),
             block_area_m2=float(row["block_area_m2"]),
             overlap_area_m2=float(row["overlap_area_m2"]),
+        )
+        for row in rows
+    ]
+
+
+async def load_tract_estimates(
+    conn: Connection, *, variable: str, acs_vintage: str
+) -> list[TractEstimate]:
+    """One ACS variable across every tract, ready to interpolate.
+
+    A NULL estimate stays None rather than becoming zero. Section 11 keeps
+    absences and zeros apart, and a tract the ACS had nothing for is the first
+    place that distinction gets quietly lost.
+    """
+    rows = await conn.fetch(LOAD_TRACT_ESTIMATES, variable, acs_vintage)
+    return [
+        TractEstimate(
+            tract_geoid=str(row["tract_geoid"]),
+            variable=str(row["variable"]),
+            estimate=None if row["estimate"] is None else float(row["estimate"]),
+            margin_of_error=(
+                None if row["margin_of_error"] is None else float(row["margin_of_error"])
+            ),
+            kind=Kind.EXTENSIVE if row["is_extensive"] else Kind.INTENSIVE,
         )
         for row in rows
     ]

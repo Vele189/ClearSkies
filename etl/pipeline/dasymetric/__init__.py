@@ -7,7 +7,15 @@ rural tract the same per-area population as its town, so the tract values are
 distributed through an ancillary layer of 2020 Decennial Census block
 population counts (PL 94-171) instead.
 
-The order of work:
+The order of work, for one state:
+
+    crosswalk, check = await build.build_and_verify(
+        conn, state_fips="22", acs_vintage="2019-2023"
+    )
+
+which is `build.build_state_crosswalk` county by county, then the statewide
+population check this ticket is accepted on. The steps it composes are usable
+on their own, and the unit tests drive them directly:
 
     overlaps  = await postgis.load_block_overlaps(conn, county_fips=...)
     crosswalk = weights.build_crosswalk(overlaps)          # section 7 steps 1-2
@@ -43,6 +51,16 @@ carries the size of the blocks a hex was built from, which is what turns that
 paragraph into the `c_spatial` term of section 12.
 """
 
+from pipeline.dasymetric.build import (
+    TOTAL_POPULATION,
+    CountyCrosswalk,
+    PopulationCheck,
+    StateCrosswalk,
+    build_and_verify,
+    build_county_crosswalk,
+    build_state_crosswalk,
+    verify_statewide_population,
+)
 from pipeline.dasymetric.interpolate import (
     derive_rate,
     interpolate,
@@ -85,18 +103,25 @@ __all__ = [
     "ACS_MOE_Z",
     "DEFAULT_RELATIVE_TOLERANCE",
     "HIGH_UNCERTAINTY_CV",
+    "TOTAL_POPULATION",
     "BlockOverlap",
+    "CountyCrosswalk",
     "Crosswalk",
     "CrosswalkReport",
     "HexValue",
     "Kind",
     "KindMismatch",
+    "PopulationCheck",
     "Reconciliation",
     "ReconciliationFailed",
+    "StateCrosswalk",
     "TractEstimate",
     "TractHexWeight",
     "UncoveredBlock",
+    "build_and_verify",
+    "build_county_crosswalk",
     "build_crosswalk",
+    "build_state_crosswalk",
     "coefficient_of_variation",
     "combine_in_quadrature",
     "crosswalk_from_weights",
@@ -111,4 +136,5 @@ __all__ = [
     "require",
     "standard_error",
     "tract_populations",
+    "verify_statewide_population",
 ]
