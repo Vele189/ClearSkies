@@ -220,6 +220,26 @@ in open water. Flagged facilities stay in the table, because the exclusion
 count is published; proximity indicators filter on `coordinate_status = 'ok'`.
 Deleting them would hide the problem and make the count unrecoverable.
 
+`0011` widens that column from four verdicts to six, because a published count
+is only actionable if it says what went wrong. `null_island` is a placeholder
+zero somebody wrote into an empty field, `out_of_range` is not a point on Earth
+at all, and `outside_state` is a real point too far away to be about Louisiana.
+Alongside it, `geocode_quality` answers the different question section 12's
+`c_spatial` term asks — how well established the coordinate is — on a ladder
+from `verified` through `unverified` to `absent`, where `unverified` records
+that the ZIP-centroid check could not run, which is not the same fact as
+passing it. `reported_latitude` and `reported_longitude` keep what upstream
+said whatever the verdict, so a quarantine is auditable rather than taken on
+trust. The rules themselves live in `etl/pipeline/geo/assignment.py`, shared by
+every source that publishes a point.
+
+`facility.h3` is not a foreign key, and `0011` is where it stopped being one.
+It records the resolution 8 cell containing the facility, full stop. Section 5
+counts out-of-state facilities within the interaction radius, so that a hex on
+the Texas line near a Beaumont-area facility is not artificially clean, and
+such a facility sits in a cell the Louisiana grid does not contain. Join from
+`facility` to `hex` with an outer join.
+
 `hex_air_quality` exists so that "nobody has measured here" is a stored fact
 rather than a missing row. Section 8.1 gives a hex beyond 25 km of a monitor no
 E4 value, never zero and never the state median, and the row carries the
@@ -299,6 +319,43 @@ not reasoned from.
 The embedding dimension is fixed by the model. Changing models means a
 migration and a re-embed, which is the intended friction: a corpus holding
 vectors from two models returns quietly worse retrievals rather than failing.
+
+### The neighbour query (`0011`)
+
+Not a table. Four functions and the index that makes them fast, which together
+are the one definition of "this facility is near that hexagon".
+
+| Function | Answers |
+|---|---|
+| `facility_decay_weight(distance_m)` | The inverse-square kernel of section 8.1, floored at 250 m |
+| `hex_facility_links(cell, radius_m)` | Facilities within the radius of one hexagon, decayed |
+| `hex_facility_links_all(radius_m)` | The same relation over the whole grid |
+| `facilities_near_hex(cell, radius_m, since)` | What `GET /hex/{h3}` renders, nearest first |
+
+E3 and F1 through F4 are each one aggregate over `hex_facility_links_all`, and
+the drill-down panel is `facilities_near_hex`. They are the same relation on
+purpose: a panel that listed facilities the score did not count, or the reverse,
+would be the kind of discrepancy nobody notices until somebody is asked to
+defend a number in public.
+
+Two things the SQL says that are easy to miss. Nothing filters on state, which
+is what makes section 5's out-of-state contributors work. And the 250 m floor is
+not a rounding detail: without it a facility sitting at a hexagon's centroid
+contributes infinity.
+
+The radius is a parameter rather than a constant in the function body, with the
+section 8.1 default, because Python owns that number the way it owns the H3
+resolution. `api/app/facilities.py` passes it explicitly.
+
+`facility_geography_idx` is a GiST index on `(geom::geography)`, partial on
+`coordinate_status = 'ok'`. The cast is load-bearing: a 10 km radius is a
+distance on the ground, `ST_DWithin` over geography is the only way to ask for
+one, and an expression index whose cast does not match the query is silently
+unused. That failure is the quiet kind — the right rows still come back, over a
+sequential scan of every facility in the state, once per hexagon — so
+`api/tests/test_facility_hex_sql.py` asserts the query plan and not only the
+results. Those tests need a real database and run in CI's `database` job;
+`make test-spatial` runs them locally.
 
 ---
 

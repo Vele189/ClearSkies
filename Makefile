@@ -113,6 +113,15 @@ test: $(VENV) ## Run the API and frontend test suites
 	cd $(API) && .venv/bin/python -m pytest -q
 	cd $(WEB) && npm run test
 
+# The rest of the API suite runs without a database on purpose. These cannot:
+# what they check is what PostGIS does with a geography index and a spheroid
+# distance. They seed inside a transaction and roll it back, so running them
+# against your development database leaves it as it was.
+.PHONY: test-spatial
+test-spatial: $(VENV) ## Run the neighbour-query tests against the local database
+	cd $(API) && CLEARSKIES_TEST_DATABASE_URL="$${DATABASE_URL:-postgresql://clearskies:clearskies@localhost:$${POSTGRES_PORT:-5432}/clearskies}" \
+	  .venv/bin/python -m pytest tests/test_facility_hex_sql.py -q
+
 .PHONY: lint
 lint: $(VENV) ## Lint and typecheck the API and frontend
 	cd $(API) && .venv/bin/ruff check . && .venv/bin/ruff format --check .

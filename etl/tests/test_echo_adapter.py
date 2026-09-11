@@ -23,7 +23,6 @@ from pipeline.adapters.echo import (
     EnforcementAction,
     EpaEchoAdapter,
     Facility,
-    haversine_km,
     quarter_start,
     twelve_quarters_ending,
 )
@@ -118,6 +117,20 @@ def quarters(sink: InMemorySink, registry_id: str) -> list[ComplianceQuarter]:
 
 def gaps_text(result: PullMetadata) -> str:
     return " ".join(gap.detail for gap in result.known_gaps)
+
+
+def with_zeroed_coordinates(registry_id: str = "110000000005") -> str:
+    """The shipped page with one site's coordinates replaced by a placeholder zero.
+
+    Built from the fixture rather than added to it so the recorded Louisiana
+    extract stays exactly what was recorded, and so the counts every other test
+    asserts do not move.
+    """
+    page = json.loads((FIXTURES / "get_qid_page1.json").read_text())
+    for row in page["Results"]["Facilities"]:
+        if row.get("RegistryID") == registry_id:
+            row["FacLat"], row["FacLong"] = "0", "0"
+    return json.dumps(page)
 
 
 @pytest.fixture
@@ -240,12 +253,7 @@ async def test_an_unmonitored_quarter_is_unknown_and_not_compliant(
 # ---- positional accuracy, methodology section 6 ------------------------
 
 
-def test_haversine_matches_a_known_separation() -> None:
-    # Baton Rouge to Lake Charles, about 196 km.
-    assert haversine_km(30.4515, -91.1871, 30.2266, -93.2174) == pytest.approx(196, abs=3)
-
-
-async def test_coordinates_are_judged_by_the_four_outcomes_the_schema_knows(
+async def test_coordinates_are_judged_by_the_outcomes_the_schema_knows(
     loaded: tuple[PullMetadata, InMemorySink],
 ) -> None:
     _, sink = loaded
@@ -304,6 +312,69 @@ async def test_the_exclusion_count_reaches_the_manifest(
     assert "excluded from proximity indicators" in text
     assert "zip_mismatch" in text and "outside_state" in text and "missing" in text
     assert "could not be ZIP-checked" in text
+
+
+async def test_a_zeroed_coordinate_is_quarantined_and_counted(sink: InMemorySink) -> None:
+    """A placeholder zero is a quarantine, not a facility in the Gulf of Guinea.
+
+    It reaches the manifest by the same path every other positional verdict
+    does, so the count is published rather than discovered later by somebody
+    wondering why a hexagon off the coast of Africa had a refinery in it.
+    """
+    result = await run(sink, transport=echo_transport(qid=with_zeroed_coordinates()))
+    zeroed = facilities(sink)["110000000005"]
+
+    assert zeroed.coordinate_status == "null_island"
+    assert zeroed.geocode_quality == "absent"
+    assert "null_island" in gaps_text(result)
+    assert "excluded from proximity indicators" in gaps_text(result)
+
+
+async def test_a_quarantined_row_keeps_what_upstream_actually_reported(
+    sink: InMemorySink,
+) -> None:
+    """The verdict has to be auditable, so the rejected coordinate is kept beside it.
+
+    The storable point goes, because writing (0, 0) into the geometry column
+    would put a Louisiana facility in the Gulf of Guinea and every spatial query
+    would then have to remember to distrust it.
+    """
+    await run(sink, transport=echo_transport(qid=with_zeroed_coordinates()))
+    zeroed = facilities(sink)["110000000005"]
+
+    assert zeroed.latitude is None and zeroed.longitude is None
+    assert zeroed.h3 is None
+    assert zeroed.reported_latitude == 0.0 and zeroed.reported_longitude == 0.0
+
+
+async def test_epas_own_accuracy_estimate_is_stored_rather_than_discarded(
+    loaded: tuple[PullMetadata, InMemorySink],
+) -> None:
+    """CalculatedAccuracyMeters is requested by column id; it may as well be kept.
+
+    It is the only independent evidence about a coordinate this pipeline gets,
+    and section 12's spatial confidence term is the eventual consumer.
+    """
+    _, sink = loaded
+    found = facilities(sink)
+
+    assert found["110013921435"].geocode_accuracy_m == 50.0
+    assert found["110001248702"].geocode_accuracy_m == 10_000.0
+
+
+async def test_the_quality_flag_separates_checked_from_merely_uncheckable(
+    loaded: tuple[PullMetadata, InMemorySink],
+) -> None:
+    """Three different states a usable coordinate can be in, kept apart on the row."""
+    _, sink = loaded
+    found = facilities(sink)
+
+    # Sits on its ZIP centroid, but EPA's own accuracy estimate is 10 km.
+    assert found["110001248702"].geocode_quality == "plausible"
+    # ZIP 09999 is not in the pinned gazetteer, so the check could not run.
+    assert found["110000000004"].geocode_quality == "unverified"
+    # Failed the check outright.
+    assert found["110000449337"].geocode_quality == "suspect"
 
 
 # ---- rejections --------------------------------------------------------

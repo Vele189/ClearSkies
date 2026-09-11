@@ -61,6 +61,10 @@ export interface Facility {
   distance_km: number;
   program: string;
   echo_url: string;
+  // True when the hexagon is the one containing the facility rather than merely
+  // within the 10 km interaction radius. Optional to match the API model, where
+  // it carries a default.
+  in_hex?: boolean;
   quarters_in_noncompliance: number | null;
   formal_actions_5yr: number | null;
 }

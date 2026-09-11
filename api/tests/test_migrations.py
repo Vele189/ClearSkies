@@ -25,6 +25,14 @@ SHIPPED = discover()
 CREATE_TABLE = re.compile(r"^CREATE TABLE (?:IF NOT EXISTS )?(\w+)", re.MULTILINE)
 DROP_TABLE = re.compile(r"^DROP TABLE (?:IF EXISTS )?(\w+)", re.MULTILINE)
 
+CREATE_TYPE = re.compile(r"^CREATE TYPE (\w+)", re.MULTILINE)
+DROP_TYPE = re.compile(r"^DROP TYPE (?:IF EXISTS )?(\w+)", re.MULTILINE)
+
+# Only the name, not the argument list: a down migration has to drop the
+# function it created, and matching signatures here would mean parsing them.
+CREATE_FUNCTION = re.compile(r"^CREATE (?:OR REPLACE )?FUNCTION (\w+)", re.MULTILINE)
+DROP_FUNCTION = re.compile(r"^DROP FUNCTION (?:IF EXISTS )?(\w+)", re.MULTILINE)
+
 
 def ddl_only(sql: str) -> str:
     """The statements with comments and string literals emptied out.
@@ -85,6 +93,25 @@ def test_every_created_table_is_dropped_by_its_down_migration() -> None:
         created = set(CREATE_TABLE.findall(ddl_only(migration.sql)))
         dropped = set(DROP_TABLE.findall(ddl_only(migration.down_path.read_text())))
         assert created <= dropped, f"{migration.name} does not drop {sorted(created - dropped)}"
+
+
+def test_every_created_type_and_function_is_dropped_by_its_down_migration() -> None:
+    """Same rule as tables, and the failure is worse.
+
+    A leftover table makes the next `up` fail loudly. A leftover composite type
+    or function is silently the old definition, so the set reapplies cleanly and
+    the database is running code the migration files no longer describe.
+    """
+    for migration in SHIPPED:
+        assert migration.down_path is not None
+        up, down = ddl_only(migration.sql), ddl_only(migration.down_path.read_text())
+        for what, creates, drops in (
+            ("type", CREATE_TYPE, DROP_TYPE),
+            ("function", CREATE_FUNCTION, DROP_FUNCTION),
+        ):
+            created, dropped = set(creates.findall(up)), set(drops.findall(down))
+            missing = sorted(created - dropped)
+            assert not missing, f"{migration.name} does not drop {what} {missing}"
 
 
 def test_scores_migration_creates_the_table_health_reports_on() -> None:
