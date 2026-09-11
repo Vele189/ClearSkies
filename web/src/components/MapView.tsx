@@ -9,41 +9,38 @@ import type { MapLayerMouseEvent } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { Place } from "../lib/geocode.ts";
 import {
-  FULL_OPACITY,
-  TRUSTED,
-  UNCERTAIN,
-  UNSCORED,
-  UNSCORED_COLOR,
-  UNTRUSTED,
-  fillColor,
+  FILL_COLOR,
+  HATCH_IMAGE_ID,
+  hatchFilter,
   hatchImage,
+  visibilityFilter,
 } from "../lib/ramp.ts";
 import Legend from "./Legend.tsx";
 import SearchBox from "./SearchBox.tsx";
 
 const DEFAULT_BASEMAP = "https://tiles.openfreemap.org/styles/positron";
 
-// Louisiana, roughly. The archive's own bounds take over once a real one is
-// configured; this is what the map opens on before any tile has loaded.
+// Louisiana, roughly. Phase 2 fits these to the scored extent instead.
 const CENTER: [number, number] = [-91.5, 30.6];
 const ZOOM = 6.6;
 
 const SOURCE_ID = "clearskies-hexes";
-const HATCH_ID = "clearskies-hatch";
+const FILL_LAYER_ID = "clearskies-hex-fill";
+const HATCH_LAYER_ID = "clearskies-hex-hatch";
+const OUTLINE_LAYER_ID = "clearskies-hex-outline";
 
-// Four fill layers rather than one, because section 12 gives the four
-// confidence bands four different treatments and an expression cannot switch a
-// fill-pattern on and off. Ordered bottom to top: the unscored ground, then the
-// scores, then the hatch over the ones not to be read too confidently.
-const LAYERS = {
-  unscored: "clearskies-hex-unscored",
-  untrusted: "clearskies-hex-untrusted",
-  fill: "clearskies-hex-fill",
-  hatch: "clearskies-hex-hatch",
-} as const;
-
-const CLICKABLE = [LAYERS.fill, LAYERS.untrusted, LAYERS.unscored];
+/** MapLibre merges an error's context object into the event, so a tile failure
+ *  arrives carrying the source it came from. The published type does not
+ *  describe that merge, hence the narrowing rather than a property access. */
+function sourceOf(event: unknown): string | null {
+  if (event && typeof event === "object" && "sourceId" in event) {
+    const sourceId: unknown = event.sourceId;
+    if (typeof sourceId === "string") return sourceId;
+  }
+  return null;
+}
 
 interface Props {
   onSelect: (h3: string) => void;
@@ -52,10 +49,15 @@ interface Props {
 export default function MapView({ onSelect }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const [showUntrusted, setShowUntrusted] = useState(false);
-  const [tilesFailed, setTilesFailed] = useState(false);
 
-  const tilesUrl = import.meta.env.VITE_TILES_URL;
+  const [ready, setReady] = useState(false);
+  /** The basemap style itself failed. Nothing will render, so this one takes
+   *  over the viewport rather than sitting in a corner of a blank screen. */
+  const [fatal, setFatal] = useState<string | null>(null);
+  /** The hex tiles failed but the basemap is up. The reader still has a usable
+   *  map, so this is a notice and not a takeover. */
+  const [tileError, setTileError] = useState(false);
+  const [showInsufficient, setShowInsufficient] = useState(false);
 
   // Held in a ref so the map effect below can stay keyed to [] and not tear
   // down and rebuild the map every time the parent re-renders a new callback.
@@ -63,10 +65,6 @@ export default function MapView({ onSelect }: Props) {
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
-
-  const goTo = useCallback((lon: number, lat: number, zoom?: number) => {
-    mapRef.current?.flyTo({ center: [lon, lat], zoom: zoom ?? 12, duration: 900 });
-  }, []);
 
   useEffect(() => {
     if (!container.current) return;
@@ -85,102 +83,79 @@ export default function MapView({ onSelect }: Props) {
 
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
-    // Touch devices get pinch-zoom and drag-pan by default; the double-tap
-    // handler is the one that fights with a two-finger zoom on a phone.
-    map.touchZoomRotate.disableRotation();
 
-    // An archive that 404s, a bucket without CORS, or a host that ignores Range
-    // all surface here. Without this the map sits on the basemap looking
-    // finished, which is the worst of the three possible outcomes.
+    const tilesUrl = import.meta.env.VITE_TILES_URL;
+
+    // A style that never loads leaves a grey rectangle with no explanation,
+    // which is the blank screen this ticket exists to rule out. MapLibre
+    // reports both style and tile failures through the same event, so they are
+    // separated by the source the failure is attributed to.
     map.on("error", (event) => {
-      // The event carries sourceId only when a source is what failed, and the
-      // published type does not say so; narrow rather than cast.
-      const detail: unknown = event;
-      if (
-        detail &&
-        typeof detail === "object" &&
-        "sourceId" in detail &&
-        detail.sourceId === SOURCE_ID
-      ) {
-        setTilesFailed(true);
+      if (sourceOf(event) === SOURCE_ID) {
+        setTileError(true);
+        return;
       }
+      // Recorded, not yet shown. A sprite or glyph 404 raises this too and is
+      // survivable, so the overlay is gated on `load` never arriving.
+      setFatal("The basemap could not be loaded.");
     });
 
     map.on("load", () => {
-      if (!tilesUrl) return; // No archive configured; the banner explains it.
+      setReady(true);
+      setFatal(null);
+
+      if (!tilesUrl) return; // No archive to point at until CS-207.
 
       const hatch = hatchImage();
-      if (!map.hasImage(HATCH_ID)) {
-        map.addImage(HATCH_ID, hatch);
-      }
+      if (!map.hasImage(HATCH_IMAGE_ID)) map.addImage(HATCH_IMAGE_ID, hatch);
 
       map.addSource(SOURCE_ID, { type: "vector", url: `pmtiles://${tilesUrl}` });
 
-      // Hexes with no score at all. Off the colour ramp on purpose: running a
-      // missing percentile through the ramp as zero would paint a cell nobody
-      // measured as the cleanest in the state, which is the zero-for-missing
-      // failure methodology section 11 rules out, arriving by the back door.
       map.addLayer({
-        id: LAYERS.unscored,
+        id: FILL_LAYER_ID,
         type: "fill",
         source: SOURCE_ID,
         "source-layer": "hexes",
-        filter: UNSCORED,
-        paint: { "fill-color": UNSCORED_COLOR, "fill-opacity": 0.4 },
+        filter: visibilityFilter(false),
+        paint: { "fill-color": FILL_COLOR, "fill-opacity": 0.75 },
       });
 
-      // Section 12: below 0.40 a hex is hidden behind a toggle rather than
-      // shown. It is still in the archive, and the legend says how to see it.
+      // Drawn over the fill rather than in place of it, so a low-confidence hex
+      // keeps the colour that says how burdened it is and gains the texture
+      // that says how sure we are. Section 12 asks for hatching specifically:
+      // fading the fill instead would read as a lower score.
       map.addLayer({
-        id: LAYERS.untrusted,
+        id: HATCH_LAYER_ID,
         type: "fill",
         source: SOURCE_ID,
         "source-layer": "hexes",
-        filter: UNTRUSTED,
-        layout: { visibility: "none" },
-        paint: { "fill-color": fillColor, "fill-opacity": 0.45 },
+        filter: hatchFilter(false),
+        paint: { "fill-pattern": HATCH_IMAGE_ID, "fill-opacity": 0.9 },
       });
 
       map.addLayer({
-        id: LAYERS.fill,
-        type: "fill",
+        id: OUTLINE_LAYER_ID,
+        type: "line",
         source: SOURCE_ID,
         "source-layer": "hexes",
-        filter: ["any", TRUSTED, UNCERTAIN],
-        paint: {
-          "fill-color": fillColor,
-          "fill-opacity": FULL_OPACITY,
-          "fill-outline-color": "rgba(0,0,0,0.08)",
-        },
+        filter: visibilityFilter(false),
+        paint: { "line-color": "rgba(0,0,0,0.10)", "line-width": 0.5 },
       });
 
-      // Drawn over the low-confidence hexes only, so they keep their colour and
-      // still read as uncertain at a glance.
-      map.addLayer({
-        id: LAYERS.hatch,
-        type: "fill",
-        source: SOURCE_ID,
-        "source-layer": "hexes",
-        filter: UNCERTAIN,
-        paint: { "fill-pattern": HATCH_ID },
+      map.on("click", FILL_LAYER_ID, (event: MapLayerMouseEvent) => {
+        // Tile feature properties are untyped by definition; narrow before use.
+        const properties: unknown = event.features?.[0]?.properties;
+        if (properties && typeof properties === "object" && "h3" in properties) {
+          const h3: unknown = properties.h3;
+          if (typeof h3 === "string") onSelectRef.current(h3);
+        }
       });
-
-      for (const layer of CLICKABLE) {
-        map.on("click", layer, (event: MapLayerMouseEvent) => {
-          // Tile feature properties are untyped by definition; narrow before use.
-          const properties: unknown = event.features?.[0]?.properties;
-          if (properties && typeof properties === "object" && "h3" in properties) {
-            const h3: unknown = properties.h3;
-            if (typeof h3 === "string") onSelectRef.current(h3);
-          }
-        });
-        map.on("mouseenter", layer, () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", layer, () => {
-          map.getCanvas().style.cursor = "";
-        });
-      }
+      map.on("mouseenter", FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = "";
+      });
     });
 
     return () => {
@@ -188,37 +163,78 @@ export default function MapView({ onSelect }: Props) {
       map.remove();
       removeProtocol("pmtiles");
     };
-  }, [tilesUrl]);
+  }, []);
 
+  // The toggle drives the filters rather than a layer rebuild, so flipping it
+  // is a repaint and not a re-fetch of every tile in view.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer(LAYERS.untrusted)) return;
-    map.setLayoutProperty(
-      LAYERS.untrusted,
-      "visibility",
-      showUntrusted ? "visible" : "none",
-    );
-  }, [showUntrusted]);
+    if (!map?.getLayer(FILL_LAYER_ID)) return;
+    map.setFilter(FILL_LAYER_ID, visibilityFilter(showInsufficient));
+    map.setFilter(OUTLINE_LAYER_ID, visibilityFilter(showInsufficient));
+    map.setFilter(HATCH_LAYER_ID, hatchFilter(showInsufficient));
+  }, [showInsufficient, ready]);
+
+  // Only a failure that stopped the map from ever loading is worth taking the
+  // viewport for. Everything else leaves the reader a map they can still use.
+  const blocked = ready ? null : fatal;
+
+  const handlePick = useCallback((place: Place) => {
+    mapRef.current?.flyTo({ center: place.center, zoom: 11, essential: true });
+  }, []);
 
   return (
     <div className="relative h-full w-full">
       <div ref={container} className="h-full w-full" aria-label="Burden score map" />
 
-      <SearchBox onGoTo={goTo} onSelect={onSelect} />
+      {!blocked && (
+        <>
+          <SearchBox onPick={handlePick} />
+          <Legend
+            showInsufficient={showInsufficient}
+            onShowInsufficientChange={setShowInsufficient}
+          />
+        </>
+      )}
 
-      {tilesUrl && <Legend showUntrusted={showUntrusted} onToggleUntrusted={setShowUntrusted} />}
+      {!ready && !blocked && (
+        <div
+          role="status"
+          className="absolute inset-0 z-20 flex items-center justify-center bg-slate-50 text-sm text-slate-500"
+        >
+          Loading map…
+        </div>
+      )}
 
-      {tilesFailed && (
+      {blocked && (
         <div
           role="alert"
-          className="pointer-events-auto absolute inset-x-3 top-20 z-20 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-lg sm:inset-x-auto sm:right-3 sm:w-80"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center"
         >
-          <p className="font-semibold">The score layer did not load.</p>
-          <p className="mt-0.5 text-xs">
-            The basemap below is fine, so nothing here is scored. Usually the tile
-            archive is unreachable, or its bucket is not sending CORS headers for
-            this origin.
+          <p className="text-sm text-slate-700">{blocked}</p>
+          <p className="max-w-sm text-xs text-slate-500">
+            Scores are still available through the API. Reloading is worth trying; if it keeps
+            failing the basemap host is likely down.
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.reload();
+            }}
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+          >
+            Reload
+          </button>
+        </div>
+      )}
+
+      {tileError && !blocked && (
+        <div
+          role="alert"
+          className="pointer-events-auto absolute top-2 right-14 z-10 max-w-xs rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm sm:top-3"
+        >
+          Hex scores could not be loaded, so the map is showing the basemap only. This is a
+          loading failure, not an absence of burden.
         </div>
       )}
     </div>

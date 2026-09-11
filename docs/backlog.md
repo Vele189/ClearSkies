@@ -106,8 +106,8 @@ These stay assigned to one owner, but need a specific handoff:
 | CS-108 Data quality checks | Lead | Lead sets the thresholds on top of the interface's generic ones; Terrence adds per-source checks in the same PR as each adapter he owns. |
 | CS-111 Anchor verification | Lead | Terrence checks each anchor against its cited documentation; Lead decides whether a correction is a methodology revision under section 17. |
 | CS-203 Population characteristics | Terrence | Weights come from the methodology paper, not from judgment at the keyboard. Lead reviews before it feeds CS-204. |
-| CS-210 Map shell | Terrence | Colour ramp, legend and the confidence-band treatment need Lead sign-off — how uncertainty is drawn is a communication decision, not a styling one. |
-| CS-211 Detail panel | Terrence | Lead writes the "what this means and doesn't mean" copy. Terrence builds everything around it. |
+| CS-210 Map shell | Terrence | Colour ramp, legend and the confidence-band treatment need Lead sign-off — how uncertainty is drawn is a communication decision, not a styling one. Terrence has built and documented all three in `docs/frontend.md`; what is outstanding is the Lead's decision on them. |
+| CS-211 Detail panel | Terrence | Lead writes the "what this means and doesn't mean" copy. Terrence builds everything around it, and has added the two pieces methodology names outright: the multiplicative surprise from section 10 and the zero-inflation limitation from section 9. Both are still the Lead's to review. |
 | CS-306 Generation endpoint | Terrence | Lead sets the hard spend cap on the API key directly with the provider; Terrence owns caching and usage logging. |
 | CS-307 Draft viewer | Terrence | Lead reviews all disclaimer copy and confirms there's no send or publish path, as part of CS-407. |
 | CS-308 50-draft audit | Lead | Terrence generates the drafts and does the first pass on record ID verification. Lead does the language review for intent claims and legal advice, and signs off the gate. |
@@ -1458,60 +1458,53 @@ React and MapLibre GL frontend rendering the scored hexes.
 - PMTiles wired up. **Done:** the protocol is registered and torn down with the
   map, and the vector source is added from `VITE_TILES_URL` when one is set.
   CS-207 now produces an archive in the shape it expects.
-- A documented, colourblind-safe choropleth ramp and a visible legend. **Built;
-  the sign-off is what is outstanding.** The ramp is ColorBrewer YlOrRd,
-  sequential and published as colourblind-safe, chosen because it is monotonic
-  in lightness. That is the property doing the work twice over: the ordering
-  survives deuteranopia and protanopia because lightness rather than hue carries
-  it, and it survives greyscale printing, which a tool whose output gets
-  attached to a public comment should not ignore. A test asserts the
-  monotonicity rather than trusting the hex codes. There is an extra stop at the
-  90th so the top decile the validation protocol gates on is the band the eye
-  can find, and the legend sits on the map with the Louisiana-percentile caveat,
-  the three confidence treatments and the toggle. `web/src/lib/ramp.ts` is the
-  one declaration both the map and the legend read, because a legend that has
-  drifted from the map it labels is worse than no legend.
-- Confidence is drawn, not just reported. Section 12 specifies the treatment:
-  full opacity for high and moderate, hatched fill for low, and the insufficient
-  band hidden by default behind a toggle. **Done:** four fill layers rather than
-  one, because an expression cannot switch a fill pattern on and off. The hatch
-  is generated as a bitmap at runtime so it cannot go missing from a build and
-  the map needs no sprite sheet for a single texture. A hex whose confidence was
-  never computed draws plainly rather than vanishing: a run from before CS-205
-  has scores and no confidence, and treating absent as zero would blank the map.
+- A documented, colourblind-safe choropleth ramp and a visible legend.
+  **Built, awaiting sign-off.** ColorBrewer YlOrRd 6-class, stepped, with the
+  top decile broken out as its own class because section 13.2 pre-registers a
+  top-decile criterion. The safety argument is monotone lightness across the
+  ramp, so it degrades to a readable greyscale under any colour vision
+  deficiency; `web/src/lib/ramp.test.ts` asserts that rather than leaving it as
+  a claim in prose. Unscored hexes are neutral grey off the ramp, never the
+  pale end, because a hex with no score is not a low-burden hex. The legend and
+  the map read the same module, so a swatch is the fill colour by construction.
+  Rationale and alternatives in `docs/frontend.md` sections 2 and 4. **The Lead
+  still has to sign this off; it is a proposal, not a decision.**
+- Confidence is drawn, not just reported. **Done:** solid fill for high and
+  moderate, a 45° hatch layer drawn over the class colour for low, insufficient
+  hidden behind a legend toggle that says why. Hatching rather than opacity on
+  purpose — a faded fill reads as a lower score, which is the conflation of
+  certainty with severity that section 12 forbids. A tile carrying no
+  confidence attribute is hatched too, since drawing an archive defect as
+  confident is the failure that treatment exists to prevent. Band cut points
+  are evaluated against the real MapLibre filter in tests, so section 12's
+  table cannot drift from what the map draws.
 - Free basemap configured from `VITE_BASEMAP_STYLE`, currently OpenFreeMap
-  Positron. **Done**, and now set per environment in the Railway config rather
-  than relying on the client's fallback.
+  Positron. **Done**, and now also set explicitly in `.railway/railway.ts`
+  rather than relying on the in-code default.
 - Pan, zoom and search-to-location work across desktop and mobile viewports.
-  **Done:** the search box takes an H3 index, a latitude and longitude, or a
-  place name, and says which of the three it tried when nothing happens, because
-  a box that clears itself and does nothing is the least debuggable control on a
-  page. An index resolves through `GET /hex/{h3}`, which returns the centroid to
-  fly to and the panel's contents in one round trip, so the frontend needs no H3
-  library. Place-name search needs a geocoder and is **off unless
-  `VITE_GEOCODER_URL` is set**: sending everything a user types to a third party
-  is not a default worth having, and the box says so rather than doing nothing.
-  On a phone the panel stacks under the map instead of taking 24rem beside it,
-  and two-finger rotation is off so it does not fight pinch-zoom.
+  **Done:** search is a keyboard-navigable combobox over Photon, biased toward
+  Louisiana, debounced, and resolving pasted coordinates locally. Photon rather
+  than Nominatim because Nominatim's policy requires a `User-Agent` a browser
+  will not let the page set. The detail panel is a rail beside the map on
+  desktop and a sheet below it on a phone, where the old fixed 24rem rail left
+  no map. **Not verified on a physical handset**, only at mobile viewport width.
 - Deployed on the Railway `web` service with the CDN enabled, built by Vite and
   served by `serve -s dist`. Preview environments per pull request if Railway
   supports it on the plan; otherwise document that previews are not available.
-  **Configured, not deployed.** `.railway/railway.ts` now passes
-  `VITE_TILES_URL`, `VITE_BASEMAP_STYLE` and `VITE_GEOCODER_URL` to `web`, the
-  first and last preserved so an apply cannot clear a sealed value. **Previews
-  are not available**: Railway builds them from additional environments, which
-  the Hobby plan this project runs on does not include. That is written into the
-  IaC file, because a reviewer hunting for a preview URL that was never going to
-  exist will assume the deploy is broken. The deploy itself remains blocked on
-  CS-009, as CS-208 already records.
+  **Configured, not deployed.** `.railway/railway.ts` passes `VITE_TILES_URL`,
+  `VITE_BASEMAP_STYLE` and `VITE_GEOCODER_URL` to `web`, the first and last
+  preserved so an apply cannot clear a sealed value. The three Railway services
+  still do not exist, so nothing has been deployed and previews cannot be
+  tested. PR environments are a dashboard action and not expressible in the IaC
+  schema.
+  `docs/frontend.md` section 8 records the two things that have to hold for
+  previews to be usable and says to amend it to "not available" if they do not.
 - Loading and error states handled; a tile fetch failure does not leave a blank
-  screen. The Phase 0 banner explaining that no hexagon is scored yet is the
-  current example of this and should not be deleted until scores exist. **Done,
-  and the banner is untouched.** A source error on the hex layer raises an alert
-  naming the two likely causes, an unreachable archive or a bucket not sending
-  CORS headers for this origin. Without it the map sits on the basemap looking
-  finished, which is the worst of the three outcomes: a reader cannot tell an
-  unscored state from a broken one.
+  screen. **Done:** a loading overlay, a full-viewport basemap failure with a
+  reload, and a corner notice for a hex-tile failure that states it is a
+  loading failure and not an absence of burden. The basemap overlay is gated on
+  `load` never arriving so a survivable glyph 404 does not trigger it. The
+  Phase 0 banner is untouched and stays until scores exist.
 
 **A real bug fixed on the way.** The ramp coalesced a missing percentile to 0,
 so an unscored hexagon rendered as the palest colour on the scale. A cell nobody
@@ -1544,20 +1537,45 @@ the parts that need data the API cannot yet return.
 - Demographics shown with an explicit note that they are recorded and displayed
   but never scored. **Done.**
 - A short "what this means and doesn't mean" explainer, written by hand rather
-  than generated. **Partly done:** the footer carries the wrongdoing and
-  Louisiana-percentile caveats. Lead reviews and extends this copy rather than
-  writing it from scratch.
-- Waterfall breakdown showing how the total was reached. **Not done:** the
-  components section prints each component's score out of 10 but not the four
-  group scores, their weights, or how they compose. The `GroupScore` objects are
-  already on the response.
-- Confidence displayed with a plain-language reading. **Partly done:** the band
-  label and value are shown. The four-term breakdown is not, and the low band
-  does not yet lead with its caveat.
-- Source and vintage shown for each indicator. **Not done:** waiting on
-  `data_vintage` being populated in CS-209.
-- Panel is keyboard-navigable and works at mobile width. **Not verified.** The
-  close button is labelled; nothing else has been checked.
+  than generated. **Partly done, still the Lead's:** the footer keeps the
+  wrongdoing and Louisiana-percentile caveats, and two pieces of copy that
+  methodology names explicitly have been added — the multiplicative surprise
+  from section 10 ("a hexagon in the 95th for pollution and the 20th for
+  vulnerability scores about 19; one in the 60th for both scores about 36"),
+  which section 10 requires on the panel, and the zero-inflation limitation
+  from section 9, shown against a facility indicator sitting at zero so it
+  reads as "none within 10 km" and not "cleaner than 40% of the state". Lead
+  reviews and extends all of it.
+- Waterfall breakdown showing how the total was reached. **Done:** each
+  component lists its groups with the mean percentile, the weight, and how many
+  of the required indicators were present, then the weighted mean they produce
+  and the rescale to 0–10, then the two components multiplying into the total.
+  An uncomputable group is named as dropped rather than silently removed, since
+  section 11 rule 1 keeps it out of the mean and a reader would otherwise see
+  weights that do not add up. The one step that cannot be checked from the
+  response is the statewide maximum that does the rescaling, and the panel says
+  so rather than implying the arithmetic is fully auditable.
+- Confidence displayed with a plain-language reading. **Done:** all four terms
+  with their section 12 weights, a sentence per band, and the weakest term
+  named, since a weighted geometric mean is driven by its worst term and naming
+  it explains the number better than the number does. Monitor support quotes
+  the distance to the nearest monitor. The low and insufficient bands now open
+  the panel with the caveat instead of carrying it under a number the reader
+  has already absorbed.
+- Source and vintage shown for each indicator. **Source done, vintage wired and
+  waiting.** Every row names its source, which was already on the response. The
+  vintage renders as soon as `data_vintage` carries the source name as its key,
+  and shows nothing until then. **That key is an assumption:** `schemas.py`
+  documents the map as "source name to release identifier", and the frontend
+  looks the indicator's own `source` string up in it. CS-209 should confirm it
+  emits exactly those strings, or this silently shows no vintage at all.
+- Panel is keyboard-navigable and works at mobile width. **Done:** the panel
+  takes focus when a hexagon is selected, so the keyboard follows the reader
+  instead of continuing from the map; Escape closes it; the close button and
+  every facility link are reachable and have visible focus rings. Tests cover
+  the focus move, Escape, and the tab order. Mobile width is handled by CS-210
+  making the panel a sheet below the map rather than a 24rem rail beside it.
+  **Not verified on a physical handset**, only at mobile viewport width.
 
 ---
 
