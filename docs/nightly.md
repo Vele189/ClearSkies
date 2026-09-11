@@ -14,8 +14,11 @@ rule expressed in workflow steps is a rule no test can reach.
    which sources are due. Print the plan before pulling anything.
 2. **Pull** the sources that are due, in dependency order, into one shared sink.
 3. **Gate.** Apply CS-108's per-source thresholds and cross-source checks.
-4. **Record** the night in the ledger, whatever happened to it.
+4. **Record** the night in the ledger and every pull in the provenance history,
+   whatever happened to them.
 5. **Promote** the run, but only if the gate passed.
+6. **Regenerate** `docs/provenance.md` from the manifests and commit it, if it
+   changed.
 
 Steps 1 and 5 are what this ticket adds to what CS-108 already did.
 

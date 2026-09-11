@@ -6,6 +6,7 @@ produced it and the confidence attached to it; there is no endpoint that hands
 back a bare number.
 """
 
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -121,3 +122,58 @@ class Health(BaseModel):
     extensions: list[ExtensionStatus]
     scored_hexes: int | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+class SourceGap(BaseModel):
+    """Something a pull does not cover, published rather than smoothed over.
+
+    A gap is not a failure. It is the difference between a value that is absent
+    and a value that is zero, carried forward so the confidence term and the
+    drill-down panel can both show it (methodology sections 11 and 12).
+    """
+
+    scope: Literal["geographic", "temporal", "attribute", "population", "methodological"]
+    detail: str
+    affects: list[str] = Field(
+        default_factory=list, description="Indicator ids this gap degrades, e.g. ['E4']"
+    )
+    since: date | None = None
+
+
+class SourceArtifact(BaseModel):
+    """One downloaded file, checksummed, so a claim can be checked against bytes."""
+
+    url: str
+    sha256: str
+    short_sha: str = Field(description="First twelve hex characters, as the page prints them")
+    retrieved_at: datetime
+    from_snapshot: bool = Field(
+        description="True when these bytes came from the last good snapshot, not the network"
+    )
+
+
+class SourcePull(BaseModel):
+    """One adapter run of one source: the manifest, as the frontend reads it."""
+
+    source: str
+    title: str
+    vintage: str = Field(description="Upstream release identifier. Not the download time")
+    pulled_at: datetime
+    status: Literal["ok", "partial", "stale", "failed"]
+    records: int = Field(description="Rows that reached the database")
+    rejected: int = 0
+    run_id: str | None = None
+    known_gaps: list[SourceGap] = Field(default_factory=list)
+    artifacts: list[SourceArtifact] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class Provenance(BaseModel):
+    """The latest pull of each source, or one source's history.
+
+    The most recent pull, not the most recent successful one. A reader shown a
+    green row from three nights ago would reasonably conclude the data is
+    current, so a failed pull is published as a failed pull.
+    """
+
+    sources: list[SourcePull] = Field(default_factory=list)

@@ -8,6 +8,7 @@
     python -m pipeline nightly          plan, pull, gate, promote
     python -m pipeline history          what each check has measured over time
     python -m pipeline runs             the ledger: past nights and the current one
+    python -m pipeline provenance       where every number came from, and when
 
 The nightly job in .github/workflows/etl.yml calls this. Exit status 1 means the
 run produced no usable data, which is the signal the job should fail on; a
@@ -27,6 +28,7 @@ level of the whole run rather than one source.
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -38,6 +40,7 @@ from pipeline.context import make_context
 from pipeline.http import build_client
 from pipeline.ledger import NightlyRun, RunLedger, carried, finish, outcome_from
 from pipeline.metadata import PullMetadata
+from pipeline.provenance import ProvenanceStore, payload, summarise, write_page
 from pipeline.quality import (
     JsonQualityStore,
     QualityReport,
@@ -55,6 +58,9 @@ DEFAULT_STORE = Path("quality-runs")
 # quality report is evidence about one night and is uploaded as an artifact; the
 # ledger is the state the next night reads, and the workflow caches it.
 DEFAULT_STATE = Path("pipeline-state")
+# The generated block in this page is rewritten from the manifests by the nightly
+# job. Relative to the repository root, which is where the job runs it from.
+DEFAULT_PAGE = Path("docs/provenance.md")
 
 
 def _list_sources() -> int:
@@ -215,6 +221,10 @@ async def _nightly(
         notes=notes,
     )
     ledger.record(run)
+    # Recorded whatever the gate decided, and whatever each pull's own status
+    # was. A provenance history that drops the night a source could not be
+    # reached tells the reader the data is more complete than it is.
+    ProvenanceStore(state).record(manifests, run_id=run_id)
     promoted = False if idle else ledger.promote(run)
 
     if store is not None:
@@ -257,6 +267,45 @@ def _surface(report: QualityReport, *, github: bool) -> None:
     for command in report.annotations():
         print(command)
     _append_summary(report.markdown())
+
+
+def _provenance(state: Path, page: Path | None, *, as_json: bool, github: bool) -> int:
+    """Publish where every number came from, optionally rewriting the page.
+
+    Reads the recorded history rather than pulling anything, so it is safe to run
+    at any time and is what the nightly job calls once its adapters have finished.
+    """
+    store = ProvenanceStore(state)
+    pulls = store.latest()
+
+    if as_json:
+        print(json.dumps(payload(pulls), indent=2))
+    else:
+        print(summarise(pulls, now=datetime.now(UTC)))
+
+    if page is None:
+        return 0
+    if not page.exists():
+        print(f"no page at {page}; nothing to regenerate")
+        return 1
+
+    changed = write_page(page, pulls)
+    # An unchanged page is the normal case on a night when nothing was due, so
+    # it is reported rather than treated as a problem. The nightly job reads
+    # this to decide whether there is anything to commit.
+    print(f"{page}: {'updated' if changed else 'already up to date'}")
+    if github:
+        _github_output("provenance_changed", "true" if changed else "false")
+    return 0
+
+
+def _github_output(name: str, value: str) -> None:
+    """Set a workflow output, so a later step can branch on it."""
+    path = os.environ.get("GITHUB_OUTPUT")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(f"{name}={value}\n")
 
 
 def _runs(state: Path, limit: int) -> int:
@@ -386,6 +435,24 @@ def main(argv: list[str] | None = None) -> int:
                 help="the commit this run implemented, recorded in the ledger",
             )
 
+    provenance = sub.add_parser(
+        "provenance", help="where every number came from, and regenerate the page"
+    )
+    provenance.add_argument("--state", type=Path, default=DEFAULT_STATE)
+    provenance.add_argument(
+        "--page",
+        type=Path,
+        default=None,
+        help=f"rewrite the generated block in this page, e.g. {DEFAULT_PAGE}",
+    )
+    provenance.add_argument("--json", action="store_true", help="print the payload the API serves")
+    provenance.add_argument(
+        "--github",
+        action="store_true",
+        default=bool(os.environ.get("GITHUB_ACTIONS")),
+        help="set the provenance_changed workflow output",
+    )
+
     runs = sub.add_parser("runs", help="the ledger: past nights and the one being served")
     runs.add_argument("--state", type=Path, default=DEFAULT_STATE)
     runs.add_argument("--limit", type=int, default=10, help="how many recent runs to show")
@@ -405,6 +472,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "runs":
         return _runs(args.state, args.limit)
+
+    if args.command == "provenance":
+        return _provenance(args.state, args.page, as_json=args.json, github=args.github)
 
     if args.command == "plan":
         plan = plan_run(

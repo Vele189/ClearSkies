@@ -54,8 +54,10 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
-  # Only for the failure notice below. Nothing in the pipeline writes to the repo.
+  # The provenance page is generated from the manifests and committed back, so
+  # it cannot drift from the data. That is the only thing this job writes.
+  contents: write
+  # Only for the failure notice below.
   issues: write
 
 jobs:
@@ -120,6 +122,30 @@ jobs:
             done
           fi
           python -m pipeline nightly --require fake $args
+
+      # CS-110. The page answers "where did this number come from", and the only
+      # honest way to keep that answer true is to generate it. This runs after
+      # the pulls and only on success: regenerating from a night that failed its
+      # gate would publish rows describing data that is not being served.
+      - name: Regenerate the provenance page
+        id: provenance
+        working-directory: etl
+        run: python -m pipeline provenance --page ../docs/provenance.md
+
+      # Committed rather than uploaded, because the page is what a reader browses
+      # in the repository. Only when it changed, so a quiet night produces no
+      # commit. `[skip ci]` keeps a commit that moved a generated table from
+      # triggering the pull-request workflow.
+      - name: Commit the page
+        if: steps.provenance.outputs.provenance_changed == 'true'
+        env:
+          BOT: "github-actions[bot]"
+        run: |
+          git config user.name "$BOT"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/provenance.md
+          git commit -m "Regenerate the provenance page from the nightly run [skip ci]"
+          git push
 
       # The gate wrote its plan and its report to the step summary and raised an
       # annotation per failure, so the run page carries the reason without anyone

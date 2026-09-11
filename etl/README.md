@@ -189,6 +189,8 @@ python -m pipeline nightly               # plan, pull what is due, gate, promote
 python -m pipeline nightly --force epa_tri   # ignore one source's cadence
 python -m pipeline nightly --all         # ignore every cadence
 python -m pipeline runs                  # past nights, and the one being served
+python -m pipeline provenance            # where every number came from, and when
+python -m pipeline provenance --page ../docs/provenance.md   # regenerate the page
 ```
 
 Checks, the same ones CI runs:
@@ -215,6 +217,7 @@ etl/
 │   │   └── store.py       every check's measurement, kept per run
 │   ├── schedule.py        what tonight pulls, and in what order
 │   ├── ledger.py          the night's record, and which run is served
+│   ├── provenance.py      every pull, kept, and the page generated from it
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata
 │   ├── records.py         NormalizedRecord, Measurement

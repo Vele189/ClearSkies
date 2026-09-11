@@ -281,6 +281,34 @@ checks found no data is the exact failure CS-108 exists to close. The gate
 promotes a skip on a source the run was told to produce into a `fail` before
 it gets here.
 
+### Source pulls (`0012`)
+
+| Table | Grain |
+|---|---|
+| `source_pull` | One adapter run of one source: the manifest it produced |
+| `source_pull_gap` | One thing that pull does not cover |
+| `source_pull_artifact` | One downloaded file, checksummed |
+
+`source_snapshot` records the bytes a run downloaded and `pipeline_run` records
+that a night happened. Neither records what one pull actually did: which
+release it read, how many records survived, what it rejected and why, and
+whether it ended `ok`, `partial`, `stale` or `failed`. That is `PullMetadata`,
+and until CS-110 it lived in a JSON file the next night overwrote.
+
+Keeping every pull is the point rather than a nicety. The provenance page
+answers "where did this number come from", and a reader checking a claim made
+last month needs last month's manifest, not tonight's. `GET /provenance` serves
+the latest pull per source from here, and `?source=` serves one source's
+history.
+
+The rejection histogram stays a `jsonb` column rather than becoming a fourth
+table. It is a small map read whole, and the question asked of it is "why did
+this pull lose rows", never "show me this reason across every source".
+
+A `CHECK` constraint ties `failed` to zero loaded records. Publishing a row
+count for data that is not in the database would put a number on the provenance
+page that nothing backs.
+
 ---
 
 ## 5. Troubleshooting
