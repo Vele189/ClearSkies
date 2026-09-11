@@ -176,6 +176,72 @@ async def retrieve(
     return passages
 
 
+# What each document type always needs to have in front of it, whatever the
+# user typed. Retrieving on the request alone is not enough: "draft a comment
+# letter about this permit" embeds to nothing in particular, the public
+# participation right never comes back, and the model correctly refuses for want
+# of an authority it should have been handed. These are the standing questions
+# for each type, asked alongside the user's.
+STANDING_QUERIES: dict[str, tuple[str, ...]] = {
+    "public_comment_letter": (
+        "public participation and comment rights in operating permit proceedings",
+        "requirements a permit applicant must meet before a permit is issued",
+        "hazardous air pollutants and emission standards for source categories",
+    ),
+    "agency_complaint_draft": (
+        "discrimination by recipients of federal financial assistance",
+        "how to file a complaint about discrimination with the agency",
+        "disparate impact criteria and methods of administering a program",
+    ),
+    "community_briefing_sheet": (
+        "hazardous air pollutants listed by Congress",
+        "public participation rights in permit proceedings",
+        "toxic chemical release reporting by facilities",
+    ),
+    "journalist_fact_sheet": (
+        "toxic chemical release reporting requirements",
+        "hazardous air pollutants and major source thresholds",
+        "permits required to discharge or emit pollutants",
+    ),
+}
+
+
+async def retrieve_for(
+    conn: Any,
+    client: Any,
+    model: str,
+    document_type: str,
+    request: str,
+    limit: int = DEFAULT_LIMIT,
+    max_distance: float = MAX_DISTANCE,
+) -> list[Passage]:
+    """Passages for one drafting request: the user's question and the standing ones.
+
+    Merged and deduplicated by section label, nearest first. Asking several
+    questions rather than one is what stops a vaguely worded request retrieving
+    nothing and the model refusing for want of an authority that is sitting in
+    the corpus.
+
+    Every query still goes through the same sealed view, so widening what is
+    asked does not widen what can come back.
+    """
+    queries = [request, *STANDING_QUERIES.get(document_type, ())]
+    seen: set[tuple[str, str]] = set()
+    merged: list[Passage] = []
+    for query in queries:
+        for passage in await retrieve(
+            conn, client, model, query, limit=limit, max_distance=max_distance
+        ):
+            key = (passage.section_label, passage.text)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(passage)
+
+    merged.sort(key=lambda p: p.distance)
+    return merged[: limit * 2]
+
+
 def as_context(passages: list[Passage]) -> str:
     """The retrieved passages, formatted for the prompt.
 

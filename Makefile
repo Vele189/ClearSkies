@@ -248,6 +248,20 @@ robustness-harness: $(SCORING_VENV) ## Run the 13.5 checks over the synthetic fi
 	$(SCORING_VENV)/bin/python scripts/run_robustness.py \
 	  --values $(SCORING)/tests/fixtures/synthetic_values.json --out /dev/null
 
+# ---- Red team (CS-304) -------------------------------------------------
+#
+# Runs the adversarial set against the real model and writes the report. A
+# script rather than a test because it costs money and needs a key, and a test
+# suite that sometimes bills you is one people stop running. CI runs the offline
+# half in api/tests/test_guardrails.py.
+
+.PHONY: redteam
+redteam: $(VENV) ## Run the red-team set against the model: make redteam
+	cd $(API) && .venv/bin/python ../scripts/run_redteam.py \
+	  --out ../docs/validation/redteam.md \
+	  $(if $(MODEL),--model $(MODEL),) \
+	  $(if $(REQUIRE_CLEAN),--require-clean,)
+
 .PHONY: install
 install: $(VENV) $(ETL_VENV) $(SCORING_VENV) $(ASSISTANT_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci

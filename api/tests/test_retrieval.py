@@ -14,11 +14,13 @@ import pytest
 from app.assistant.retrieval import (
     EMBEDDING_DIMENSIONS,
     MAX_DISTANCE,
+    STANDING_QUERIES,
     Passage,
     RetrievalError,
     as_context,
     embed_query,
     retrieve,
+    retrieve_for,
     search,
     to_pgvector,
 )
@@ -170,6 +172,53 @@ async def test_retrieval_reads_only_the_active_corpus_view() -> None:
 
     assert "statute_corpus_active" in conn.queries[0]
     assert "statute_chunk" not in conn.queries[0]
+
+
+async def test_a_drafting_request_also_asks_the_standing_questions() -> None:
+    """Retrieving on the user's words alone is not enough. "Draft a comment
+    letter about this permit" embeds to nothing in particular, the Title V
+    public participation right never comes back, and the model correctly
+    refuses for want of an authority sitting in the corpus the whole time."""
+    conn = FakeConn([row()])
+    client = FakeClient()
+
+    await retrieve_for(
+        conn, client, "text-embedding-3-small", "public_comment_letter", "Draft a letter."
+    )
+
+    asked = client.embeddings.calls
+    assert asked[0] == "Draft a letter."
+    assert len(asked) == 1 + len(STANDING_QUERIES["public_comment_letter"])
+
+
+async def test_the_standing_questions_still_go_through_the_sealed_view() -> None:
+    """Widening what is asked must not widen what can come back."""
+    conn = FakeConn([row()])
+
+    await retrieve_for(
+        conn, FakeClient(), "text-embedding-3-small", "agency_complaint_draft", "Draft."
+    )
+
+    assert all("statute_corpus_active" in q for q in conn.queries)
+
+
+async def test_a_passage_returned_by_two_queries_appears_once() -> None:
+    conn = FakeConn([row()])
+
+    passages = await retrieve_for(
+        conn, FakeClient(), "text-embedding-3-small", "public_comment_letter", "Draft."
+    )
+
+    assert len(passages) == 1
+
+
+async def test_an_unknown_document_type_just_asks_the_users_question() -> None:
+    conn = FakeConn([row()])
+    client = FakeClient()
+
+    await retrieve_for(conn, client, "text-embedding-3-small", "unknown_type", "Draft.")
+
+    assert client.embeddings.calls == ["Draft."]
 
 
 def test_a_vector_is_sent_in_the_format_pgvector_parses() -> None:

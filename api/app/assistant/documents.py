@@ -374,6 +374,14 @@ def _key(citation: Citation) -> tuple[str, ...]:
     return (citation.kind, citation.record_id, citation.dataset)
 
 
+# Fields this system writes, not the model. The red-team scan and the CS-308
+# audit read what the *model* produced, and our own disclaimers contain exactly
+# the vocabulary they look for: the complaint's filing note says "not a
+# lawsuit", which would flag every correct complaint forever. Scanning them
+# would train whoever reads the report to skip the category.
+SYSTEM_WRITTEN_FIELDS = ("draft_notice", "filing_note", "review_required")
+
+
 DOCUMENT_MODELS: dict[str, type[DraftDocument]] = {
     "public_comment_letter": PublicCommentLetter,
     "agency_complaint_draft": AgencyComplaintDraft,
