@@ -1067,14 +1067,31 @@ The API skeleton, deployed and documented.
   reports the extension list from `clearskies_extensions`, whether `hex_score`
   exists, how many hexes are scored, and degrades rather than failing when the
   database is unreachable. `GET /indicators` publishes the running indicator set
-  and weights so a reader can check them against the methodology paper.
+  and weights so a reader can check them against the methodology paper. Logging
+  is JSON on stdout, one object per record, in `app/logging_config.py`; Railway's
+  log view indexes those fields, which a formatted line does not give it.
 - OpenAPI docs auto-generated and publicly reachable. **Done** locally at `/docs`.
+  Publicly is the deploy, below.
 - CORS configured for the frontend origin. **Done:** driven by `CORS_ORIGINS`.
 - Deployed on the Railway `api` service with CDN disabled and the healthcheck
-  path wired up. **Not started**, and dependent on CS-009.
+  path wired up. **Blocked on CS-009**, which is itself blocked on credentials:
+  the healthcheck is declared in `.railway/railway.ts` but nothing has been
+  applied to a live project, and CDN is not expressible in the IaC schema at all
+  (dashboard, or `railway cdn`, which needs CLI >= 5.x; 4.31.0 is what is
+  installed). Nothing further can land in the repository for this one.
 - Startup does not require the database: a deploy that comes up before Postgres
   is reachable reports the problem instead of crash-looping. **Done** in
-  `app/db.py`, worth keeping as a regression check.
+  `app/db.py`, and now held by `api/tests/test_startup.py`, which starts the app
+  against a refused DSN and asserts the app boots, `/health` answers 200
+  degraded, `/docs` and `/indicators` still serve, and `/hex` reports 503 rather
+  than 500.
+
+**What landed:** every record is one JSON object carrying a request id, taken
+from an incoming `X-Request-Id` when the frontend supplies one and generated
+otherwise, echoed back on the response and stamped onto every record logged
+while the request is handled. `/health` logs at DEBUG so the Railway healthcheck
+poll does not become the log. The access line is ASGI middleware rather than a
+`BaseHTTPMiddleware` subclass, which keeps the response off an anyio stream.
 
 ---
 
