@@ -147,6 +147,15 @@ jobs:
           CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
         run: python -m pytest tests/test_facility_hex_sql.py -q
 
+      # CS-209. The drill-down is a join across five tables and a geography
+      # function, so the only place it can be checked is a database that has
+      # them. Same bargain as above: seeded in a transaction, rolled back.
+      - name: The hex drill-down assembles against a real database
+        working-directory: api
+        env:
+          CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
+        run: python -m pytest tests/test_hex_detail_sql.py -q
+
       - name: Down migrations unwind the whole set
         working-directory: api
         run: |

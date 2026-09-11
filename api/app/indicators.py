@@ -188,6 +188,45 @@ INDICATORS: tuple[Indicator, ...] = (
 
 BY_ID: dict[str, Indicator] = {i.id: i for i in INDICATORS}
 
+# source_snapshot.source, which is a short key, to the name this registry
+# prints in Indicator.source.
+#
+# The hex detail payload keys its vintage map by these names, so a caller
+# holding one indicator can read that indicator's vintage straight out of the
+# map instead of carrying a second lookup table around. The two ends of that
+# are only aligned as long as every Indicator.source appears here, which
+# tests/test_indicators.py asserts.
+#
+# The last three back no indicator. Geography and toxicity weights are inputs
+# to indicators rather than indicators themselves, and a reader asking which
+# tract boundaries produced a hex is asking a fair question.
+SOURCE_NAMES: dict[str, str] = {
+    "echo": "EPA ECHO",
+    "tri": "EPA TRI",
+    "airtoxscreen": "EPA AirToxScreen",
+    "openaq": "OpenAQ",
+    "acs": "US Census ACS",
+    "census_tract": "US Census TIGER tracts",
+    "census_block": "US Census 2020 PL 94-171 blocks",
+    "rsei": "EPA RSEI",
+}
+
+# The column on hex_score holding each group's mean percentile. The score is
+# stored decomposed, and this is the map back from the methodology's names to
+# the storage's. Migration 0009 has the columns.
+GROUP_MEAN_COLUMNS: dict[Group, str] = {
+    Group.EXPOSURES: "exposures_mean",
+    Group.ENVIRONMENTAL_EFFECTS: "env_effects_mean",
+    Group.SENSITIVE_POPULATIONS: "sensitive_mean",
+    Group.SOCIOECONOMIC_FACTORS: "socioeconomic_mean",
+}
+
+# The column on hex_score holding each component's 0 to 10 score.
+COMPONENT_COLUMNS: dict[Component, str] = {
+    Component.POLLUTION_BURDEN: "pollution_burden",
+    Component.POPULATION_CHARACTERISTICS: "population_characteristics",
+}
+
 
 def in_group(group: Group) -> tuple[Indicator, ...]:
     return tuple(i for i in INDICATORS if i.group is group)
