@@ -126,6 +126,7 @@ clearskies/
 │   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
 │   ├── pipeline/tiles/build.py   The map's PMTiles archive
+│   ├── pipeline/analysis/        The section 13.6 disparity analysis
 │   └── README.md                 How to add a new data source
 ├── scoring/                      The burden score
 │   ├── burden/eligibility.py     Who gets scored: the 25-person rule, section 5
@@ -153,6 +154,8 @@ clearskies/
 ```
 
 `scoring/` was deliberately absent until the validation set had been committed. The methodology requires the pre-registered set to exist before any scoring code does, and CI compares commit history to enforce it: the first commit adding a file under `scoring/` must be a descendant of the one adding `docs/validation/sites.yml`. That ordering is now fixed in the history and the check keeps it that way.
+
+`etl/pipeline/analysis/` is the disparity analysis of methodology §13.6, and it sits outside `scoring/` on purpose. §14 keeps racial composition out of every query that computes a score, and this is the only code in the project that reads those columns; a package boundary is one a reviewer sees in a diff, where a stray column reference inside a scoring module would look ordinary. It computes no score, and it returns no verdict: §13.6 is a reported result with no threshold to meet.
 
 `etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), the two components and the burden score itself (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
 

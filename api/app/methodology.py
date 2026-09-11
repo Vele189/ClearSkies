@@ -16,4 +16,4 @@ drifted once, with the paper at 0.1.2 and `/indicators` still answering 0.1.0.
 
 # The newest entry in docs/methodology.md section 18. Bumping the paper without
 # bumping this is a failing test, not a stale endpoint.
-METHODOLOGY_VERSION = "0.1.3"
+METHODOLOGY_VERSION = "0.1.4"

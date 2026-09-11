@@ -1639,7 +1639,7 @@ reporting that it found no divergence.
 
 ### CS-213 — Disparity analysis
 
-**Size:** M · **Labels:** validation, methodology, docs · **Depends on:** CS-204, CS-105 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** validation, methodology, docs · **Depends on:** CS-204, CS-105 · **Owner:** Lead · **Status:** Partly done
 
 Methodology section 13.6. This is the project's headline finding and it needs to
 be computed carefully and framed correctly.
@@ -1648,15 +1648,37 @@ be computed carefully and framed correctly.
 
 - Correlation between a hex's score percentile and its Black population share,
   and separately its overall people-of-colour share, computed population-weighted
-  and published with confidence intervals.
-- Framed as a reported result, not a validation target. Because race is not an
-  input to the score, any correlation found is a property of the pollution and
-  vulnerability data rather than an artifact of the construction. There is no
-  threshold it must meet, and a weaker-than-expected correlation is a finding
-  worth publishing rather than a bug to fix.
+  and published with confidence intervals. **Machinery done, number not
+  computed:** both measures run by weighted Pearson and weighted Spearman with a
+  parish cluster bootstrap interval, and the Fisher interval on Kish's effective
+  sample size published beside it as the independence-assuming comparison.
+  Nothing can be computed until CS-204 writes `hex_score`, and the analysis
+  reports that as a `not_computable` reason naming the ticket rather than
+  returning an empty result.
+- Framed as a reported result, not a validation target. **Done**, and enforced:
+  the report carries no verdict, no threshold and no pass field, and a test
+  asserts a flat dataset produces a reported near-zero coefficient rather than
+  anything a build could fail on.
 - The independence argument stated wherever the number is shown, so the result
-  cannot be read as circular.
-- Feeds the architecture write-up and the public site.
+  cannot be read as circular. **Done.** `framing` and `independence` are required
+  fields on the report, validated non-empty, rendered above the numbers, and
+  present even when nothing was computable. Consumers read them rather than
+  restating the argument.
+- Feeds the architecture write-up and the public site. **Not done**, and blocked
+  on the same thing: CS-409 and CS-207 have something to render only once there
+  is a run to render. The top-decile contrast exists for exactly that purpose,
+  because a correlation coefficient is not a sentence a reader can act on.
+
+Implemented in `etl/pipeline/analysis/`, deliberately not under `scoring/`.
+Section 14's rule is that racial composition enters no query that computes a
+score, and this is the only code in the project that reads those three columns;
+a package boundary is one a reviewer sees in a diff.
+
+`run_disparity` takes a connection rather than opening one, following
+`pipeline.dasymetric.postgis`. The ETL package depends on no database driver and
+has no Postgres door of its own until the sink in `pipeline/sinks.py` lands, so
+there is no `python -m pipeline` command for this yet. Wiring one now would ship
+a command that cannot connect to anything.
 
 ---
 
