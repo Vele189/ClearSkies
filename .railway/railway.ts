@@ -19,6 +19,10 @@
 //      document generated per hex, so an edge cache in front of it buys
 //      nothing and risks serving one request's output to another. Railway's
 //      own 2026-03-30 incident was exactly that failure mode.
+//   3. Per-pull-request preview environments, under Settings > Environments.
+//      Also not in the IaC schema. Unverified against this project, since the
+//      services do not exist yet; docs/frontend.md section 7 records what has
+//      to hold for previews to be usable and what to do if it does not.
 //
 // Both of those need CLI >= 5.x. `railway config` and `railway cdn` do not
 // exist in 4.31.0.
@@ -111,6 +115,14 @@ export default defineRailway(() => {
       // onto a path, so it needs the scheme. RAILWAY_PUBLIC_DOMAIN is a bare
       // hostname.
       VITE_API_BASE_URL: "https://${{api.RAILWAY_PUBLIC_DOMAIN}}",
+      // Free, no key, no attribution beyond what MapLibre already renders.
+      VITE_BASEMAP_STYLE: "https://tiles.openfreemap.org/styles/positron",
+      // VITE_TILES_URL is deliberately absent. CS-207 has not published an R2
+      // archive yet, and the frontend handles the variable being unset: it
+      // draws the basemap and explains why there are no hexes. Pointing it at
+      // an archive that does not exist would instead show a tile-load failure,
+      // which is true but tells the reader the wrong thing. Add it here when
+      // the archive is real.
     },
   });
 

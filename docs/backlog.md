@@ -106,7 +106,7 @@ These stay assigned to one owner, but need a specific handoff:
 | CS-108 Data quality checks | Lead | Lead sets the thresholds on top of the interface's generic ones; Terrence adds per-source checks in the same PR as each adapter he owns. |
 | CS-111 Anchor verification | Lead | Terrence checks each anchor against its cited documentation; Lead decides whether a correction is a methodology revision under section 17. |
 | CS-203 Population characteristics | Terrence | Weights come from the methodology paper, not from judgment at the keyboard. Lead reviews before it feeds CS-204. |
-| CS-210 Map shell | Terrence | Colour ramp, legend and the confidence-band treatment need Lead sign-off — how uncertainty is drawn is a communication decision, not a styling one. |
+| CS-210 Map shell | Terrence | Colour ramp, legend and the confidence-band treatment need Lead sign-off — how uncertainty is drawn is a communication decision, not a styling one. Terrence has built and documented all three in `docs/frontend.md`; what is outstanding is the Lead's decision on them. |
 | CS-211 Detail panel | Terrence | Lead writes the "what this means and doesn't mean" copy. Terrence builds everything around it. |
 | CS-306 Generation endpoint | Terrence | Lead sets the hard spend cap on the API key directly with the provider; Terrence owns caching and usage logging. |
 | CS-307 Draft viewer | Terrence | Lead reviews all disclaimer copy and confirms there's no send or publish path, as part of CS-407. |
@@ -1119,19 +1119,49 @@ React and MapLibre GL frontend rendering the scored hexes.
   map, and the vector source is added from `VITE_TILES_URL` when one is set.
   There is no archive to point it at until CS-207.
 - A documented, colourblind-safe choropleth ramp and a visible legend.
-  **Not done.** Ramp and legend need Lead sign-off.
-- Confidence is drawn, not just reported. Section 12 specifies the treatment:
-  full opacity for high and moderate, hatched fill for low, and the insufficient
-  band hidden by default behind a toggle.
+  **Built, awaiting sign-off.** ColorBrewer YlOrRd 6-class, stepped, with the
+  top decile broken out as its own class because section 13.2 pre-registers a
+  top-decile criterion. The safety argument is monotone lightness across the
+  ramp, so it degrades to a readable greyscale under any colour vision
+  deficiency; `web/src/lib/ramp.test.ts` asserts that rather than leaving it as
+  a claim in prose. Unscored hexes are neutral grey off the ramp, never the
+  pale end, because a hex with no score is not a low-burden hex. The legend and
+  the map read the same module, so a swatch is the fill colour by construction.
+  Rationale and alternatives in `docs/frontend.md` sections 2 and 4. **The Lead
+  still has to sign this off; it is a proposal, not a decision.**
+- Confidence is drawn, not just reported. **Done:** solid fill for high and
+  moderate, a 45° hatch layer drawn over the class colour for low, insufficient
+  hidden behind a legend toggle that says why. Hatching rather than opacity on
+  purpose — a faded fill reads as a lower score, which is the conflation of
+  certainty with severity that section 12 forbids. A tile carrying no
+  confidence attribute is hatched too, since drawing an archive defect as
+  confident is the failure that treatment exists to prevent. Band cut points
+  are evaluated against the real MapLibre filter in tests, so section 12's
+  table cannot drift from what the map draws.
 - Free basemap configured from `VITE_BASEMAP_STYLE`, currently OpenFreeMap
-  Positron.
+  Positron. **Done**, and now also set explicitly in `.railway/railway.ts`
+  rather than relying on the in-code default.
 - Pan, zoom and search-to-location work across desktop and mobile viewports.
+  **Done:** search is a keyboard-navigable combobox over Photon, biased toward
+  Louisiana, debounced, and resolving pasted coordinates locally. Photon rather
+  than Nominatim because Nominatim's policy requires a `User-Agent` a browser
+  will not let the page set. The detail panel is a rail beside the map on
+  desktop and a sheet below it on a phone, where the old fixed 24rem rail left
+  no map. **Not verified on a physical handset**, only at mobile viewport width.
 - Deployed on the Railway `web` service with the CDN enabled, built by Vite and
   served by `serve -s dist`. Preview environments per pull request if Railway
   supports it on the plan; otherwise document that previews are not available.
+  **Not done, and blocked**: the three Railway services still do not exist, so
+  nothing has been deployed and previews cannot be tested. PR environments are
+  a dashboard action and not expressible in the IaC schema.
+  `docs/frontend.md` section 7 records the two things that have to hold for
+  previews to be usable and says to amend it to "not available" if they do not.
 - Loading and error states handled; a tile fetch failure does not leave a blank
-  screen. The Phase 0 banner explaining that no hexagon is scored yet is the
-  current example of this and should not be deleted until scores exist.
+  screen. **Done:** a loading overlay, a full-viewport basemap failure with a
+  reload, and a corner notice for a hex-tile failure that states it is a
+  loading failure and not an absence of burden. The basemap overlay is gated on
+  `load` never arriving so a survivable glyph 404 does not trigger it. The
+  Phase 0 banner is untouched and stays until scores exist.
 
 ---
 
