@@ -1258,7 +1258,9 @@ outstanding, and it unblocks the moment a real run exists.
 executed against live sources, the interpolation and quality gate passed, and
 `hex_score` populated. Then `make validate SCORES=...` produces the verdict and
 its write-up, and that write-up is recorded in methodology section 18 against
-version 0.1.2, passing or failing.
+whichever version it ran under, passing or failing. The paper has moved to 0.1.3
+since this was written, and naming a version here rather than the one on the run
+is exactly the drift section 17.3 is about.
 
 ---
 
@@ -1513,10 +1515,18 @@ the parts that need data the API cannot yet return.
 
 ### CS-212 — Robustness checks
 
-**Size:** M · **Labels:** validation, methodology · **Depends on:** CS-204, CS-206 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** validation, methodology · **Depends on:** CS-204, CS-206 · **Owner:** Lead · **Status:** Harness done, unrun
 
 Methodology section 13.5 specifies three checks that the original backlog did not
 cover. They test whether the score is an artifact of its own construction.
+
+**The same shape as CS-206, and for the same reason.** All three checks are
+implemented, tested and runnable in one command. None has been run, because no
+`hex_score` row exists: the five adapters have never been executed against live
+sources. A robustness result written up from an invented grid would be a worse
+failure than a fabricated validation one, because section 13.5's whole subject is
+results that are artifacts of their own construction. The method and the design
+decisions are in `docs/validation/robustness.md`.
 
 **Acceptance criteria**
 
@@ -1524,15 +1534,58 @@ cover. They test whether the score is an artifact of its own construction.
   between the score and each of: equal weighting of Exposures and Environmental
   Effects; Exposures only; additive rather than multiplicative combination. A low
   correlation against the additive variant is expected and informative rather
-  than disqualifying, and is reported rather than required to pass.
+  than disqualifying, and is reported rather than required to pass. **Done:**
+  `scoring/burden/robustness.py`. Each variant is a different `ComponentSpec`
+  handed to the production `compute`, never a second copy of the arithmetic, and
+  a test holds the baseline to `burden_score` with exact equality. The additive
+  variant is built but never gating, and a test asserts a run stays green with it
+  at its lowest. The correlation is Pearson's on section 9's own mid-rank
+  percentiles rather than the `1 − 6Σd²/(n³−n)` shortcut, because E3 and F1
+  through F4 are exactly zero across a large share of Louisiana and the shortcut
+  is wrong in the presence of ties by an amount that grows with that block.
 - **Leave-one-indicator-out.** Removing any single indicator must not move more
   than 10% of hexes by more than one decile. An indicator that fails this is
   doing too much work alone and its inclusion is re-argued in the methodology
-  paper.
+  paper. **Done:** fifteen runs, one per indicator, against the registry of
+  record rather than a list retyped in the test. A hex that loses its score
+  counts as moved, since dropping it from the denominator would let an indicator
+  whose removal destroys part of the map report as one that changes nothing.
+  Hexes whose group fell under the section 11 rule 2 minimum are counted apart
+  from the movement, because an indicator that carried information and one whose
+  absence tripped a count rule look identical in the figure and mean opposite
+  things for the paper.
 - **Interpolation sensitivity.** Scores recomputed with simple areal weighting
   instead of dasymetric weighting, to quantify how much the section 7 machinery
-  actually changes.
-- Results committed and recorded in section 18.
+  actually changes. **Done:** `etl/pipeline/dasymetric/areal.py` rebuilds the
+  crosswalk with the population estimator replaced and both section 7 formulas
+  left alone, so every difference is attributable to the ancillary layer. It is
+  never written to `tract_hex_weight` and reaches nothing but this check. Because
+  the population estimate changes, so does which cells clear the 25-person line
+  of section 5; that count is reported on its own rather than averaged over the
+  hexes both methods happened to score, since it is the largest single
+  consequence of the choice.
+- Results committed and recorded in section 18. **Recorded, with no result to
+  record.** Section 18 v0.1.3 states that the apparatus exists and has not been
+  run, and settles the three questions section 13.5 states without fixing: that
+  the additive variant never gates, what happens to a hex that loses its score,
+  and what "simple areal weighting" does to the intensive formula. Those are
+  decisions rather than results and belong in the paper whether or not a run has
+  happened. The run's own numbers go in the same place when there are any.
+
+**Also done, not in the original criteria.** Section 12 bars
+insufficient-confidence hexes from validation statistics and section 13.5 is a
+validation statistic, so the bands are a required argument and a scored hex
+without one is refused rather than assumed trustworthy. `make robustness
+VALUES=...` is the single command, `make robustness-harness` runs it over a
+synthetic fixture in CI, and that fixture is built to **fail** both gating
+checks on purpose, on the same terms as CS-206's.
+
+**What is needed to finish this ticket.** The same thing CS-206 needs: a real
+scoring run, plus confidence from CS-205, which this check refuses to proceed
+without. The third check additionally needs the tract-level sources interpolated
+a second time through `dasymetric.areal_counterpart`; without it the first two
+still run and the third reports that it did not, which is a different thing from
+reporting that it found no divergence.
 
 ---
 

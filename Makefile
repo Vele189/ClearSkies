@@ -163,6 +163,27 @@ validate-harness: $(VENV) ## Run the gate over the synthetic fixture, proving th
 	$(PY) scripts/run_validation.py \
 	  --scores $(SCORING)/tests/fixtures/synthetic_scores.json --out /dev/null
 
+# The section 13.5 robustness checks. Also one command, and for the same reason:
+# a result about whether the score is an artifact of its own construction is
+# worth nothing if only one person can reproduce it. Unlike `validate` this does
+# not gate by default, because two of the four things it reports are expressly
+# reported rather than required; pass REQUIRE_PASS=1 to exit non-zero on a
+# gating miss.
+.PHONY: robustness
+robustness: $(SCORING_VENV) ## Run the section 13.5 checks: make robustness VALUES=run.json
+	@test -n "$(VALUES)" || { echo "usage: make robustness VALUES=path/to/values.json"; exit 1; }
+	$(SCORING_VENV)/bin/python scripts/run_robustness.py --values $(VALUES) \
+	  $(if $(REQUIRE_PASS),--require-pass,) $(if $(OUT),--out $(OUT),)
+
+# Proves the command still scores a run four ways and applies the section 13.5
+# criteria without a database, on the same terms as `validate-harness`. The
+# values are invented and the fixture is built to fail, so this asserts that the
+# checks run, never that they passed.
+.PHONY: robustness-harness
+robustness-harness: $(SCORING_VENV) ## Run the 13.5 checks over the synthetic fixture
+	$(SCORING_VENV)/bin/python scripts/run_robustness.py \
+	  --values $(SCORING)/tests/fixtures/synthetic_values.json --out /dev/null
+
 .PHONY: install
 install: $(VENV) $(ETL_VENV) $(SCORING_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
@@ -209,6 +230,7 @@ check: lint test etl-check scoring-check ## Everything CI runs, plus the validat
 	$(PY) scripts/check_requirements_sync.py
 	$(PY) scripts/verify_anchors.py
 	$(MAKE) validate-harness
+	$(MAKE) robustness-harness
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 
