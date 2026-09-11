@@ -113,6 +113,23 @@ scoring-check: $(SCORING_VENV) ## Lint, typecheck and test the scoring package
 	cd $(SCORING) && .venv/bin/mypy burden tests
 	cd $(SCORING) && .venv/bin/python -m pytest -q
 
+# The section 13 gate. One command, so a validation result is something anyone
+# can reproduce rather than something someone reports. Exits non-zero unless the
+# gate passed, because that is what a gate is for.
+.PHONY: validate
+validate: $(VENV) ## Run the validation protocol: make validate SCORES=run.json
+	@test -n "$(SCORES)" || { echo "usage: make validate SCORES=path/to/scores.json"; exit 1; }
+	$(PY) scripts/run_validation.py --scores $(SCORES) --require-pass $(if $(OUT),--out $(OUT),)
+
+# Proves the command still parses the frozen fixture and applies the criteria
+# without a database, on the same terms as `make ingest-fake`. The scores are
+# invented and the fixture is built to fail, so this asserts that the gate runs,
+# never that it passed.
+.PHONY: validate-harness
+validate-harness: $(VENV) ## Run the gate over the synthetic fixture, proving the command works
+	$(PY) scripts/run_validation.py \
+	  --scores $(SCORING)/tests/fixtures/synthetic_scores.json --out /dev/null
+
 .PHONY: install
 install: $(VENV) $(ETL_VENV) $(SCORING_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
@@ -158,6 +175,7 @@ check: lint test etl-check scoring-check ## Everything CI runs, plus the validat
 	$(PY) scripts/check_validation_set.py
 	$(PY) scripts/check_requirements_sync.py
 	$(PY) scripts/verify_anchors.py
+	$(MAKE) validate-harness
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
 

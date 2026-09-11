@@ -22,6 +22,14 @@ jobs:
         run: python scripts/check_validation_set.py
       - name: Anchors match the external evidence
         run: python scripts/verify_anchors.py
+      # CS-206. Proves the section 13 gate still parses the frozen fixture and
+      # applies its criteria, without a database, on the same terms as
+      # `pipeline run fake`. The scores are invented and the fixture is built to
+      # fail, so this asserts the gate runs and never that it passed. A real
+      # validation run is `make validate SCORES=...` against an actual run.
+      - name: The section 13 gate runs end to end
+        run: python scripts/run_validation.py
+          --scores scoring/tests/fixtures/synthetic_scores.json --out /dev/null
 
   api:
     name: API

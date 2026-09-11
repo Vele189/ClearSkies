@@ -1180,36 +1180,85 @@ column invites being read as one.
 
 ### CS-206 — Validation run against the fixed site set
 
-**Size:** M · **Labels:** validation, gate · **Depends on:** CS-204, CS-003, CS-111 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** validation, gate · **Depends on:** CS-204, CS-003, CS-111 · **Owner:** Lead · **Status:** Harness done, run blocked on data
 
 The phase gate. The score should flag known sites on its own, without being tuned
 to them.
+
+**The harness is finished and the run has not happened.** Every criterion below
+is implemented, tested and reproducible by one command. What does not exist is a
+scored run to point it at: the five real adapters have never been executed
+against live EPA and Census sources, and there is no database holding
+`hex_score` rows. So there is **no validation verdict**, and deliberately **no
+section 18 entry**. Writing one up from invented numbers would be the precise
+failure the pre-registration machinery exists to prevent, and a fabricated
+result is worse than an absent one. The last criterion below is the only one
+outstanding, and it unblocks the moment a real run exists.
 
 **Acceptance criteria**
 
 - Scores computed for every active site in `docs/validation/sites.yml`, using the
   cells frozen in the fixture rather than a radius evaluated at scoring time.
+  **Done:** `scoring/burden/validation.py` reads the frozen `h3_cells` and
+  nothing else. A test hands it a hex at the 99th percentile next door to a
+  site's registered cells and asserts the site still fails, because a gate that
+  re-derived cells from a radius would hand whoever runs it a dial: nudge k from
+  1 to 2 and a missed site gains eighteen more chances to clear the bar.
 - **Primary gate:** at least 8 of the 10 active Louisiana sites have at least one
-  pre-registered cell in the statewide top decile.
+  pre-registered cell in the statewide top decile. **Done:** tested at exactly
+  eight and exactly seven, and at a cell of exactly 90.
 - **Negative controls:** all 4 of 4 fall below the statewide median. Every scored
-  cell of the site, not just one.
+  cell of the site, not just one. **Done:** a single cell at exactly 50 fails the
+  site. A control passes only if the score declines to flag any part of it, which
+  is what makes it a control.
 - **Stress case A, not a poverty map:** the three high-poverty low-industry Delta
   parishes are expected between roughly the 40th and 75th percentiles. Reported,
   not gating. A result outside the band triggers a documented investigation.
+  **Done:** the band is two-sided, and a site outside it in either direction is
+  flagged without failing the run. A gating stress case would itself be a lever
+  for tuning the score toward the band.
 - **Stress case B, not an emissions map:** the three high-emission low-population
   industrial sites are expected below the top decile. Reported, not gating.
+  **Done.** Both stress cases are judged on the site's highest cell, which is an
+  implementation choice on a criterion the fixture left open: it is the statistic
+  the primary gate already uses, and both stress cases ask whether the score
+  over-flagged a place. The median is reported beside it.
 - A site with no scored cell is reported as `not_applicable` and never counted as
-  a pass.
+  a pass. **Done, including the part that is easy to get wrong:** the gate stays
+  eight of *ten*, so an unscored site counts against it. Dropping such sites from
+  the denominator would let a run that scored almost nothing clear the bar.
+  Cells in the insufficient confidence band are removed first, per section 12, so
+  a site whose cells are all untrusted comes out `not_applicable` rather than
+  passing on a number the system says it does not trust.
 - Results written up: which sites pass, which don't, and the likely reason for
-  each miss.
+  each miss. **Done:** `report()` renders the run, and each miss carries its own
+  reason. "Scored but did not rank" and "never scored" are different problems
+  and the write-up distinguishes them.
 - Failure protocol from section 13.7 applies. Permitted responses are a code
   fix, a data-handling fix, or a methodology revision whose rationale stands
   independently of the validation outcome, followed by re-running every check
   from the beginning. Adjusting a weight because it makes a site pass is not one
-  of them, and the validation set itself is never edited.
+  of them, and the validation set itself is never edited. **Done:** the three
+  permitted responses are printed at the foot of every report, so a reader
+  looking at a red gate finds them before reaching for the weights. The criteria
+  are read from the fixture rather than defaulted in code, because a default is
+  one edit away from being loosened without the fixture recording it.
 - Every run, passing or failing, recorded in methodology section 18 against the
-  document version it ran under.
-- Validation run reproducible via a single command in CI.
+  document version it ran under. **Not done, and cannot be.** No run has
+  happened, so there is nothing to record. See the note above.
+- Validation run reproducible via a single command in CI. **Done:**
+  `make validate SCORES=run.json`, which exits non-zero unless the gate passed.
+  CI runs `make validate-harness` over a synthetic fixture, which proves the
+  command still parses the frozen fixture and applies its criteria without a
+  database, on the same terms as `pipeline run fake` proves the adapter contract
+  without an upstream. That fixture is built to **fail** on purpose: one that
+  produced a green result would sooner or later be quoted as one.
+
+**What is needed to finish this ticket.** A real scoring run: the five adapters
+executed against live sources, the interpolation and quality gate passed, and
+`hex_score` populated. Then `make validate SCORES=...` produces the verdict and
+its write-up, and that write-up is recorded in methodology section 18 against
+version 0.1.2, passing or failing.
 
 ---
 
