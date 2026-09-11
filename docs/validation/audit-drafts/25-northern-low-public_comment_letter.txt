@@ -1,0 +1,44 @@
+public_comment_letter
+I am writing to submit a public comment on the permit action for the facilities ARCOSA MARINE PRODUCTS INC - PLANT 1038 and ARCOSA MARINE PRODUCTS INC - PLANT 1048, both located within close proximity to the hexagon area with H3 cell index 884446018dfffff. This comment is in reference to the air quality and public health concerns impacting the Ouachita Parish community.
+The burden score for the hexagon area 884446018dfffff is 51.4, placing it in the 63.8th percentile statewide, indicating a substantial burden compared to other areas in Louisiana. The population in this area is 58.6% Black, and 47.3% of residents live under 200% of the poverty level, highlighting the vulnerability of this community to environmental hazards.
+record
+884446018dfffff
+hex
+The burden score for the hexagon area is 51.4, placing it in the 63.8th percentile statewide.
+record
+884446018dfffff
+hex
+The population in this area is 58.6% Black and 47.3% live under 200% of the poverty level.
+Under 42 U.S.C. § 7412(d)(1), the Administrator is required to promulgate regulations establishing emission standards for each category of major sources of hazardous air pollutants. Both ARCOSA MARINE PRODUCTS INC - PLANT 1038 and 1048 are identified as CAA major sources.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator is required to promulgate regulations establishing emission standards for each category of major sources of hazardous air pollutants.
+record
+110000602483
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1038 is identified as a CAA major source.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is identified as a CAA major source.
+I request that the permitting authority require additional analysis of the cumulative impact these facilities have on local air quality, considering the demographic vulnerability of the residents. Furthermore, a public hearing should be held to allow community members to voice their concerns and convey the potential health impacts effectively.
+Louisiana Department of Environmental Quality
+Public Comment on ARCOSA MARINE PRODUCTS INC Permit Action
+Require additional analysis of cumulative impact and hold a public hearing for community concerns.
+record
+884446018dfffff
+hex
+The burden score for the hexagon area is 51.4, placing it in the 63.8th percentile statewide.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator is required to promulgate regulations establishing emission standards for each category of major sources of hazardous air pollutants.
+record
+110000602483
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1038 is identified as a CAA major source.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is identified as a CAA major source.

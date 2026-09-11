@@ -1,0 +1,82 @@
+journalist_fact_sheet
+The hexagon located in St. James Parish, Louisiana, identified by H3 cell 884446027dfffff, has been evaluated using environmental data and indicators in Methodology version 0.1.4.
+The hexagon carries a burden score of 91.2 out of 100. It ranks in the 98.5th percentile for environmental burden statewide in Louisiana, based on modelled exposure, nearby permitted sources, and a vulnerable population.
+record
+884446027dfffff
+hex
+The hexagon has a burden score of 91.2 out of 100 and ranks in the 98.5th percentile statewide.
+Key indicators for this hexagon include a modelled air toxics cancer risk of 69.2 per million, placing it in the 98.5th percentile, a PM2.5 annual mean of 9.5 µg/m3, and monitored NO2 at 11.4 ppb.
+record
+884446027dfffff
+hex
+Modelled air toxics cancer risk is 69.2 per million, in the 98.5th percentile.
+record
+884446027dfffff
+hex
+PM2.5 annual mean is 9.5 µg/m3.
+record
+884446027dfffff
+hex
+Monitored NO2 is 11.4 ppb.
+The population in this hexagon is recorded as approximately 1,840 individuals, with 78.2% identifying as Black. 51.3% of the population lives below 200% of the poverty line, 6.4% are under five years old, and 15.1% are over 64 years old.
+record
+884446027dfffff
+hex
+The population is 1,840 with 78.2% identifying as Black.
+record
+884446027dfffff
+hex
+51.3% live below 200% of the poverty line, 6.4% are under 5, and 15.1% are over 64.
+There are 14 contributing facilities within or near this hexagon, all operating under the Clean Air Act as major sources of air emissions. The closest facility, ANR PIPELINE CO - PATTERSON COMPRESSOR STATION, is located 1.5 km away.
+record
+110017724186
+echo
+ANR PIPELINE CO - PATTERSON COMPRESSOR STATION is 1.5 km away, operating under CAA major source.
+Environmental and Demographic Overview of St. James Parish Hexagon
+Burden score
+91.2
+
+record
+884446027dfffff
+hex
+The hexagon has a burden score of 91.2 out of 100.
+Statewide percentile
+98.5
+
+record
+884446027dfffff
+hex
+The hexagon ranks in the 98.5th percentile statewide.
+Modelled air toxics cancer risk
+69.2
+per million
+record
+884446027dfffff
+hex
+Modelled air toxics cancer risk is 69.2 per million.
+Population percentage identifying as Black
+78.2%
+
+record
+884446027dfffff
+hex
+78.2% of the population identifies as Black.
+Facilities within 2 km
+1
+
+record
+110017724186
+echo
+ANR PIPELINE CO - PATTERSON COMPRESSOR STATION is 1.5 km away.
+Percentiles are calculated based on statewide data in Louisiana and are not indicative of national percentiles.
+The burden score reflects modelled data concerning environmental exposure and is not a direct assessment of air or water quality measured locally.
+Demographic data do not influence the burden score and are used only for informational purposes in this context.
+The environmental indicators are based on models and monitoring specific to this hexagon and may not reflect conditions outside its immediate vicinity.
+record
+884446027dfffff
+hex
+The hexagon has a burden score of 91.2 out of 100 and ranks in the 98.5th percentile statewide.
+record
+110017724186
+echo
+ANR PIPELINE CO - PATTERSON COMPRESSOR STATION is 1.5 km away, operating under CAA major source.

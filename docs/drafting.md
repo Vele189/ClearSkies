@@ -234,6 +234,20 @@ make check-verifier                  # writes docs/validation/verifier.md
 make check-verifier REQUIRE_CLEAN=1  # and fails on any disagreement
 ```
 
+### A known cost: verification is serial
+
+Every citation is judged in its own call, one after another, so a draft with
+seven citations waits for seven round trips after the one that wrote it. That is
+most of the time a user spends watching the progress line, and it is the reason
+a fifty-draft audit takes over an hour.
+
+It is left alone here deliberately. Nothing about it changes a verdict — each
+citation is judged independently against its own passage, so running them
+concurrently would produce the same answers — and Phase 3's criteria are about
+whether citations are correct, not how fast. Batching or parallelising the judge
+belongs in Phase 4 with the rest of the polish, where it can be measured against
+a latency budget rather than guessed at.
+
 ### The rejection log
 
 A rejected draft is invisible by design: the user sees a failure and nobody sees
@@ -328,3 +342,94 @@ an operator step and it cannot be done from here, which is the point: a limit
 the application enforces is a limit that stops working when the application has
 a bug, and the bug that matters is the one that calls the API in a loop. Set it
 before the key is used in a deployment anyone else can reach.
+
+---
+
+## 9. The Phase 3 gate
+
+`scripts/run_citation_audit.py` generates fifty drafts and checks every citation
+in every one. [`docs/validation/citation-audit.md`](validation/citation-audit.md)
+is the committed result and the drafts themselves are under
+`docs/validation/audit-drafts/` so the manual review has something to read.
+
+The spread lives in `api/app/assistant/audit.py` rather than in the script, for
+the reason `burden/validation.py` is not in `run_validation.py`: a gate's
+criteria should be testable without running the gate. Thirteen hexagons across
+the three draftable bands, with facility counts from one to seventeen, each
+drafted in more than one document type. The insufficient band is absent because
+such a hexagon cannot be drafted from at all, so including one would measure the
+band check rather than the citations.
+
+Every accepted draft is **re-verified independently** of the pipeline that
+produced it. A gate that trusts the thing it is gating is not a gate.
+
+### What is real and what is a fixture
+
+**Real:** every statute passage, from the sealed corpus. Every facility, loaded
+from ECHO by `scripts/seed_audit_facilities.py` with its own FRS registry
+identifier — the identifier a reader would take to EPA. Every verification, run
+against those two tables.
+
+**A fixture:** the hexagons. Phase 2 has not run against a populated database,
+so there is no scored cell to point at and the scores, confidence values and
+demographics are invented to span the spread. That does not weaken the citation
+result, which is what the gate is about: a citation is checked against the
+corpus and the facility table, and both hold real rows. It does mean the drafts
+are about places that do not have these scores, and **the audit has to be re-run
+once the pipeline has loaded real data** before anybody cites it as a statement
+about production behaviour.
+
+### What the first run found, and what it changed
+
+The audit did what a gate is supposed to do, which is to find something.
+
+**Drafts were being discarded for citing the hexagon they were about.** The
+schema requires a citation on every factual claim; a hexagon's score and
+demographics *are* factual claims; and there was no legitimate way to attribute
+them. So the model invented a dataset called `hexagon`, cited the H3 index, the
+citation failed verification, and an otherwise sound draft was thrown away.
+Twelve of the first run's eighteen rejections were this.
+
+The first attempt at a fix was prompt v2, telling the model not to cite hexagon
+figures. It did not work, and it should not have: the instruction fought the
+rule telling the model to cite every factual claim, and that rule was right.
+
+The real fix was structural. The hexagon **is** a citable record — a reader can
+open that cell on the map and see the same figures — so `hex` is now a dataset,
+the `record_id` is the H3 index, and the verifier checks that the citation names
+the hexagon the draft is actually about. Prompt v3 tells the model to use it.
+
+That sequence is why prompts are versioned and frozen. v1 and v2 are still in
+the repository, unedited, with their checksums recorded, because drafts stamped
+with them were produced under those words.
+
+### A defect this run exposed in its own cost reporting
+
+Every `llm_usage` row from the audit records the model as `OpenAIChatModel()`
+and a cost of zero. `str()` on a Pydantic AI model object returns its class
+name, not the model, and no price table has an entry for a class name — so the
+estimate silently came out at zero and the provenance stamped on each draft
+identified nothing.
+
+Both failures are quiet in the way that matters: a draft still generates, a
+usage row still lands, and the only symptom is a bill that does not match the
+reported spend. The code now reads `model_name`, with a test that a class name
+never reaches the price lookup. **The audit run predates the fix**, so its usage
+rows keep the wrong label and a zero cost; the token counts in them are correct
+and the report's totals are computed from those.
+
+### What a person still has to do
+
+The gate says every citation is manually verified, and everything the harness
+does is mechanical. A script reporting that a script agreed with itself is not a
+manual review. What remains:
+
+- **Read the drafts.** The prohibited-language scan catches vocabulary. It
+  cannot catch a claim about why a facility is where it is, made in neutral
+  words.
+- **Check a sample of citations by hand**, by following the link and reading the
+  section. The verifier is a language model, and this is the only check on it
+  that is not another language model.
+- **Look specifically for anything implying a Title VI disparate-impact claim
+  can be filed as a lawsuit.** That is the failure with the worst consequences
+  for a reader and the one a fluent draft hides best.

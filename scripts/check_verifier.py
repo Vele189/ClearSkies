@@ -80,16 +80,14 @@ CASES: tuple[Case, ...] = (
     # ---- Traps: the section is real and does not say this ---------------
     Case(
         "42 U.S.C. § 7412(b)",
-        "Nucor Steel Louisiana emits hazardous air pollutants above the major source "
-        "threshold.",
+        "Nucor Steel Louisiana emits hazardous air pollutants above the major source threshold.",
         False,
         "A statute does not name a facility. The section number is right and the "
         "claim is about a specific company.",
     ),
     Case(
         "42 U.S.C. § 7412(a)",
-        "Facilities in St. James Parish have violated the hazardous air pollutant "
-        "standards.",
+        "Facilities in St. James Parish have violated the hazardous air pollutant standards.",
         False,
         "A definitions subsection cannot establish that anybody violated anything.",
     ),
@@ -131,8 +129,7 @@ CASES: tuple[Case, ...] = (
         "42 U.S.C. § 7410",
         "Louisiana's state implementation plan is inadequate.",
         False,
-        "The adequacy requirements are in the section; the verdict on one state's plan "
-        "is not.",
+        "The adequacy requirements are in the section; the verdict on one state's plan is not.",
     ),
 )
 

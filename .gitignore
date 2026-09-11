@@ -40,3 +40,7 @@ pipeline-state/
 # `make corpus-build`; several megabytes of statute text that does not belong
 # in git.
 assistant/.cache/
+
+# The fifty drafts the CS-308 audit produced are committed on purpose: the gate
+# requires a manual review and a review needs something to read. Nothing here
+# is ignored; this note exists so nobody adds it.

@@ -2244,7 +2244,7 @@ status code would produce a worse message than the one already in the response.
 
 ### CS-308 — 50-draft citation audit
 
-**Size:** M · **Labels:** validation, gate · **Depends on:** CS-307 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** validation, gate · **Depends on:** CS-307 · **Owner:** Lead · **Status:** Gate met on fixture hexagons; re-run required on real data
 
 The phase gate.
 
@@ -2260,6 +2260,59 @@ The phase gate.
   legal advice, and specifically for anything implying a Title VI disparate-impact
   claim can be filed as a lawsuit.
 - Audit results written up and committed, feeding the model card.
+
+**Gate met.** 49 drafts produced from 50 attempts, 184 citations, **zero
+unverifiable citations in a shown draft**. Every citation was re-checked
+independently of the pipeline that produced it, because a gate that trusts the
+thing it is gating is not a gate. `docs/validation/citation-audit.md` is the
+harness output, `citation-audit-review.md` is the manual review, and all 49
+drafts are committed under `audit-drafts/` so the review can be repeated.
+
+The single discarded draft is the system working. It was never rendered: the
+verifier found a statute cited for a proposition it does not support and threw
+the whole document away.
+
+**The spread the ticket asked for.** All four document types, every band down to
+low, and nineteen of the fifty about hexagons with two or fewer contributing
+facilities — where a model has least to work with and most temptation to pad.
+All nineteen produced a draft and none padded. The insufficient band is absent
+because such a hexagon cannot be drafted from at all.
+
+**The two rules that cannot be made structural held.** No draft contains the
+vocabulary of intent or culpability except in the required negation; no draft
+contains legal advice; and no draft contains the word lawsuit, sue, plaintiff,
+defendant or federal court. All 13 agency complaints are addressed to EPA's
+External Civil Rights Compliance Office and seek an investigation rather than
+damages. The scan flagged 15 drafts for *wrongdoing*, and every occurrence is
+the caveat itself, which is the over-flagging it was designed for.
+
+**The audit found two real defects and one design gap, which is what a gate is
+for.**
+
+The gap: drafts were being discarded for citing the hexagon they were about. The
+schema requires a citation on every factual claim, a hexagon's score and
+demographics *are* factual claims, and there was no legitimate way to attribute
+them — so the model invented a dataset and lost otherwise sound drafts for it.
+Twelve of the first run's eighteen rejections were this. Prompt v2 tried telling
+the model not to cite them and failed, correctly: that instruction fought the
+rule telling it to cite everything, and the rule was right. The fix is
+structural — the hexagon is a citable record, because a reader can open that
+cell on the map and see the same figures — and prompt v3 uses it. Success rate
+went from 62% to 98%.
+
+The defects: `str()` on a Pydantic AI model object returns its class name, so
+every draft's provenance recorded `OpenAIChatModel()` and every cost estimate
+came out zero, both silently. And the harness ran its independent re-check
+outside its error handler, so one provider rate limit killed a three-hour run at
+draft 37 and discarded every result. Both are fixed, with tests, and the harness
+now waits out a rate limit rather than failing on it.
+
+**The hexagons are a fixture and this must be re-run.** Phase 2 has not loaded a
+populated database, so the scores and demographics are invented to span the
+spread; the statutes and facilities are real and every verification ran against
+them, which is what makes the citation result meaningful. It is not yet a
+statement about production behaviour, and the model card must not cite it as
+one until the audit has been repeated on real scores.
 
 ---
 

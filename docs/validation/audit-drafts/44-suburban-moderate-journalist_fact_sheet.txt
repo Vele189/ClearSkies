@@ -1,0 +1,95 @@
+journalist_fact_sheet
+This fact sheet provides an overview of environmental and demographic data for the hexagon in Jefferson Parish, identified by H3 cell 88444602bdfffff, using methodology version 0.1.4. The burden score and other indicators describe modelled exposure and nearby sources, but do not imply any wrongdoing by specific operators.
+The modelled air toxics cancer risk in this area is 55.7 per million, placing it in the 71.4th percentile statewide, according to AirToxScreen data from 2020.
+record
+88444602bdfffff
+hex
+Modelled air toxics cancer risk is 55.7 per million with a statewide percentile of 71.4.
+Particulate matter (PM2.5) annual mean is recorded at 8.8 µg/m³, ranked in the 56.4th percentile statewide according to the same AirToxScreen data source.
+record
+88444602bdfffff
+hex
+PM2.5 annual mean is 8.8 ug/m3 with a percentile of 56.4.
+Within a 5.4 km radius, there are four major contributing facilities, all categorized under the Clean Air Act major source program. These include ARCOSA LW BR LLC and two plants of ARCOSA Marine Products Inc., among others.
+record
+110040943012
+echo
+ARCOSA LW BR LLC is a contributing facility 1.5 km away.
+record
+110000602483
+echo
+ARCOSA Marine Products Inc. - Plant 1038 is 2.8 km away.
+record
+110071498770
+echo
+ARCOSA Marine Products Inc. - Plant 1048 is 4.1 km away.
+record
+110071723608
+echo
+AA SULFURIC CORP - Sulfuric Acid Plant is 5.4 km away.
+The population within this area is approximately 5,210 individuals, with 27.8% identifying as Black, 24.0% living below 200% of the poverty line, 6.4% under the age of 5, and 15.1% over the age of 64.
+record
+88444602bdfffff
+hex
+Population is 5210 with 27.8% Black, 24.0% below 200% poverty, 6.4% under 5, and 15.1% over 64.
+Environmental and Demographic Overview for Jefferson Parish Hexagon
+Burden Score
+58.3
+
+record
+88444602bdfffff
+hex
+Burden score is 58.3 out of 100.
+Statewide Burden Percentile
+71.4
+
+record
+88444602bdfffff
+hex
+Statewide percentile for burden score is 71.4.
+Modelled Air Toxics Cancer Risk
+55.7
+per million
+record
+88444602bdfffff
+hex
+Modelled air toxics cancer risk is 55.7 per million.
+PM2.5 Annual Mean
+8.8
+µg/m³
+record
+88444602bdfffff
+hex
+PM2.5 annual mean is 8.8 ug/m3.
+Population
+5210
+
+record
+88444602bdfffff
+hex
+Population is 5210.
+The burden score and percentiles are calculated statewide within Louisiana, not nationally.
+The data reflects modelled exposure, not measured exposure at specific locations.
+Confidence in this data is moderate, with a confidence level of 0.6.
+Demographic data informs population facts but does not contribute to the burden score.
+This data does not imply any legal violations or misconduct by the facilities mentioned.
+record
+88444602bdfffff
+hex
+Modelled air toxics cancer risk is 55.7 per million with a statewide percentile of 71.4.
+record
+110040943012
+echo
+ARCOSA LW BR LLC is a contributing facility 1.5 km away.
+record
+110000602483
+echo
+ARCOSA Marine Products Inc. - Plant 1038 is 2.8 km away.
+record
+110071498770
+echo
+ARCOSA Marine Products Inc. - Plant 1048 is 4.1 km away.
+record
+110071723608
+echo
+AA SULFURIC CORP - Sulfuric Acid Plant is 5.4 km away.

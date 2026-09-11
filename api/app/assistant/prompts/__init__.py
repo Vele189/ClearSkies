@@ -31,7 +31,7 @@ PROMPTS_DIR = Path(__file__).resolve().parent
 # The version used unless a caller pins an older one. Bumping this is a
 # deliberate act: drafts generated before and after are not comparable, and
 # CS-306 treats a prompt revision as a cache invalidation.
-CURRENT_VERSION = "v1"
+CURRENT_VERSION = "v3"
 
 SYSTEM_FILE = "system.md"
 
@@ -120,8 +120,38 @@ CHECKSUMS: dict[str, dict[str, str]] = {
         "public_comment_letter.md": (
             "4367216db944562aa9423d2f34878b0bd6b5044c4ca571d86a4d274542c70615"
         ),
-        "system.md": "b3c921d414929516a17b32fba051737e8521754cd26e3024d060b59c77001997",
-    }
+        "system.md": ("b3c921d414929516a17b32fba051737e8521754cd26e3024d060b59c77001997"),
+    },
+    "v2": {
+        "agency_complaint_draft.md": (
+            "024b297adc3bfea406e80955398e02cbdf07f58357b5488f0e674fbbf9b79502"
+        ),
+        "community_briefing_sheet.md": (
+            "cc0655c906fd8b260cb4b70ec6547ddbc94584d48d18c8bb7e480044692a345f"
+        ),
+        "journalist_fact_sheet.md": (
+            "048625f4778f856aecdffd4733a01eee0b2c0b02431fcb63dc46f81291eb9e54"
+        ),
+        "public_comment_letter.md": (
+            "4367216db944562aa9423d2f34878b0bd6b5044c4ca571d86a4d274542c70615"
+        ),
+        "system.md": ("dbb2ae8830b5f45a2954f2ad9a72fcd05f2ed29aeee560b3f9edc9a36f66f6ca"),
+    },
+    "v3": {
+        "agency_complaint_draft.md": (
+            "024b297adc3bfea406e80955398e02cbdf07f58357b5488f0e674fbbf9b79502"
+        ),
+        "community_briefing_sheet.md": (
+            "cc0655c906fd8b260cb4b70ec6547ddbc94584d48d18c8bb7e480044692a345f"
+        ),
+        "journalist_fact_sheet.md": (
+            "048625f4778f856aecdffd4733a01eee0b2c0b02431fcb63dc46f81291eb9e54"
+        ),
+        "public_comment_letter.md": (
+            "4367216db944562aa9423d2f34878b0bd6b5044c4ca571d86a4d274542c70615"
+        ),
+        "system.md": ("3fe0566599b665693a2ad160fd604206801ede309d27d21a82c2dddefc2210ea"),
+    },
 }
 
 

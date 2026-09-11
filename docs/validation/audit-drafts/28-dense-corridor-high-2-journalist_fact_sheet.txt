@@ -1,0 +1,84 @@
+journalist_fact_sheet
+The community within hexagon 88444601bdfffff in Ascension Parish, Louisiana, is experiencing considerable environmental burden as indicated by its score and indicators. With modelled exposure and nearby facilities contributing to the burden, it is critical to understand these metrics in context.
+The burden score for the hexagon is 88.7 out of 100, which places it in the 97.1st percentile statewide. This high percentile suggests that this area experiences higher environmental burdens compared to most other areas in Louisiana.
+record
+88444601bdfffff
+hex
+The burden score is 88.7 out of 100, ranked in the 97.1st percentile statewide.
+Key indicators show that the modelled air toxics cancer risk in this area is 68.5 per million, placing it in the 97.1st percentile, while the annual mean PM2.5 level is 9.4 µg/m³, in the 82.1st percentile. These figures convey significant risks related to air quality.
+record
+88444601bdfffff
+hex
+The modelled air toxics cancer risk is 68.5 per million, 97.1st percentile; PM2.5 mean is 9.4 µg/m³, 82.1st percentile.
+The demographics within this hexagon reveal a population where 44.6% identify as Black and 33.9% live below 200% of the poverty line. Furthermore, 6.4% of residents are under 5 years old, and 15.1% are over 64 years old.
+record
+88444601bdfffff
+hex
+The population is 44.6% Black, with 33.9% living below 200% of the poverty line.
+There are 11 contributing facilities operating within close proximity, such as the Arcosa LW BR LLC facility, which is a major source of air emissions in accordance with the Clean Air Act.
+record
+110040943012
+echo
+Arcosa LW BR LLC is a contributing facility 1.5 km away, classified under CAA major source.
+Environmental Burden in Ascension Parish: High Scores and Contributing Factors
+Burden Score
+88.7
+
+record
+88444601bdfffff
+hex
+The burden score is 88.7 out of 100, indicating significant environmental impact.
+Statewide Percentile
+97.1
+
+record
+88444601bdfffff
+hex
+The hexagon is in the 97.1st percentile statewide for environmental burden.
+Modelled Air Toxics Cancer Risk
+68.5
+per million
+record
+88444601bdfffff
+hex
+The modelled air toxics cancer risk is 68.5 per million, placing it in the 97.1st percentile.
+PM2.5 Annual Mean
+9.4
+µg/m³
+record
+88444601bdfffff
+hex
+The PM2.5 annual mean level is 9.4 µg/m³, in the 82.1st percentile statewide.
+Percentage of Population Identifying as Black
+44.6%
+
+record
+88444601bdfffff
+hex
+The population is 44.6% Black.
+Percentage of Population Below 200% Poverty Line
+33.9%
+
+record
+88444601bdfffff
+hex
+33.9% of the population lives below 200% of the poverty line.
+Number of Contributing Facilities
+11
+
+record
+88444601bdfffff
+hex
+There are 11 contributing facilities within proximity.
+The burden score and percentiles are based on state-level comparisons within Louisiana and not national data.
+These figures represent modeled data which may differ from actual measurements at specific locations.
+Demographic figures are descriptive and do not influence the score directly.
+The presence of contributing facilities is noted, without attributing direct causal relationships to health or demographic factors.
+record
+88444601bdfffff
+hex
+The burden score is 88.7 out of 100, ranked in the 97.1st percentile statewide.
+record
+110040943012
+echo
+Arcosa LW BR LLC is a contributing facility 1.5 km away, classified under CAA major source.

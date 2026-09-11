@@ -1,0 +1,62 @@
+agency_complaint_draft
+This administrative complaint is submitted to the U.S. EPA External Civil Rights Compliance Office on behalf of the residents of Ouachita Parish within hexagon 884446025dfffff. The complaint concerns the cumulative environmental burden and the potential disparate impact on this community.
+The burden score for the community within hexagon 884446025dfffff is 51.4 out of 100, placing it in the 63.8th percentile statewide, an indicator of a significant environmental burden relative to other areas in Louisiana.
+record
+884446025dfffff
+hex
+The burden score is 51.4, which places the hexagon in the 63.8th percentile statewide.
+The demographic composition of the affected population in this hexagon includes 58.6% Black residents, which may indicate a potential for racial disparities in environmental impacts.
+record
+884446025dfffff
+hex
+The population is 58.6% Black.
+Two major air pollution sources contribute to this burden: ARCOSA MARINE PRODUCTS INC - PLANT 1048 (located 1.5 km away) and AA SULFURIC CORP - SULFURIC ACID PLANT (2.8 km away), both operated under the CAA major source program.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is located 1.5 km away as a CAA major source.
+record
+110071723608
+echo
+AA SULFURIC CORP - SULFURIC ACID PLANT is located 2.8 km away as a CAA major source.
+Under 40 C.F.R. § 7.35(b), a recipient shall not use criteria or methods of administering its program or activity that have the effect of subjecting individuals to discrimination because of their race, color, national origin, or sex, or significantly impairing the accomplishment of the program objectives with respect to individuals of a particular race, color, national origin, or sex.
+statute
+40 C.F.R. § 7.35(b)
+epa-title-vi-impl
+Recipients shall not use methods that discriminate based on race, color, national origin, or sex.
+This community's situation, with significant environmental burdens and demographic composition, merits an investigation into possible disparities under Title VI of the Civil Rights Act, as no person in the United States shall be subjected to discrimination under any program receiving Federal financial assistance on the ground of race, color, or national origin.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+No person shall face discrimination under programs receiving Federal assistance based on race, color, or national origin.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+40 C.F.R. § 7.35(b)
+epa-title-vi-impl
+Recipients shall not use methods that discriminate based on race, color, national origin, or sex.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+No person shall face discrimination under programs receiving Federal assistance based on race, color, or national origin.
+The complainant requests the EPA to conduct an investigation into the environmental burdens faced by the community and assess whether there are any violations of Title VI with regards to racial disparities.
+record
+884446025dfffff
+hex
+The burden score is 51.4, which places the hexagon in the 63.8th percentile statewide.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is located 1.5 km away as a CAA major source.
+record
+110071723608
+echo
+AA SULFURIC CORP - SULFURIC ACID PLANT is located 2.8 km away as a CAA major source.
+statute
+40 C.F.R. § 7.35(b)
+epa-title-vi-impl
+Recipients shall not use methods that discriminate based on race, color, national origin, or sex.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+No person shall face discrimination under programs receiving Federal assistance based on race, color, or national origin.

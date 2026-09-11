@@ -1,0 +1,61 @@
+community_briefing_sheet
+This briefing sheet provides information about the environmental conditions in your area. It includes data about air quality and demographics, as well as nearby facilities that may contribute to pollution.
+The burden score for your area is 70.2 out of 100, placing it in the 85.6th percentile statewide. This means that relative to other areas in Louisiana, your area has a higher level of environmental burden, based on modelled exposure to air pollution and other factors.
+record
+884446016dfffff
+hex
+The burden score is 70.2, with a statewide percentile of 85.6.
+Air quality indicators show that the modelled air toxics cancer risk is 62.8 per million, which is in the 85.6th percentile. The PM2.5 annual mean is 9.1 ug/m3, placing it in the 70.6th percentile. Monitored NO2 levels are at 11.4 ppb, which is in the 48.0th percentile.
+record
+884446016dfffff
+hex
+Modelled air toxics cancer risk is 62.8 per million.
+record
+884446016dfffff
+hex
+PM2.5 annual mean is 9.1 ug/m3.
+record
+884446016dfffff
+hex
+Monitored NO2 is 11.4 ppb.
+The population of this area is about 1,460 people, with a significant portion identifying as Black (49.3%) and a high percentage of people living below twice the poverty level (37.7%). Additionally, 6.4% of residents are under the age of 5, and 15.1% are over 64 years old.
+record
+884446016dfffff
+hex
+Population is 1460, with 49.3% Black.
+record
+884446016dfffff
+hex
+37.7% of the population lives below 200% of the poverty level.
+record
+884446016dfffff
+hex
+6.4% are under 5 years old, and 15.1% are over 64.
+There are two major facilities within a few kilometers that may contribute to air quality issues: ANR Pipeline Co - Jena Compressor Station and ANR Pipeline Co - Mermentau Compressor Station, both classified as CAA major sources of air pollutants.
+record
+110042083438
+echo
+ANR Pipeline Co - Jena Compressor Station is 1.5 km away.
+record
+110070832687
+echo
+ANR Pipeline Co - Mermentau Compressor Station is 2.8 km away.
+Environmental Concerns in West Baton Rouge Parish
+West Baton Rouge Parish
+The score indicates that the area faces a significant environmental burden compared to other parts of Louisiana. The high score reflects potential exposure to air toxins, particulate matter, and other pollutants. This is not an indication of wrongdoing by any facilities nearby.
+Attend public hearings about air quality standards in your area.
+Request information about emissions from nearby facilities from the local environmental agency.
+Contact the EPA to express concerns or to seek further information about air quality in your parish.
+File a Title VI complaint with the EPA if you believe there is discrimination related to environmental permitting.
+record
+884446016dfffff
+hex
+The burden score is 70.2, with a statewide percentile of 85.6.
+record
+110042083438
+echo
+ANR Pipeline Co - Jena Compressor Station is 1.5 km away.
+record
+110070832687
+echo
+ANR Pipeline Co - Mermentau Compressor Station is 2.8 km away.

@@ -1,0 +1,32 @@
+public_comment_letter
+I am writing to provide comments on the pending permit action related to the Air Liquide Large Industries US LP - Geismar Facility, which is identified as a CAA major source operating 1.5 km from the hexagon cell 884446020dfffff in Pointe Coupee Parish, Louisiana.
+record
+110021175011
+echo
+The Air Liquide Large Industries US LP - Geismar Facility is a CAA major source located 1.5 km from the hexagon.
+The data for hexagon 884446020dfffff indicates a burden score of 49.1 out of 100, placing it in the 61.2 percentile for the state of Louisiana. It also shows a modelled air toxics cancer risk of 50.6 per million and an annual PM2.5 mean of 8.5 ug/m3.
+record
+884446020dfffff
+hex
+The hexagon has a burden score of 49.1 and is in the 61.2 percentile statewide.
+According to 42 U.S.C. § 7412(d)(1), the Administrator is required to establish emissions standards for major sources of hazardous air pollutants and may distinguish among classes within a category when setting such emissions standards.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall establish emissions standards for each major source category of hazardous air pollutants.
+I request that the agency thoroughly evaluate the cumulative impact of existing permitted sources, like Air Liquide, on the local air quality and consider stricter emission control measures as warranted by the data provided for this hexagon.
+Louisiana Department of Environmental Quality
+Comment on Permit Action for Air Liquide Large Industries US LP - Geismar Facility
+I request the agency to require an assessment of cumulative impact and consider stricter emission controls.
+record
+110021175011
+echo
+The Air Liquide Large Industries US LP - Geismar Facility is a CAA major source located 1.5 km from the hexagon.
+record
+884446020dfffff
+hex
+The hexagon has a burden score of 49.1 and is in the 61.2 percentile statewide.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall establish emissions standards for each major source category of hazardous air pollutants.

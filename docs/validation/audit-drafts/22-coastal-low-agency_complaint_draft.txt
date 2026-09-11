@@ -1,0 +1,57 @@
+agency_complaint_draft
+This complaint is submitted to the U.S. EPA External Civil Rights Compliance Office to request an investigation into potential disparate impact arising from environmental and demographic factors in the specified area of Plaquemines Parish, Louisiana.
+The hexagon represented by H3 cell 884446015dfffff in Plaquemines Parish has a burden score of 55.8 out of 100, placing it in the 68.3rd percentile statewide. This score is reflective of modelled exposure to air toxics, nearby permitted sources of pollution, and a vulnerable population as recorded in the Hexagon data.
+record
+884446015dfffff
+hex
+The hexagon has a burden score of 55.8, placing it in the 68.3rd percentile statewide.
+Demographic data indicates that the population of the hexagon area is 1,120 people with 22.7% identified as Black, 35.4% living at or below 200% of the poverty line, 6.4% under the age of 5, and 15.1% over the age of 64. The vulnerable demographics recorded may indicate susceptibility to environmental risks.
+record
+884446015dfffff
+hex
+Population demographics include 22.7% Black, 35.4% in poverty, 6.4% under 5, and 15.1% over 64.
+The contributing facilities within the vicinity include AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY located 1.5 km away, AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY at 2.8 km, and AMERICAS STYRENICS LLC - ST JAMES PLANT which lies 4.1 km from the hexagon center. These facilities are classified as CAA major sources, potentially impacting air quality in the area.
+record
+110022399108
+echo
+AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY is located 1.5 km away from the hexagon.
+record
+110009575762
+echo
+AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY is located 2.8 km away from the hexagon.
+record
+110056954602
+echo
+AMERICAS STYRENICS LLC - ST JAMES PLANT is located 4.1 km away from the hexagon.
+Under 42 U.S.C. § 2000d, no person in the United States shall be subjected to discrimination under any program or activity receiving Federal financial assistance on the ground of race, color, or national origin.
+statute
+42 U.S.C. § 2000d
+usc-42
+Prohibits discrimination under any program or activity receiving Federal financial assistance.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42
+Prohibits discrimination under any program or activity receiving Federal financial assistance.
+The complainant requests the U.S. EPA External Civil Rights Compliance Office to open an investigation to assess whether any program or activity receiving federal financial assistance in this area may result in prohibited discrimination based on race, color, or national origin.
+record
+884446015dfffff
+hex
+The hexagon has a burden score of 55.8, placing it in the 68.3rd percentile statewide.
+record
+110022399108
+echo
+AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY is located 1.5 km away from the hexagon.
+record
+110009575762
+echo
+AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY is located 2.8 km away from the hexagon.
+record
+110056954602
+echo
+AMERICAS STYRENICS LLC - ST JAMES PLANT is located 4.1 km away from the hexagon.
+statute
+42 U.S.C. § 2000d
+usc-42
+Prohibits discrimination under any program or activity receiving Federal financial assistance.

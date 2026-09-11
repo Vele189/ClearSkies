@@ -1,0 +1,57 @@
+public_comment_letter
+I am writing to comment on the pending permit action concerning the major sources of air pollution located near Jefferson Parish. This comment is submitted based on current data and statutory requirements regarding hazardous air pollutants.
+The hexagon covering Jefferson Parish, indexed as 884446004dfffff, has a burden score of 58.3, placing it in the 71.4th percentile statewide, indicating significant environmental burden from air pollution sources.
+record
+884446004dfffff
+hex
+The hexagon has a burden score of 58.3, placing it in the 71.4th percentile statewide.
+There are four major contributing facilities within close proximity, including ANDINO ENERGY ENTERPRISES LLC - ST JAMES, and three ANR PIPELINE CO compressor stations, identified as major sources under CAA programs.
+record
+110064309412
+echo
+ANDINO ENERGY ENTERPRISES LLC - ST JAMES is a major source facility.
+record
+110006020509
+echo
+ANR PIPELINE CO - DELHI COMPRESSOR STATION is a major source facility.
+record
+110033673889
+echo
+ANR PIPELINE CO - EUNICE COMPRESSOR STATION is a major source facility.
+record
+110042083438
+echo
+ANR PIPELINE CO - JENA COMPRESSOR STATION is a major source facility.
+The law requires that emission standards be established for listed categories and subcategories of hazardous air pollutants and that these standards be implemented without delay. The Administrator is required to establish these standards according to subsections (c) and (e) of the Clean Air Act [42 U.S.C. § 7412(d)(1)].
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for each category or subcategory of major sources and area sources of hazardous air pollutants.
+I request that the agency hold a hearing to discuss the potential health impacts and environmental effects of these facilities. Furthermore, I urge the agency to extend the comment period to ensure comprehensive public engagement and examination of the potential impacts of the permit action.
+Environmental Protection Agency, Air Permitting Section
+Public Comment on Permit Action for Major Sources in Jefferson Parish
+Hold a public hearing and extend the comment period for comprehensive public engagement.
+record
+884446004dfffff
+hex
+The hexagon has a burden score of 58.3, placing it in the 71.4th percentile statewide.
+record
+110064309412
+echo
+ANDINO ENERGY ENTERPRISES LLC - ST JAMES is a major source facility.
+record
+110006020509
+echo
+ANR PIPELINE CO - DELHI COMPRESSOR STATION is a major source facility.
+record
+110033673889
+echo
+ANR PIPELINE CO - EUNICE COMPRESSOR STATION is a major source facility.
+record
+110042083438
+echo
+ANR PIPELINE CO - JENA COMPRESSOR STATION is a major source facility.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for each category or subcategory of major sources and area sources of hazardous air pollutants.

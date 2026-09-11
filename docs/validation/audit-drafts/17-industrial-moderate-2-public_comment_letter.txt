@@ -1,0 +1,48 @@
+public_comment_letter
+I am writing to provide public comment regarding a pending permit action involving multiple sources of air pollution in East Baton Rouge, specifically within the hexagon identified by H3 cell 884446010dfffff. The area has a burden score of 74.9 out of 100, placing it in the 88th percentile statewide for combined environmental and demographic factors.
+record
+884446010dfffff
+hex
+The area has a burden score of 74.9 out of 100, placing it in the 88th percentile statewide.
+The hexagon is home to a population that is 62.1% Black with 41.2% living below 200% of the poverty level. It also experiences a modelled air toxics cancer risk of 64.0 per million, which is in the 88th percentile statewide.
+record
+884446010dfffff
+hex
+The hexagon is home to a population that is 62.1% Black with 41.2% living below 200% of the poverty level.
+record
+884446010dfffff
+hex
+It experiences a modelled air toxics cancer risk of 64.0 per million, in the 88th percentile statewide.
+There are currently six contributing facilities located within 10 kilometers of this area which are major sources under the CAA. These include ANR Pipeline Co - Patterson Compressor Station, ARCOSA LW BR LLC - ARCOSA LIGHTWEIGHT, and others, all contributing to the air pollution burden.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is a contributing facility within 1.5 km, classified as a CAA major source.
+record
+110040943012
+echo
+ARCOSA LW BR LLC - ARCOSA LIGHTWEIGHT is a contributing facility within 2.8 km, classified as a CAA major source.
+Under 42 U.S.C. § 7412(d), the Administrator is required to establish emission standards for each category or subcategory of major and area sources of hazardous air pollutants. The standards must be based on the maximum degree of reduction in emissions that is deemed achievable.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator is required to establish emission standards for major and area sources of hazardous air pollutants.
+Louisiana Department of Environmental Quality
+Public Comment on Pending Permit Action in East Baton Rouge
+I request that the agency require additional analysis of the cumulative impact of these facilities on the local community, including potential health risks, before any permit issuance. Moreover, please consider holding a public hearing to discuss these findings with community members.
+record
+884446010dfffff
+hex
+The area has a burden score of 74.9 out of 100, placing it in the 88th percentile statewide.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is a contributing facility within 1.5 km, classified as a CAA major source.
+record
+110040943012
+echo
+ARCOSA LW BR LLC - ARCOSA LIGHTWEIGHT is a contributing facility within 2.8 km, classified as a CAA major source.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator is required to establish emission standards for major and area sources of hazardous air pollutants.

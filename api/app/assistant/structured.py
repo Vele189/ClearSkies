@@ -40,6 +40,22 @@ log = logging.getLogger(__name__)
 MAX_SCHEMA_ATTEMPTS = 3
 
 
+def model_label(model: Model | str) -> str:
+    """What to record as the model that produced a draft.
+
+    `str()` on a Pydantic AI model object gives its class name, not the model:
+    `OpenAIChatModel()`, every time, for every model. Using it stamped every
+    draft's provenance with a string that identifies nothing and made the cost
+    estimate zero, because no price table has an entry for a class name. Both
+    failures are quiet — a draft still generates, a usage row still lands — and
+    the second only shows up as a bill that does not match the reported spend.
+
+    `model_name` is the attribute that carries it. Falling back to `str` keeps a
+    plain string model name, which is what the tests pass, working unchanged.
+    """
+    return str(getattr(model, "model_name", None) or model)
+
+
 class DraftRejected(RuntimeError):
     """The model did not produce a document conforming to its schema.
 
@@ -158,5 +174,5 @@ async def generate(
         refusal=refusal,
         request_tokens=getattr(usage, "input_tokens", 0) or 0,
         response_tokens=getattr(usage, "output_tokens", 0) or 0,
-        model_name=str(model),
+        model_name=model_label(model),
     )

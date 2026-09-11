@@ -1,0 +1,57 @@
+community_briefing_sheet
+The area you live in has a pollution burden score of 55.8 out of 100. This score places your area in the 68.3rd percentile of Louisiana. This means your area has higher pollution than 68.3% of places in the state.
+record
+884446022dfffff
+hex
+The pollution burden score for this area is 55.8 out of 100, placing it in the 68.3rd percentile in Louisiana.
+There is a modelled air toxics cancer risk of 54.1 per million in your area, which is also in the 68.3rd percentile for Louisiana. This indicates a relatively higher risk compared to other areas within the state.
+record
+884446022dfffff
+hex
+The modelled air toxics cancer risk is 54.1 per million, in the 68.3rd percentile for Louisiana.
+The annual mean level of fine particulate matter (PM2.5) in your area is 8.7 micrograms per cubic meter. This falls into the 53.3rd percentile for the state, indicating a moderate level compared to other areas.
+record
+884446022dfffff
+hex
+The PM2.5 annual mean level is 8.7 ug/m3, in the 53.3rd percentile for Louisiana.
+In your area, the population is 22.7% Black, 35.4% live below twice the poverty line, 6.4% are under 5 years old, and 15.1% are over 64 years old.
+record
+884446022dfffff
+hex
+Demographic data: 22.7% Black, 35.4% below twice the poverty line, 6.4% under 5 years, 15.1% over 64 years.
+There are three contributing facilities nearby: Acadian Gas Pipeline System - Cheneyville Compressor Station, Acadian Gas Pipeline System - Mansfield Compressor Station, and Acadia Parish Police Jury - Acadia Parish Sanitary Landfill, all considered major sources of air pollution under the Clean Air Act.
+record
+110043291354
+echo
+The Acadian Gas Pipeline System - Cheneyville Compressor Station is a major source of air pollution.
+record
+110071722861
+echo
+The Acadian Gas Pipeline System - Mansfield Compressor Station is a major source of air pollution.
+record
+110013921435
+echo
+The Acadia Parish Police Jury - Acadia Parish Sanitary Landfill is a major source of air pollution.
+Air Quality and Pollution in Your Area
+Plaquemines Parish
+The burden score reflects potential exposure to pollution and its sources, including air toxins and particulate matter. This does not imply wrongdoing by any company. It shows potential risks and persistent social factors that can affect how pollution impacts your community.
+Attend public hearings or meetings about local environmental projects.
+Request public records related to local pollution from the relevant authorities.
+Contact the Louisiana Department of Environmental Quality for more information on air quality.
+Submit comments if there is a public consultation period for a new or renewed permit for local facilities.
+record
+884446022dfffff
+hex
+The pollution burden score for this area is 55.8 out of 100, placing it in the 68.3rd percentile in Louisiana.
+record
+110043291354
+echo
+The Acadian Gas Pipeline System - Cheneyville Compressor Station is a major source of air pollution.
+record
+110071722861
+echo
+The Acadian Gas Pipeline System - Mansfield Compressor Station is a major source of air pollution.
+record
+110013921435
+echo
+The Acadia Parish Police Jury - Acadia Parish Sanitary Landfill is a major source of air pollution.

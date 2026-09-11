@@ -1,0 +1,83 @@
+agency_complaint_draft
+This administrative complaint is submitted by concerned parties regarding the cumulative environmental burden faced by residents in Ascension Parish, Louisiana, specifically within the hexagon identified as H3 cell 884446001dfffff.
+The area in question has been assigned a burden score of 88.7 out of 100, placing it in the 97.1 percentile statewide, indicating a high level of environmental burden relative to other areas in Louisiana.
+record
+884446001dfffff
+hex
+The burden score for this hexagon is 88.7 out of 100.
+record
+884446001dfffff
+hex
+The hexagon is in the 97.1 statewide percentile for environmental burden.
+Several indicators contribute to this environmental burden. The modelled air toxics cancer risk is 68.5 per million, which is in the 97.1 percentile. Additionally, the PM2.5 annual mean is measured at 9.4 ug/m3, placing it in the 82.1 percentile. These figures highlight significant concerns regarding air quality in the area.
+record
+884446001dfffff
+hex
+The modelled air toxics cancer risk is 68.5 per million.
+record
+884446001dfffff
+hex
+The PM2.5 annual mean is 9.4 ug/m3.
+The area hosts a potentially vulnerable population, with 44.6% of the population identified as Black, 33.9% living below 200% of the poverty line, and 15.1% aged over 64. These demographic factors may exacerbate the adverse effects of environmental burdens.
+record
+884446001dfffff
+hex
+44.6% of the population is identified as Black.
+record
+884446001dfffff
+hex
+33.9% of the population lives below 200% of the poverty line.
+record
+884446001dfffff
+hex
+15.1% of the population is aged over 64.
+There are 11 permitted facilities operating near this area, contributing significantly to the environmental burden. Some of these facilities include ALON REFINING KROTZ SPRINGS INC, AM AGRIGEN INDUSTRIES LLC - AMAI AMMONIA & UREA PLANT, and AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY, all identified as major sources under the Clean Air Act.
+record
+110041023807
+echo
+The facility is ALON REFINING KROTZ SPRINGS INC and is 1.5 km away.
+record
+110070132594
+echo
+The facility is AM AGRIGEN INDUSTRIES LLC - AMAI AMMONIA & UREA PLANT and is 2.8 km away.
+record
+110022399108
+echo
+The facility is AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY and is 4.1 km away.
+Title VI of the Civil Rights Act prohibits discrimination under any program or activity receiving federal financial assistance. The cumulative impact of these environmental burdens on this predominantly minority and low-income community warrants an investigation to ensure compliance with these provisions.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Title VI of the Civil Rights Act prohibits discrimination under any program or activity receiving federal financial assistance.
+We respectfully request the U.S. EPA External Civil Rights Compliance Office to open an investigation into the cumulative environmental burdens in this area and to conduct a compliance review to ensure that no discriminatory practices are in place.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Title VI of the Civil Rights Act prohibits discrimination under any program or activity receiving federal financial assistance.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-title40
+A recipient shall not use criteria or methods of administering its program or activity which have the effect of subjecting individuals to discrimination because of their race, color, national origin, or sex.
+Open an investigation and conduct a compliance review.
+record
+884446001dfffff
+hex
+The burden score for this hexagon is 88.7 out of 100.
+record
+110041023807
+echo
+The facility is ALON REFINING KROTZ SPRINGS INC and is 1.5 km away.
+record
+110070132594
+echo
+The facility is AM AGRIGEN INDUSTRIES LLC - AMAI AMMONIA & UREA PLANT and is 2.8 km away.
+record
+110022399108
+echo
+The facility is AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY and is 4.1 km away.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Title VI of the Civil Rights Act prohibits discrimination under any program or activity receiving federal financial assistance.

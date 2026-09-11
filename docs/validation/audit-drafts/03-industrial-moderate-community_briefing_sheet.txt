@@ -1,0 +1,36 @@
+community_briefing_sheet
+You live in Calcasieu Parish, in a hexagon with a notable environmental burden score of 81.4 out of 100. This places your area at the 94.2 percentile statewide, meaning it is more burdened by environmental issues compared to most other areas in Louisiana.
+record
+884446002dfffff
+hex
+The hexagon has a burden score of 81.4 and is in the 94.2 percentile statewide in Louisiana.
+The highlighted environmental concern here is the risk of cancer from air toxics, which is estimated at 67.1 per million, putting your area also at the 94.2 Louisiana percentile. This means air pollution in your area is higher than in most places in the state.
+record
+884446002dfffff
+hex
+Modelled air toxics cancer risk is 67.1 per million, in the 94.2 percentile.
+There are eight facilities nearby, all identified as major sources under the Clean Air Act. The closest facility, Andino Energy Enterprises LLC, is about 1.5 km from you.
+record
+110064309412
+echo
+ANDINO ENERGY ENTERPRISES LLC - ST JAMES is 1.5 km away and is a CAA major source facility.
+Your community has a population of 2,410, with around 31.5% Black residents and 38.7% of the population living at or below 200% of the poverty line. This demographic detail can be important for understanding how environmental issues might impact different groups in your area.
+record
+884446002dfffff
+hex
+The population is 2,410 with 31.5% Black residents and 38.7% living at or below 200% of the poverty line.
+Environmental Concerns in Calcasieu Parish
+Calcasieu Parish
+The environmental burden score indicates significant exposure to pollution and the presence of vulnerable communities. However, this score is not a direct accusation of wrongdoing by any company or facility. It's a model used to understand potential environmental risks and vulnerabilities in the area.
+Attend local community meetings to learn more about environmental issues.
+Comment on or attend public hearings for permits related to local facilities.
+Request information from the Community Right-to-Know Act about local pollutant releases.
+Contact local environmental advocacy groups for more resources and support.
+record
+884446002dfffff
+hex
+The hexagon has a burden score of 81.4 and is in the 94.2 percentile statewide in Louisiana.
+record
+110064309412
+echo
+ANDINO ENERGY ENTERPRISES LLC - ST JAMES is 1.5 km away and is a CAA major source facility.

@@ -1,0 +1,106 @@
+journalist_fact_sheet
+This fact sheet provides key figures and data concerning environmental conditions in the hexagon identified by the H3 cell index 884446023dfffff, located in West Baton Rouge Parish. The data assess modelled exposure to pollutants, the presence of permitted sources, and the demographics of the population within this area.
+The burden score for this hexagon is 70.2 out of 100, placing it in the 85.6th percentile statewide. This indicates that this area experiences higher environmental burdens compared to 85.6% of other areas in Louisiana.
+record
+884446023dfffff
+hex
+The hexagon has a burden score of 70.2, in the 85.6th percentile statewide.
+Key indicators include a modelled air toxics cancer risk of 62.8 per million, ranking in the 85.6th percentile, and an annual mean PM2.5 level of 9.1 μg/m3, which is in the 70.6th percentile. Monitored NO2 levels stand at 11.4 ppb, in the 48.0th percentile.
+record
+884446023dfffff
+hex
+Modelled air toxics cancer risk is 62.8 per million, PM2.5 annual mean is 9.1 ug/m3, NO2 is 11.4 ppb.
+The population in this area is approximately 1,460 people, with 49.3% identifying as Black, 37.7% of the population living below 200% of the poverty line, 6.4% under the age of 5, and 15.1% aged 65 and older.
+record
+884446023dfffff
+hex
+The population is 1,460 with 49.3% Black, 37.7% in poverty, 6.4% under 5, 15.1% over 64.
+Two major sources within proximity to this hexagon include the ANR Pipeline Co - Mermentau Compressor Station, located 1.5 km away, and the ANR Pipeline Co - Patterson Compressor Station, 2.8 km away. Both facilities are classified under the Clean Air Act as major sources.
+record
+110070832687
+echo
+ANR Mermentau Compressor Station is 1.5 km away, classified as a CAA major source.
+record
+110017724186
+echo
+ANR Patterson Compressor Station is 2.8 km away, classified as a CAA major source.
+Environmental and Demographic Snapshot for West Baton Rouge Parish Hexagon
+Burden Score
+70.2
+
+record
+884446023dfffff
+hex
+The hexagon has a burden score of 70.2.
+Statewide Percentile
+85.6
+
+record
+884446023dfffff
+hex
+The hexagon is in the 85.6th percentile statewide.
+Modelled Air Toxics Cancer Risk
+62.8
+per million
+record
+884446023dfffff
+hex
+Modelled air toxics cancer risk is 62.8 per million.
+PM2.5 Annual Mean
+9.1
+µg/m³
+record
+884446023dfffff
+hex
+PM2.5 annual mean is 9.1 ug/m3.
+Population
+1460
+
+record
+884446023dfffff
+hex
+The population is 1,460 people.
+Percentage of Population Identifying as Black
+49.3%
+
+record
+884446023dfffff
+hex
+49.3% of the population identifies as Black.
+Percentage Below 200% Poverty Line
+37.7%
+
+record
+884446023dfffff
+hex
+37.7% of the population is below 200% of the poverty line.
+Percentage of Population Under Age 5
+6.4%
+
+record
+884446023dfffff
+hex
+6.4% of the population is under age 5.
+Percentage of Population Over Age 64
+15.1%
+
+record
+884446023dfffff
+hex
+15.1% of the population is over age 64.
+The burden score and percentile are based on a statewide comparison within Louisiana and not a national comparison, which may lead to different interpretations when comparing across states.
+The score is derived from modelled data and does not represent direct measurements of pollutants at any specific location.
+Demographic data is included for contextual purposes and does not influence the calculated environmental burden score.
+The presence of facilities in proximity is given as a factual statement without any inference of impact on health or environment, which requires independent study.
+record
+884446023dfffff
+hex
+The hexagon has a burden score of 70.2, in the 85.6th percentile statewide.
+record
+110070832687
+echo
+ANR Mermentau Compressor Station is 1.5 km away, classified as a CAA major source.
+record
+110017724186
+echo
+ANR Patterson Compressor Station is 2.8 km away, classified as a CAA major source.

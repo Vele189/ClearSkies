@@ -1,0 +1,32 @@
+public_comment_letter
+I am writing to provide a public comment on the pending permit action concerning the ANR Pipeline Co - Mermentau Compressor Station, located within 1.5 km from hexagon H3 cell 884446014dfffff in Concordia Parish.
+The data indicates a burden score of 44.6 out of 100 for this locality, placing it at the 55th percentile statewide. This suggests moderate exposure and impact from local environmental conditions. Notably, the modelled air toxics cancer risk in this area is 47.5 per million, which is also at the 55th percentile statewide. Demographically, the area's population is 540, where 41.2% are Black, and 49.6% of the residents live at or below 200% of the federal poverty level.
+record
+884446014dfffff
+hex
+The hexagon has a burden score of 44.6, placing it at the 55th percentile statewide.
+record
+884446014dfffff
+hex
+The modelled air toxics cancer risk is 47.5 per million, at the 55th percentile.
+record
+884446014dfffff
+hex
+The population is 540, with 41.2% Black and 49.6% living at or below 200% of the federal poverty level.
+According to 42 U.S.C. § 7412(d)(1), the Administrator is required to promulgate regulations establishing emission standards for major sources of hazardous air pollutants. This is pertinent as the ANR Pipeline Co - Mermentau Compressor Station is part of the CAA major source program, implying it must adhere to strict emission standards established by the EPA.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for major sources of hazardous air pollutants.
+I urge the agency to require additional analysis of the cumulative impact of the existing permitted sources within this area, focusing on public health and demographic vulnerabilities before making a final decision on the permit application.
+Louisiana Department of Environmental Quality
+Public Comment on ANR Pipeline Co - Mermentau Compressor Station Permit
+Conduct further analysis on cumulative impact and demographic vulnerabilities prior to finalizing the permit action.
+record
+884446014dfffff
+hex
+The hexagon has a burden score of 44.6, placing it at the 55th percentile statewide.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for major sources of hazardous air pollutants.

@@ -1,0 +1,41 @@
+public_comment_letter
+I am writing to submit a public comment on the pending permit action for facilities operating within the area represented by the hexagon with H3 cell index 88444601cdfffff in Calcasieu Parish. This comment addresses the potential environmental impacts as indicated by the data on modelled exposure, nearby permitted sources, and the demographics of the area.
+The hexagon in question has a burden score of 81.4 out of 100, placing it in the 94.2 percentile statewide, indicating significant environmental exposure concerns. The modelled air toxics cancer risk is 67.1 per million, which is also in the 94.2 percentile. Additionally, the annual mean for PM2.5 is 9.4 ug/m3, falling in the 79.2 percentile.
+record
+88444601cdfffff
+hex
+The hexagon has a burden score of 81.4 out of 100, indicating significant environmental exposure concerns.
+There are eight contributing facilities within proximity, including major sources such as ARCOSA MARINE PRODUCTS INC and AA SULFURIC CORP, both operating under the Clean Air Act's major source category.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC operates under the CAA major source category, 1.5 km from the hexagon.
+record
+110071723608
+echo
+AA SULFURIC CORP operates under the CAA major source category, 2.8 km from the hexagon.
+Under 42 U.S.C. § 7661b(c), any person required to have a permit must submit a compliance plan and application not later than 12 months after becoming subject to the permit program. The permitting authority must then act on the application within 18 months of receipt. This ensures timely review and issuance or denial of permits, including public notice and opportunity for comment.
+statute
+42 U.S.C. § 7661b(c)
+usc-42-chap85
+Permitting authority must act on a completed application within 18 months of receipt.
+I request that the agency extend the public comment period and hold a public hearing to discuss the potential health risks and environmental impacts posed by the existing permitted sources in this region. This would allow for increased public participation and ensure that community concerns are adequately addressed.
+Louisiana Department of Environmental Quality
+Public Comment on Permit Action for Facilities in Calcasieu Parish
+Extend the public comment period and hold a public hearing regarding the environmental impacts and health risks associated with the permitted sources.
+record
+88444601cdfffff
+hex
+The hexagon has a burden score of 81.4 out of 100, indicating significant environmental exposure concerns.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC operates under the CAA major source category, 1.5 km from the hexagon.
+record
+110071723608
+echo
+AA SULFURIC CORP operates under the CAA major source category, 2.8 km from the hexagon.
+statute
+42 U.S.C. § 7661b(c)
+usc-42-chap85
+Permitting authority must act on a completed application within 18 months of receipt.

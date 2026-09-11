@@ -1,0 +1,48 @@
+community_briefing_sheet
+This area, located in Calcasieu Parish, has a burden score of 66.9 out of 100, placing it in the 79.1 percentile statewide. This score reflects a modelled exposure to air pollution and the presence of nearby industrial facilities.
+record
+884446026dfffff
+hex
+The burden score for this hexagon is 66.9, with a statewide percentile of 79.1.
+The modelled air toxics cancer risk in this area is 59.5 per million, which is in the 79.1 percentile. The average PM2.5 level recorded is 9.0 micrograms per cubic meter, falling into the 64.1 percentile.
+record
+884446026dfffff
+hex
+The modelled air toxics cancer risk is 59.5 per million, percentile 79.1.
+record
+884446026dfffff
+hex
+The PM2.5 annual mean is 9.0 ug/m3, percentile 64.1.
+The population of this area is 1,730, with 34.2% identifying as Black and 39.8% living under 200% of the poverty level. Children under the age of 5 make up 6.4% of the population, while 15.1% are over the age of 64.
+record
+884446026dfffff
+hex
+The population is 1730, with 34.2% Black residents.
+There are five major facilities contributing to emissions in this area, including Americas Styrenics LLC and Andino Energy Enterprises LLC, both of which are categorized as CAA major sources of emissions.
+record
+110056954602
+echo
+Americas Styrenics LLC - St James Plant is 1.5 km away and is a CAA major source.
+record
+110064309412
+echo
+Andino Energy Enterprises LLC - St James is 2.8 km away and is a CAA major source.
+Environmental Concerns in Calcasieu Parish
+Residents of Calcasieu Parish
+The data provides an overview of the environmental burden in your area, noting the presence of significant industrial activity nearby. It highlights potential exposure to pollutants but does not conclude wrongdoing or link directly to health issues.
+Stay informed about local industrial activities by accessing the EPA's toxic release inventory data available online.
+Participate in public comment periods for any proposed permits or changes to existing permits for local facilities, as outlined in 42 U.S.C. § 7661a(b).
+Reach out to state and local environmental agencies for updates and to express any concerns you may have.
+Consider attending public meetings or hearings related to environmental issues in your area to stay engaged and informed.
+record
+884446026dfffff
+hex
+The burden score for this hexagon is 66.9, with a statewide percentile of 79.1.
+record
+110056954602
+echo
+Americas Styrenics LLC - St James Plant is 1.5 km away and is a CAA major source.
+record
+110064309412
+echo
+Andino Energy Enterprises LLC - St James is 2.8 km away and is a CAA major source.
