@@ -128,6 +128,8 @@ clearskies/
 │   └── README.md                 How to add a new data source
 ├── scoring/                      The burden score
 │   ├── burden/percentile.py      Statewide percentile rank, section 9
+│   ├── burden/component.py       Subgroup means into a component, section 10
+│   ├── burden/pollution.py       The Pollution Burden half
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector

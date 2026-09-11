@@ -932,7 +932,7 @@ floats has no reduction order to argue about later.
 
 ### CS-202 — Pollution Burden component
 
-**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-103, CS-107 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** scoring · **Depends on:** CS-201, CS-103, CS-107 · **Owner:** Lead · **Status:** Done
 
 The pollution half of the score: the Exposures and Environmental Effects groups.
 
@@ -940,19 +940,60 @@ The pollution half of the score: the Exposures and Environmental Effects groups.
 
 - Indicators and weights match `api/app/indicators.py`, which is the single
   declaration of the fifteen indicators and is itself locked to methodology
-  section 8. Exposures carries weight 1.0, Environmental Effects 0.5.
+  section 8. Exposures carries weight 1.0, Environmental Effects 0.5. **Done:**
+  `scoring/burden/indicators.py` restates group membership, weights and minimums
+  because `api` and `scoring` are separate distributions, and
+  `test_indicators.py::test_the_registry_matches_the_api` loads the registry of
+  record off disk and fails the moment the two disagree. The same arrangement
+  the ingestion package already uses in `quality/cross.py`.
 - Group minimums enforced: at least 2 of 4 Exposures, at least 2 of 4
-  Environmental Effects. Subgroup means are averaged, not pooled.
+  Environmental Effects. Subgroup means are averaged, not pooled. **Done:** below
+  its minimum a group drops out of the combination entirely rather than
+  reporting the one or two indicators it has, since a mean of one Exposures
+  indicator is a different quantity wearing the same name.
 - Missing indicators are dropped from their group mean, never imputed to zero or
-  to the median.
+  to the median. **Done:** and tested in both directions, because zero and the
+  median fail differently and section 11 rules out each by name.
 - If Exposures is not computable, the component falls back to Environmental
   Effects alone with a heavy confidence penalty. If neither is computable the hex
-  is `no_score` with reason `insufficient_pollution_data`.
+  is `no_score` with reason `insufficient_pollution_data`. **Done:** the weights
+  re-normalize over the groups that survived, so the fallback is that group's
+  mean outright rather than a third of it.
 - AirToxScreen is the primary input. OpenAQ contributes without letting sensor
-  absence read as cleanliness.
-- Component rescaled to 0 to 10 per section 10.
+  absence read as cleanliness. **Done:** E1 and E2 stay primary by being two of
+  the four Exposures slots and modeled statewide; the module deliberately does
+  not raise the 2-of-4 minimum to "and one must be AirToxScreen", which would be
+  a stricter rule than section 11 states and belongs in the methodology first.
+  E4 absent is dropped, never zeroed, and the test states the direction of that
+  failure: zero is the bottom of the scale, so an unmonitored hex imputed to it
+  would be painted cleaner than one that was measured and found clean.
+- Component rescaled to 0 to 10 per section 10. **Done:** against the statewide
+  maximum, which is returned alongside the scores because the rescaling is only
+  reproducible beside the number it divided by.
 - Per-hex sub-scores persisted, not just the total. The explain panel needs them,
-  and so does the `observed` flag on every indicator.
+  and so does the `observed` flag on every indicator. **Done:** both group means,
+  the raw component before rescaling, and the used and dropped indicator lists
+  per hex, which map onto `exposures_mean` and `env_effects_mean` on `hex_score`
+  and onto the `observed` flag on `hex_indicator`.
+
+**The assembly is shared with CS-203.** `scoring/burden/component.py` holds
+section 10 steps 1 to 3 once and the two components supply their groups, their
+weights and the name of the reason a hex fails. The two halves of section 11's
+fallback rules are the same rule with different weights, and writing it twice is
+how they would drift.
+
+**The confidence penalty is computed here and applied in CS-205.** Section 12
+owns the confidence value, and rules 3 and 4 ask for a penalty without fixing a
+number. What this reports is the share of the component's weight that survived,
+so losing Exposures costs two thirds and losing Environmental Effects one third.
+That is the asymmetry rule 3 asks for, derived from the weights already in
+section 10 rather than picked to look severe.
+
+**Percentiles from two denominators are refused.** Averaging a percentile ranked
+against 150,000 hexes with one ranked against 900 produces a number that looks
+like a component score and is not one, and the mistake is silent everywhere
+downstream, so the component checks its rankings cover the universe it was asked
+to score and raises otherwise.
 
 ---
 
