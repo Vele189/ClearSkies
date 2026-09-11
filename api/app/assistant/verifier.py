@@ -61,13 +61,27 @@ from app.assistant.documents import (
 
 log = logging.getLogger(__name__)
 
-# Which datasets a record citation may name, and how to find a row in each.
+# The hexagon the draft is about. Not a table lookup: the only thing about it
+# that can be got wrong is naming a different cell, so that is what is checked.
 #
-# Deliberately short. These are the sources that have a stable public identifier
-# a reader can take to EPA and look up. A modelled AirToxScreen value or an ACS
-# estimate is a number for a tract or a hexagon, not a record with an ID, so a
-# citation naming one is rejected rather than waved through: there would be
-# nothing for the reader to check.
+# It is here because leaving it out was a live failure rather than a theory. The
+# schema requires a citation on every factual claim, a hexagon's score and
+# demographics *are* factual claims, and the model had no other way to attribute
+# them — so it invented a dataset called "hexagon" and cited the H3 index, those
+# citations failed, and drafts that were otherwise sound were discarded. Telling
+# the model not to cite them fought the rule telling it to cite everything, and
+# the rule was right. The honest fix is to make the hexagon citable, because it
+# is a real record: a reader can open that cell on the map and see the figures.
+HEX_DATASET = "hex"
+
+# Which external datasets a record citation may name, and how to find a row in
+# each.
+#
+# Deliberately short. These are the sources with a stable public identifier a
+# reader can take to EPA and look up. A modelled AirToxScreen value or an ACS
+# estimate is a number for a tract, not a record with an id, so a citation
+# naming one is rejected rather than waved through: there would be nothing for
+# the reader to check.
 DATASET_LOOKUPS: dict[str, str] = {
     "echo": """
         SELECT facility_id, name FROM facility
@@ -272,7 +286,9 @@ async def check_statute(
     )
 
 
-async def check_record(conn: Any, citation: RecordCitation) -> CitationCheck:
+async def check_record(
+    conn: Any, citation: RecordCitation, subject_h3: str | None = None
+) -> CitationCheck:
     """Does this record exist in the loaded dataset?
 
     No support check. A record citation asserts that a row exists and says what
@@ -281,6 +297,30 @@ async def check_record(conn: Any, citation: RecordCitation) -> CitationCheck:
     mistyped identifier, and existence catches it.
     """
     dataset = citation.dataset.strip().lower()
+
+    if dataset == HEX_DATASET:
+        if subject_h3 is None:
+            return CitationCheck(
+                citation=citation,
+                verdict="not_in_dataset",
+                detail=(
+                    "a hexagon citation was checked without knowing which hexagon "
+                    "the draft is about"
+                ),
+            )
+        if citation.record_id != subject_h3:
+            # A different cell. The figures would be real and about somewhere
+            # else, which is the one thing that can go wrong here.
+            return CitationCheck(
+                citation=citation,
+                verdict="not_in_dataset",
+                detail=(
+                    f"cites hexagon {citation.record_id!r}, but this draft is about {subject_h3!r}"
+                ),
+            )
+        return CitationCheck(
+            citation=citation, verdict="verified", detail="the hexagon this draft is about"
+        )
     query = DATASET_LOOKUPS.get(dataset)
     if query is None:
         return CitationCheck(
@@ -306,6 +346,7 @@ async def verify_document(
     conn: Any,
     model: Model | str,
     document: DraftDocument,
+    subject_h3: str | None = None,
 ) -> Verification:
     """Check every citation in a draft. Returns the verdict; raises nothing."""
     judge = build_judge(model)
@@ -315,7 +356,7 @@ async def verify_document(
         if isinstance(citation, StatuteCitation):
             check = await check_statute(conn, judge, citation)
         else:
-            check = await check_record(conn, citation)
+            check = await check_record(conn, citation, subject_h3)
         verification.checks.append(check)
         if not check.ok:
             log.warning(

@@ -367,9 +367,7 @@ async def main_async(args: argparse.Namespace) -> int:
     try:
         version = await retrieval.active_version(conn)
         if version is None:
-            print(
-                "No sealed corpus version. Run `make corpus-seal` first.", file=sys.stderr
-            )
+            print("No sealed corpus version. Run `make corpus-seal` first.", file=sys.stderr)
             return 2
         print(f"corpus {version}, model {args.model}, prompts {prompts.CURRENT_VERSION}\n")
 
@@ -379,9 +377,7 @@ async def main_async(args: argparse.Namespace) -> int:
 
         outcomes: list[Outcome] = []
         for attack in attacks:
-            outcome = await run_attack(
-                conn, client, model, args.embedding_model, attack
-            )
+            outcome = await run_attack(conn, client, model, args.embedding_model, attack)
             outcomes.append(outcome)
             state = (
                 "ERROR"

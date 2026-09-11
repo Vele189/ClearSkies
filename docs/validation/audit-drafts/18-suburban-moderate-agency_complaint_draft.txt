@@ -1,0 +1,71 @@
+agency_complaint_draft
+This administrative complaint is submitted to request an investigation by the U.S. EPA External Civil Rights Compliance Office regarding potential environmental justice concerns in Jefferson Parish, specifically in the area identified by H3 cell index 884446011dfffff.
+The burden score for this area is recorded at 58.3 out of 100, placing it in the 71.4th percentile statewide in Louisiana. This score is indicative of modelled exposure to environmental stressors, nearby permitted sources, and a vulnerable population residing within the area.
+record
+884446011dfffff
+hex
+The burden score for this area is 58.3, placing it in the 71.4th percentile statewide.
+The population within this hexagon is 5,210 with 27.8% identified as Black, 24.0% living below 200% of the poverty line, 6.4% under the age of 5, and 15.1% over the age of 64.
+record
+884446011dfffff
+hex
+The population is 5,210 with significant proportions of vulnerable groups.
+The modelled air toxics cancer risk in this area is 55.7 per million, which ranks in the 71.4th percentile statewide, underscoring significant environmental health risks.
+record
+884446011dfffff
+hex
+The modelled air toxics cancer risk is 55.7 per million, in the 71.4th percentile statewide.
+There are four significant contributing facilities within close proximity, namely, ANR Pipeline Co - Eunice, Jena, Mermentau, and Patterson compressor stations, classified as CAA major sources.
+record
+110033673889
+echo
+The ANR Pipeline Co - Eunice Compressor Station is a CAA major source 1.5 km away.
+record
+110042083438
+echo
+The ANR Pipeline Co - Jena Compressor Station is a CAA major source 2.8 km away.
+record
+110070832687
+echo
+The ANR Pipeline Co - Mermentau Compressor Station is a CAA major source 4.1 km away.
+record
+110017724186
+echo
+The ANR Pipeline Co - Patterson Compressor Station is a CAA major source 5.4 km away.
+This complaint is filed under the provisions of Title VI of the Civil Rights Act, which prohibits discrimination on the grounds of race, color, or national origin in programs receiving federal assistance.
+statute
+42 U.S.C. § 2000d
+usc-42
+Title VI prohibits discrimination under federally assisted programs on ground of race, color, or national origin.
+We request that the U.S. EPA External Civil Rights Compliance Office initiate a compliance review and conduct a thorough investigation into the environmental and health impacts experienced by the community in this area.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42
+Title VI prohibits discrimination under federally assisted programs on ground of race, color, or national origin.
+Open an investigation and conduct a compliance review.
+record
+884446011dfffff
+hex
+The burden score for this area is 58.3, placing it in the 71.4th percentile statewide.
+record
+110033673889
+echo
+The ANR Pipeline Co - Eunice Compressor Station is a CAA major source 1.5 km away.
+record
+110042083438
+echo
+The ANR Pipeline Co - Jena Compressor Station is a CAA major source 2.8 km away.
+record
+110070832687
+echo
+The ANR Pipeline Co - Mermentau Compressor Station is a CAA major source 4.1 km away.
+record
+110017724186
+echo
+The ANR Pipeline Co - Patterson Compressor Station is a CAA major source 5.4 km away.
+statute
+42 U.S.C. § 2000d
+usc-42
+Title VI prohibits discrimination under federally assisted programs on ground of race, color, or national origin.

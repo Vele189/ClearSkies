@@ -1,0 +1,49 @@
+community_briefing_sheet
+This briefing is for the residents of Iberville Parish. It explains what environmental data says about your area and what actions you can take.
+Your area has a burden score of 62.7 out of 100, which places it in the 76.9th percentile statewide among locations in Louisiana. This score includes factors like pollutant exposure and resident vulnerability.
+record
+884446012dfffff
+hex
+The area has a burden score of 62.7 out of 100, at the 76.9th percentile statewide.
+The modelled risk of cancer from air toxics in your area is 58.5 per million, placing it in the 76.9th percentile of locations in Louisiana.
+record
+884446012dfffff
+hex
+Modelled air toxics cancer risk is 58.5 per million, 76.9th percentile.
+The annual mean of PM2.5, a type of air pollution, is 8.9 micrograms per cubic meter. This puts your area in the 61.9th percentile statewide.
+record
+884446012dfffff
+hex
+PM2.5 annual mean is 8.9 ug/m3, 61.9th percentile.
+There are two major sources of air emissions near your area: the Alon Refining Krotz Springs facility and the AM Agrigen Industries ammonia and urea plant, both of which are classified as major sources under the Clean Air Act.
+record
+110041023807
+echo
+ALON REFINING KROTZ SPRINGS INC is 1.5 km away, CAA major source.
+record
+110070132594
+echo
+AM AGRIGEN INDUSTRIES LLC is 2.8 km away, CAA major source.
+The local population is about 55.4% Black, with approximately 46.8% living below twice the poverty level. Additionally, around 6.4% of residents are under 5 years old, and 15.1% are over 64 years old.
+record
+884446012dfffff
+hex
+55.4% of the population is Black, 46.8% live below 200% of the poverty level.
+Understanding Environmental Scores in Iberville Parish
+Iberville Parish
+The area's environmental score suggests some potential concerns, but it is not an accusation against facilities or a health diagnosis. The score shows how the area compares within Louisiana for pollution and vulnerability, with specific data on air quality risks.
+Attend public meetings on environmental issues in the parish.
+Request access to facility emission reports through local environmental agencies.
+Contact the EPA for more information on air quality data for your area.
+record
+884446012dfffff
+hex
+The area has a burden score of 62.7 out of 100, at the 76.9th percentile statewide.
+record
+110041023807
+echo
+ALON REFINING KROTZ SPRINGS INC is 1.5 km away, CAA major source.
+record
+110070132594
+echo
+AM AGRIGEN INDUSTRIES LLC is 2.8 km away, CAA major source.

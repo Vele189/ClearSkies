@@ -1,0 +1,64 @@
+community_briefing_sheet
+The area you live in, within Jefferson Parish, has been given a burden score of 58.3 out of 100. This score puts your area in the 71.4th percentile statewide, meaning it scores higher for potential environmental burden than 71.4% of other areas in Louisiana.
+record
+88444601edfffff
+hex
+The burden score for this area is 58.3, placing it in the 71.4th percentile statewide.
+The modelled air toxics cancer risk in your area is 55.7 per million, placing it in the 71.4th percentile for this indicator statewide. The annual mean level of PM2.5, a type of air pollution, is 8.8 micrograms per cubic meter, which is in the 56.4th percentile.
+record
+88444601edfffff
+hex
+Air toxics cancer risk is 55.7 per million, percentile 71.4.
+record
+88444601edfffff
+hex
+PM2.5 annual mean is 8.8 ug/m3, percentile 56.4.
+There are four facilities nearby that contribute to this environmental burden. They are all major sources under the Clean Air Act. These are ANR Pipeline Co's Mermentau and Patterson Compressor Stations, ARCOSA Lightweight, and ARCOSA Marine Products Inc.
+record
+110070832687
+echo
+ANR Pipeline Co - Mermentau Compressor Station is a nearby major source of emissions.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is a nearby major source of emissions.
+record
+110040943012
+echo
+ARCOSA Lightweight is a nearby major source of emissions.
+record
+110000602483
+echo
+ARCOSA Marine Products Inc is a nearby major source of emissions.
+The population of your area is approximately 5,210 people. Of these, 27.8% are Black, 24% live below twice the poverty line, 6.4% are children under 5, and 15.1% are over 64.
+record
+88444601edfffff
+hex
+Population demographics: 5210 total, 27.8% Black, 24% below poverty line, 6.4% under 5, 15.1% over 64.
+Environmental burden and demographic profile for Jefferson Parish residents.
+Jefferson Parish
+The burden score reflects potential environmental impacts from nearby major sources and considers demographic vulnerabilities. It is important to know that the score is not a conclusion about any individual's health or the legality of facility operations.
+Stay informed about local environmental quality reports and updates.
+Contact local environmental agencies to express your concerns or ask for more information.
+You can file an environmental complaint with the Louisiana Department of Environmental Quality if you suspect a violation.
+Participate in public hearings or meetings related to local environmental issues.
+record
+88444601edfffff
+hex
+The burden score for this area is 58.3, placing it in the 71.4th percentile statewide.
+record
+110070832687
+echo
+ANR Pipeline Co - Mermentau Compressor Station is a nearby major source of emissions.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is a nearby major source of emissions.
+record
+110040943012
+echo
+ARCOSA Lightweight is a nearby major source of emissions.
+record
+110000602483
+echo
+ARCOSA Marine Products Inc is a nearby major source of emissions.

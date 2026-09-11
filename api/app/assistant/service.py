@@ -39,7 +39,7 @@ from app.assistant import cost, prompts, retrieval, verifier
 from app.assistant.context import HexContext, build_prompt
 from app.assistant.documents import DraftDocument, GeneratedDraft, model_for
 from app.assistant.guardrails import Refusal, check_band
-from app.assistant.structured import DraftRejected, generate
+from app.assistant.structured import DraftRejected, generate, model_label
 
 log = logging.getLogger(__name__)
 
@@ -212,7 +212,7 @@ async def draft_for_hex(
         return DraftOutcome(draft=hit, from_cache=True)
 
     prompt = prompts.load(document_type, prompt_version)
-    model_name = str(draft_model)
+    model_name = model_label(draft_model)
 
     # 3. Retrieve.
     try:
@@ -280,7 +280,7 @@ async def draft_for_hex(
     assert isinstance(document, DraftDocument)
 
     # 5. Verify. Nothing that fails here is ever rendered.
-    verification = await verifier.verify_document(conn, draft_model, document)
+    verification = await verifier.verify_document(conn, draft_model, document, h3)
     if not verification.verified:
         await verifier.log_rejections(
             conn, verification, h3, document_type, corpus_version, prompt_version, model_name

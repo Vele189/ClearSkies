@@ -1,0 +1,32 @@
+public_comment_letter
+I am writing to submit a public comment concerning the air quality impact of the major sources of hazardous air pollutants in the hexagon located in Orleans Parish, identified by the H3 cell 884446024dfffff. This area has a substantial burden score of 84.0 out of 100, placing it in the 95.3rd percentile statewide for exposure to environmental hazards, according to recent data.
+record
+884446024dfffff
+hex
+The burden score for the area is 84.0, placing it in the 95.3rd percentile statewide.
+The data indicates a high cancer risk from air toxics in this hexagon, with a modelled risk of 67.7 per million, placing it similarly in the 95.3rd percentile. Additionally, PM2.5 annual mean levels are recorded at 9.4 µg/m3, in the 80.3rd percentile. Such levels indicate significant environmental stress on the population of approximately 6,340 people residing in the area, 71.5% of whom are Black, with 45.9% of the population living below twice the poverty line, underscoring a vulnerable community.
+record
+884446024dfffff
+hex
+The area has a modelled air toxics cancer risk of 67.7 per million (95.3rd percentile) and PM2.5 annual mean of 9.4 µg/m3 (80.3rd percentile).
+record
+884446024dfffff
+hex
+The population is approximately 6,340 with 71.5% Black and 45.9% living below twice the poverty line.
+Under 42 U.S.C. § 7412(d)(1), the Administrator is required to promulgate regulations establishing emission standards for major sources of hazardous air pollutants, like those in this area, to ensure adequate environmental protection.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator is required to establish emission standards for major sources of hazardous air pollutants.
+I urge the agency to hold a public hearing to further discuss and analyze the potential health impacts arising from these permitted sources and consider additional measures or conditions in their emission permits that align with the community's health needs. This will ensure that environmental justice considerations are fully integrated into the permitting decisions.
+Environmental Protection Agency, Region 6 Office
+Concerns Regarding Air Quality Impact in Orleans Parish (H3: 884446024dfffff)
+I request that the agency hold a public hearing to discuss the health impacts of the permitted sources and consider additional emission controls in the permits to protect the local community.
+record
+884446024dfffff
+hex
+The burden score for the area is 84.0, placing it in the 95.3rd percentile statewide.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator is required to establish emission standards for major sources of hazardous air pollutants.

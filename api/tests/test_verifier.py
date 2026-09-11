@@ -37,6 +37,7 @@ from app.assistant.verifier import (
 )
 
 REAL_SECTION = "42 U.S.C. § 7412(b)"
+H3 = "884446007dfffff"
 PASSAGE = "The Congress establishes a list of hazardous air pollutants."
 
 
@@ -285,6 +286,44 @@ async def test_a_dataset_with_no_public_identifier_is_rejected() -> None:
 
 def test_the_datasets_that_can_be_cited_all_have_a_lookup() -> None:
     assert set(DATASET_LOOKUPS) == {"echo", "frs", "tri"}
+
+
+# ---- The hexagon the draft is about -------------------------------------
+
+
+async def test_the_hexagon_itself_is_a_citable_record() -> None:
+    """The schema requires a citation on every factual claim, and a hexagon's
+    score and demographics are factual claims. Without this the model had no
+    legitimate way to attribute them, invented a dataset, and had otherwise
+    sound drafts discarded for it."""
+    check = await check_record(FakeConn(), record(record_id=H3, dataset="hex"), subject_h3=H3)
+
+    assert check.ok
+    assert "the hexagon this draft is about" in check.detail
+
+
+async def test_citing_a_different_hexagon_is_rejected() -> None:
+    """The figures would be real and about somewhere else, which is the one
+    thing that can go wrong here."""
+    check = await check_record(
+        FakeConn(), record(record_id="88444600ddfffff", dataset="hex"), subject_h3=H3
+    )
+
+    assert check.verdict == "not_in_dataset"
+    assert "but this draft is about" in check.detail
+
+
+async def test_a_hexagon_citation_needs_to_know_which_hexagon() -> None:
+    """Verifying one without the subject would pass anything."""
+    check = await check_record(FakeConn(), record(record_id=H3, dataset="hex"))
+
+    assert check.verdict == "not_in_dataset"
+
+
+async def test_a_facility_citation_is_unaffected_by_the_subject_hexagon() -> None:
+    check = await check_record(FakeConn(), record(), subject_h3=H3)
+
+    assert check.ok
 
 
 # ---- Whole documents ----------------------------------------------------

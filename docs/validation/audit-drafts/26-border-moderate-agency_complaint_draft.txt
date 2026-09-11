@@ -1,0 +1,71 @@
+agency_complaint_draft
+This administrative complaint is submitted to the U.S. EPA External Civil Rights Compliance Office on behalf of the residents of the area within H3 cell 884446019dfffff, located in Calcasieu Parish, Louisiana. The residents believe that they have been subjected to discrimination in violation of Title VI of the Civil Rights Act, due to the cumulative environmental burdens and demographic characteristics of their community.
+The area in question has been assigned a burden score of 66.9 out of 100, placing it in the 79.1 percentile statewide. This score reflects modelled exposure, nearby permitted sources, and a vulnerable population.
+record
+884446019dfffff
+hex
+The burden score is 66.9, with a statewide percentile of 79.1.
+Key environmental indicators for the area include a modelled air toxics cancer risk of 59.5 per million, which places it in the 79.1 percentile, and a PM2.5 annual mean of 9.0 ug/m3, which is in the 64.1 percentile. These figures highlight significant environmental health concerns for the residents.
+record
+884446019dfffff
+hex
+Modelled air toxics cancer risk is 59.5 per million, in the 79.1 percentile.
+record
+884446019dfffff
+hex
+PM2.5 annual mean is 9.0 ug/m3, in the 64.1 percentile.
+Demographically, the population in this area is 1,730, with 34.2% identifying as Black and 39.8% living below 200% of the poverty line. Additionally, 6.4% of the population is under 5 years of age, and 15.1% over 64 years, indicating a community with multiple vulnerabilities.
+record
+884446019dfffff
+hex
+Population demographics show 34.2% Black residents and 39.8% living below 200% of the poverty line.
+There are several contributing facilities near the community, including AA Sulfuric Corp - Sulfuric Acid Plant (1.5 km), Acadian Contractors Inc (2.8 km), and others, which are classified as CAA major sources. These facilities contribute to the cumulative environmental burden experienced by the residents.
+record
+110071723608
+echo
+AA Sulfuric Corp - Sulfuric Acid Plant is 1.5 km away, a CAA major source.
+record
+110007294329
+echo
+Acadian Contractors Inc is 2.8 km away, classified as a CAA major source.
+Under 42 U.S.C. § 2000d, no person shall be subjected to discrimination under any program receiving federal financial assistance on the ground of race, color, or national origin.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination under federally assisted programs based on race, color, or national origin.
+Additionally, 40 C.F.R. § 7.35(b) prohibits the use of criteria or methods of administration that result in discrimination on the basis of race, color, national origin, or sex, and impair the objectives of a program.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits criteria or methods causing discrimination based on race, color, national origin, or sex.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination under federally assisted programs based on race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits criteria or methods causing discrimination based on race, color, national origin, or sex.
+The complainant requests that the U.S. EPA External Civil Rights Compliance Office open an investigation into these matters, conduct a compliance review, and require a corrective action plan to address the cumulative environmental burdens on the community.
+record
+884446019dfffff
+hex
+The burden score is 66.9, with a statewide percentile of 79.1.
+record
+110071723608
+echo
+AA Sulfuric Corp - Sulfuric Acid Plant is 1.5 km away, a CAA major source.
+record
+110007294329
+echo
+Acadian Contractors Inc is 2.8 km away, classified as a CAA major source.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination under federally assisted programs based on race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits criteria or methods causing discrimination based on race, color, national origin, or sex.

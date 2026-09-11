@@ -1,0 +1,36 @@
+community_briefing_sheet
+This briefing sheet shares important information about your area in St. James Parish. It focuses on environmental factors, health risks, and demographics collected from recent data.
+The burden score for this area is 91.2 out of 100, placing it in the 98.5th percentile statewide, meaning your community has one of the higher scores in Louisiana for environmental and health-related burden.
+record
+88444601adfffff
+hex
+The burden score for this area is 91.2 out of 100, placing it in the 98.5 percentile statewide.
+Modelled air toxics cancer risk is estimated at 69.2 per million, ranking highly in risk compared to the rest of the state. The level of PM2.5, a harmful particulate matter, is at 9.5 micrograms per cubic meter, which is above the 80th percentile.
+record
+88444601adfffff
+hex
+Modelled air toxics cancer risk is estimated at 69.2 per million.
+There are 14 major facilities within close proximity contributing to air quality concerns. For example, the American Sugar Refining Inc is only 1.5 kilometers away and is considered a major source under the Clean Air Act programs.
+record
+110009575762
+echo
+The American Sugar Refining Inc is 1.5 kilometers away and is a major source.
+The population here is 78.2% Black, with 51.3% living below twice the poverty line, 6.4% are under the age of 5, and 15.1% are over the age of 64.
+record
+88444601adfffff
+hex
+The population is 78.2% Black, and 51.3% live below twice the poverty line.
+Community Environmental and Health Risk Update for St. James Parish
+St. James Parish
+The data indicates high environmental risks due to air pollution and the presence of major facilities nearby. This may affect air quality and health, yet it is not a direct indicator of wrongdoing or health outcomes. The score is based on state-level comparisons.
+Attend local government meetings to stay informed and speak on environmental issues.
+Engage with local environmental groups to advocate for cleaner air and better regulations.
+Request public records or data from environmental agencies to get more detailed information about emissions and facilities.
+record
+88444601adfffff
+hex
+The burden score for this area is 91.2 out of 100, placing it in the 98.5 percentile statewide.
+record
+110009575762
+echo
+The American Sugar Refining Inc is 1.5 kilometers away and is a major source.

@@ -1,0 +1,56 @@
+community_briefing_sheet
+Your area in East Baton Rouge has received a burden score of 74.9 out of 100 for air quality and environmental exposure. This score places the community in the 88th percentile across the state of Louisiana, meaning it has higher modelled exposure to environmental risks compared to most other areas in the state.
+record
+88444602adfffff
+hex
+The burden score for East Baton Rouge is 74.9 out of 100, placing it in the 88th statewide percentile.
+The modelled air toxics cancer risk in your area is 64 per million, which is in the 88th percentile. Additionally, the average annual level of small particulate matter (PM2.5) is 9.2 micrograms per cubic meter, placing it in the 73rd percentile for the state.
+record
+88444602adfffff
+hex
+The modelled air toxics cancer risk is 64 per million, in the 88th percentile.
+record
+88444602adfffff
+hex
+The PM2.5 annual mean is 9.2 ug/m3, in the 73rd percentile.
+About 62.1% of the population in your area identifies as Black. Moreover, 41.2% of residents live below 200% of the federal poverty line, indicating a potentially vulnerable population.
+record
+88444602adfffff
+hex
+62.1% of the population identifies as Black and 41.2% live below 200% of the poverty line.
+There are six major facilities within 10 kilometers contributing to local air quality concerns, including the Acadian Gas Pipeline Systems and Air Liquide Large Industries US LP - Geismar Facility.
+record
+110043291354
+echo
+ACADIAN GAS PIPELINE SYSTEM - CHENEYVILLE COMPRESSOR STATION is a CAA major source 1.5 km away.
+record
+110071722861
+echo
+ACADIAN GAS PIPELINE SYSTEM - MANSFIELD COMPRESSOR STATION is a CAA major source 2.8 km away.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is a CAA major source 8.0 km away.
+Environmental Concerns in East Baton Rouge Area
+East Baton Rouge
+The burden score gives a snapshot of environmental exposure risks in your area. While it highlights potential areas of concern regarding air quality and population vulnerability, it does not imply that any facility is breaking the law or that the environmental conditions directly cause health issues.
+Attend local meetings to stay informed about air quality initiatives.
+Request to see air quality permits for local facilities from the EPA or Louisiana Department of Environmental Quality.
+Consider participating in public comment opportunities regarding local environmental regulations or facility permits.
+Contact the EPA or Louisiana Department of Environmental Quality for more information about local environmental conditions and any ongoing monitoring efforts.
+record
+88444602adfffff
+hex
+The burden score for East Baton Rouge is 74.9 out of 100, placing it in the 88th statewide percentile.
+record
+110043291354
+echo
+ACADIAN GAS PIPELINE SYSTEM - CHENEYVILLE COMPRESSOR STATION is a CAA major source 1.5 km away.
+record
+110071722861
+echo
+ACADIAN GAS PIPELINE SYSTEM - MANSFIELD COMPRESSOR STATION is a CAA major source 2.8 km away.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is a CAA major source 8.0 km away.

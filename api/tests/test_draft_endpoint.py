@@ -253,6 +253,33 @@ def test_embeddings_have_no_output_price() -> None:
     assert cost.estimate_usd("text-embedding-3-small", 0, 1_000_000) == 0.0
 
 
+def test_the_model_name_recorded_is_the_model_not_its_class() -> None:
+    """`str()` on a Pydantic AI model gives `OpenAIChatModel()`, for every
+    model. Using it stamped every draft's provenance with a string identifying
+    nothing, and made every cost estimate zero because no price table has an
+    entry for a class name. Both failures are silent."""
+    from app.assistant.structured import model_label
+
+    class FakeModel:
+        model_name = "gpt-4o"
+
+        def __str__(self) -> str:
+            return "FakeModel()"
+
+    # A stand-in rather than a real provider model: constructing one needs an
+    # API key, and what is under test is which attribute is read.
+    label = model_label(FakeModel())  # type: ignore[arg-type]
+
+    assert label == "gpt-4o"
+    assert cost.estimate_usd(label, 1_000_000, 0) > 0
+
+
+def test_a_plain_model_name_is_passed_through() -> None:
+    from app.assistant.structured import model_label
+
+    assert model_label("gpt-4o-mini") == "gpt-4o-mini"
+
+
 def test_the_month_starts_at_the_first() -> None:
     start = cost.month_start(datetime(2026, 9, 17, 13, 45, tzinfo=UTC))
 

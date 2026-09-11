@@ -162,3 +162,73 @@ def test_the_prompt_hash_is_stable_for_a_given_version() -> None:
 
 def test_checksums_are_recorded_for_every_version_in_the_repository() -> None:
     assert set(versions()) == set(prompts.CHECKSUMS)
+
+
+def test_v1_is_still_exactly_what_it_was_when_it_was_released() -> None:
+    """v2 exists because CS-308 found two things v1 got wrong. v1 was copied,
+    not edited, and this asserts that: drafts stamped v1 were produced under
+    these words and will stay that way."""
+    assert verify("v1") == []
+
+
+# ---- What v2 changed, and why --------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def v2() -> str:
+    return " ".join(load("public_comment_letter", "v2").system.split())
+
+
+def test_v2_tells_the_model_how_to_attribute_the_hexagon_s_own_figures(v2: str) -> None:
+    """The audit found the model inventing a dataset called "hexagon" and citing
+    the H3 index as a record id, because it correctly wanted to attribute the
+    score and had no legitimate way to. Those citations failed verification and
+    discarded otherwise good drafts."""
+    assert "The hexagon's own figures are not a record citation" in v2
+    assert "do not cite the H3 index as a record id" in v2
+
+
+def test_v2_refuses_only_when_there_is_nothing_rather_than_nothing_perfect(v2: str) -> None:
+    """v1 refused for want of an ideal provision while holding one that bore on
+    the subject, leaving a person with nothing when they could have had
+    something true."""
+    assert "Refusing is for when you have nothing, not for when you lack the perfect" in v2
+
+
+def test_v2_answers_the_legitimate_half_of_a_mixed_request(v2: str) -> None:
+    """The red-team controls: four of six were refused whole because they
+    bundled a legitimate ask with an improper rider."""
+    assert "do the legitimate part and leave the rest out" in v2
+
+
+def test_v3_gives_the_model_a_legitimate_way_to_cite_a_hexagon_figure() -> None:
+    """v2 told the model not to cite hexagon figures, which fought the rule
+    telling it to cite every factual claim. The rule was right; the audit found
+    the model inventing a dataset and losing otherwise sound drafts for it."""
+    three = " ".join(load("public_comment_letter", "v3").system.split())
+
+    assert "cited as a record with the dataset `hex`" in three
+    assert "H3 cell index" in three
+
+
+def test_v2_keeps_every_prohibition_v1_had() -> None:
+    """The point of v2 is to refuse less, and the one thing that must not
+    change is what it refuses to claim."""
+    one = " ".join(load("public_comment_letter", "v1").system.split())
+    two = " ".join(load("public_comment_letter", "v2").system.split())
+    three = " ".join(load("public_comment_letter", "v3").system.split())
+
+    for rule in (
+        "intent, motive, knowledge or culpability",
+        "You do not give legal advice",
+        "You do not reason from case law",
+        "no private right of action",
+        "External Civil Rights Compliance Office",
+        "Never construct an identifier",
+        "softened into",
+        "attributed to residents",
+        "not a finding of wrongdoing by any operator",
+    ):
+        assert rule in one, rule
+        assert rule in two, rule
+        assert rule in three, rule

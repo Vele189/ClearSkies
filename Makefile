@@ -272,6 +272,27 @@ check-verifier: $(VENV) ## Check the citation verifier against real sections
 	  $(if $(MODEL),--model $(MODEL),) \
 	  $(if $(REQUIRE_CLEAN),--require-clean,)
 
+# ---- The Phase 3 gate (CS-308) -----------------------------------------
+#
+# Fifty drafts across four document types and a spread of hexagons, with every
+# citation re-checked independently of the pipeline that produced it. Needs a
+# sealed corpus and a facility table with rows in it; `audit-seed` loads real
+# ECHO facilities for the second.
+
+.PHONY: audit-seed
+audit-seed: $(VENV) ## Load real ECHO facilities so record citations can verify
+	$(PY) scripts/seed_audit_facilities.py \
+	  --database-url "$${DATABASE_URL:-postgresql://clearskies:clearskies@localhost:5432/clearskies}" \
+	  --limit $(or $(LIMIT),60)
+
+.PHONY: audit
+audit: $(VENV) ## Run the fifty-draft citation audit
+	cd $(API) && .venv/bin/python ../scripts/run_citation_audit.py \
+	  --count $(or $(COUNT),50) \
+	  --out ../docs/validation/citation-audit.md \
+	  --drafts-dir ../docs/validation/audit-drafts \
+	  $(if $(MODEL),--model $(MODEL),)
+
 .PHONY: install
 install: $(VENV) $(ETL_VENV) $(SCORING_VENV) $(ASSISTANT_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci

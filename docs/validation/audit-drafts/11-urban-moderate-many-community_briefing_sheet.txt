@@ -1,0 +1,44 @@
+community_briefing_sheet
+The area you live in, Orleans Parish, has a burden score of 84 out of 100. This is a high score, indicating potential environmental concerns in terms of exposure, nearby sources, and the vulnerability of the local population.
+record
+88444600adfffff
+hex
+The area has a burden score of 84 out of 100.
+The modelled air toxics cancer risk in your area is 67.7 per million, which places this area in the 95.3 percentile statewide. This means that compared to other areas in Louisiana, Orleans Parish has a relatively high level of air toxics cancer risk.
+record
+88444600adfffff
+hex
+Modelled air toxics cancer risk is 67.7 per million, in the 95.3 percentile statewide.
+There are 17 major permitted sources within a relatively short distance from your area. Major sources like these are regulated under the Clean Air Act, which aims to control air pollution on a national level.
+record
+110070832687
+echo
+ANR PIPELINE CO is a major source 1.5 km away.
+record
+110017724186
+echo
+ANR PIPELINE CO - PATTERSON COMPRESSOR STATION is a major source 2.8 km away.
+The demographics of Orleans Parish show that 71.5% of the population identifies as Black. Moreover, 45.9% of the population lives below 200% of the poverty level, which can factor into the area's vulnerability to environmental and health issues.
+record
+88444600adfffff
+hex
+71.5% of the population identifies as Black and 45.9% live below 200% of the poverty level.
+Environmental Concerns in Orleans Parish
+Orleans Parish
+The burden score reflects potential environmental issues due to modelled exposure to toxics, presence of nearby sources, and community vulnerability. It does not indicate wrongdoing or serve as a health diagnosis.
+Attend public hearings regarding environmental issues in the area.
+Request information on the facilities listed from local or federal governments.
+Contact your local environmental agency to express concerns.
+Participate in public comment periods for new permits for facilities in your area.
+record
+88444600adfffff
+hex
+The area has a burden score of 84 out of 100.
+record
+110070832687
+echo
+ANR PIPELINE CO is a major source 1.5 km away.
+record
+110017724186
+echo
+ANR PIPELINE CO - PATTERSON COMPRESSOR STATION is a major source 2.8 km away.

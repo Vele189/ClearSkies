@@ -1,0 +1,48 @@
+public_comment_letter
+I am submitting this comment regarding the impact of permitted facilities located within H3 cell 88444602cdfffff in Iberville Parish, Louisiana, which falls under the jurisdiction of the Clean Air Act permitting processes.
+The burden score for this area is 62.7 out of 100, placing it in the 76.9th percentile statewide. The area's population is approximately 890 people, with 55.4% identifying as Black and 46.8% living at or below 200% of the poverty line. The demographic information highlights a potentially vulnerable population. Additionally, modelled air toxics cancer risk in this area is 58.5 per million, which is in the 76.9th percentile statewide, indicating a significant risk to residents.
+record
+88444602cdfffff
+hex
+The burden score is 62.7, placing it in the 76.9th percentile statewide.
+record
+88444602cdfffff
+hex
+The population is 890, with 55.4% Black and 46.8% living at or below 200% of the poverty line.
+record
+88444602cdfffff
+hex
+Modelled air toxics cancer risk is 58.5 per million, in the 76.9th percentile statewide.
+The Clean Air Act mandates that the Administrator establish emission standards for major sources of hazardous air pollutants. This includes requiring that emission standards for new sources not be less stringent than the best controlled similar source and that standards for existing sources be no less stringent than the best performing similar sources [42 U.S.C. § 7412(d)(3)].
+statute
+42 U.S.C. § 7412(d)(3)
+usc-42-chap85
+Emission standards for new sources must not be less stringent than the best controlled similar source.
+In light of the significant modelled risk and the area's demographics, I urge the agency to require additional analysis of the emission standards applicable to the nearby facilities, AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY and AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY, both permitted under the Clean Air Act as major sources.
+record
+110022399108
+echo
+AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY is a major source under the Clean Air Act.
+record
+110009575762
+echo
+AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY is a major source under the Clean Air Act.
+Louisiana Department of Environmental Quality, Air Permits Division
+Public Comment on Air Permit Process for Facilities in Iberville Parish
+I request the agency to require additional analysis of the emission standards applicable to the nearby facilities impacting this hexagon, considering the significant modelled risk and vulnerable population demographics.
+record
+88444602cdfffff
+hex
+The burden score is 62.7, placing it in the 76.9th percentile statewide.
+statute
+42 U.S.C. § 7412(d)(3)
+usc-42-chap85
+Emission standards for new sources must not be less stringent than the best controlled similar source.
+record
+110022399108
+echo
+AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY is a major source under the Clean Air Act.
+record
+110009575762
+echo
+AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY is a major source under the Clean Air Act.

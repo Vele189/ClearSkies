@@ -1,0 +1,143 @@
+journalist_fact_sheet
+This fact sheet provides an overview of environmental and demographic data for a hexagon section in East Baton Rouge Parish, Louisiana, identified by H3 cell 884446003dfffff. The data reflects modelled environmental exposure, nearby permitted emissions sources, and demographic characteristics of the population, as identified through the Hexagon data methodology version 0.1.4.
+The burden score for this hexagon is 74.9 out of a possible 100, placing it in the 88.0 percentile statewide for Louisiana. This score is based on the modelled exposure, nearby permitted sources, and the population's vulnerability within this specific area.
+record
+884446003dfffff
+hex
+The burden score is 74.9, placing the hexagon in the 88.0 percentile statewide.
+The area has a modelled air toxics cancer risk of 64.0 per million, positioning it in the 88.0 percentile within the state. The PM2.5 annual mean is 9.2 micrograms per cubic meter, corresponding to the 73.0 percentile statewide.
+record
+884446003dfffff
+hex
+The modelled air toxics cancer risk is 64.0 per million (88.0 percentile).
+record
+884446003dfffff
+hex
+The PM2.5 annual mean is 9.2 micrograms per cubic meter (73.0 percentile).
+Demographic data indicates that the total population within this hexagon is 4,870, with 62.1% identifying as Black. Additionally, 41.2% of the population lives within 200% of the poverty line, 6.4% are under the age of 5, and 15.1% are over the age of 64.
+record
+884446003dfffff
+hex
+The hexagon has a population of 4,870, with 62.1% identifying as Black.
+record
+884446003dfffff
+hex
+41.2% of the population lives within 200% of the poverty line.
+record
+884446003dfffff
+hex
+6.4% of the population is under the age of 5, and 15.1% is over the age of 64.
+Notably, six significant contributing facilities located within relatively close proximity to this hexagon are engaged in operations classified as major sources under the Clean Air Act. These include facilities such as the ANR Pipeline Co. Eunice Compressor Station and others that have a recognized potential for impact on local air quality.
+record
+110033673889
+echo
+ANR Pipeline Co. Eunice Compressor Station is within 1.5 km and is a major source under the CAA.
+record
+110042083438
+echo
+ANR Pipeline Co. Jena Compressor Station is within 2.8 km and is a major source under the CAA.
+record
+110070832687
+echo
+ANR Pipeline Co. Mermentau Compressor Station is within 4.1 km and is a major source under the CAA.
+record
+110017724186
+echo
+ANR Pipeline Co. Patterson Compressor Station is within 5.4 km and is a major source under the CAA.
+record
+110040943012
+echo
+Arcosa LW BR LLC is within 6.7 km and is a major source under the CAA.
+record
+110000602483
+echo
+Arcosa Marine Products Inc. is within 8.0 km and is a major source under the CAA.
+Environmental and Demographic Overview of East Baton Rouge Hexagon
+Burden Score
+74.9
+of 100
+record
+884446003dfffff
+hex
+The burden score is 74.9, placing the hexagon in the 88.0 percentile statewide.
+Modelled Air Toxics Cancer Risk
+64.0
+per million
+record
+884446003dfffff
+hex
+The modelled air toxics cancer risk is 64.0 per million (88.0 percentile).
+PM2.5 Annual Mean
+9.2
+ug/m³
+record
+884446003dfffff
+hex
+The PM2.5 annual mean is 9.2 micrograms per cubic meter (73.0 percentile).
+Population
+4,870
+
+record
+884446003dfffff
+hex
+The hexagon has a population of 4,870, with 62.1% identifying as Black.
+Percentage of Population Identifying as Black
+62.1%
+
+record
+884446003dfffff
+hex
+The hexagon has a population of 4,870, with 62.1% identifying as Black.
+Poverty Level (200%)
+41.2%
+
+record
+884446003dfffff
+hex
+41.2% of the population lives within 200% of the poverty line.
+Under 5 Years Old
+6.4%
+
+record
+884446003dfffff
+hex
+6.4% of the population is under the age of 5, and 15.1% is over the age of 64.
+Over 64 Years Old
+15.1%
+
+record
+884446003dfffff
+hex
+6.4% of the population is under the age of 5, and 15.1% is over the age of 64.
+The burden score reflects modelled data and percentiles are specific to Louisiana, not nationwide.
+Exposure indicators are modelled estimates, not direct measurements at any specific address.
+Demographics are factual but not used in calculating exposure or risk scores.
+Nearby facilities are mentioned based on proximity and potential impact classification but imply no wrongdoing.
+record
+884446003dfffff
+hex
+The burden score is 74.9, placing the hexagon in the 88.0 percentile statewide.
+record
+110033673889
+echo
+ANR Pipeline Co. Eunice Compressor Station is within 1.5 km and is a major source under the CAA.
+record
+110042083438
+echo
+ANR Pipeline Co. Jena Compressor Station is within 2.8 km and is a major source under the CAA.
+record
+110070832687
+echo
+ANR Pipeline Co. Mermentau Compressor Station is within 4.1 km and is a major source under the CAA.
+record
+110017724186
+echo
+ANR Pipeline Co. Patterson Compressor Station is within 5.4 km and is a major source under the CAA.
+record
+110040943012
+echo
+Arcosa LW BR LLC is within 6.7 km and is a major source under the CAA.
+record
+110000602483
+echo
+Arcosa Marine Products Inc. is within 8.0 km and is a major source under the CAA.
