@@ -13,6 +13,7 @@ import {
   weightedGroupMean,
 } from "../lib/score.ts";
 import { BAND_LABELS, GROUP_LABELS } from "../lib/types.ts";
+import DraftPanel from "./DraftPanel.tsx";
 import type { ComponentScore, HexDetail, IndicatorValue } from "../lib/types.ts";
 
 function Bar({ percentile, observed }: { percentile: number | null; observed: boolean }) {
@@ -350,6 +351,12 @@ export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: ()
           Louisiana percentiles. Methodology version {hex.methodology_version}.
         </footer>
       </div>
+
+      {/* Below the evidence, not above it. The drafting assistant is the last
+          thing in the panel because a document should be written after reading
+          what it would be about, and a reader who has scrolled past the
+          confidence breakdown has seen how much the score is trusted. */}
+      <DraftPanel hex={hex} />
     </aside>
   );
 }
