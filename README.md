@@ -125,6 +125,7 @@ clearskies/
 │   ├── pipeline/adapters/base.py The data source interface: four stages
 │   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
+│   ├── pipeline/analysis/        The section 13.6 disparity analysis
 │   └── README.md                 How to add a new data source
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
@@ -139,6 +140,8 @@ clearskies/
 ```
 
 `scoring/` is deliberately absent. The methodology requires the validation set to be committed before any scoring code exists, and CI enforces that ordering by comparing commit history. Creating the directory early would defeat the check it is meant to pass.
+
+`etl/pipeline/analysis/` is the disparity analysis of methodology §13.6, and it sits outside `scoring/` on purpose. §14 keeps racial composition out of every query that computes a score, and this is the only code in the project that reads those columns; a package boundary is one a reviewer sees in a diff, where a stray column reference inside a scoring module would look ordinary. It computes no score, and it returns no verdict: §13.6 is a reported result with no threshold to meet.
 
 `etl/` holds the adapter interface and one reference implementation against a fake source. Still to come: the five real adapters and the interpolation step (Phase 1), `scoring/` (Phase 2), `assistant/` with the statute corpus and citation verifier (Phase 3).
 

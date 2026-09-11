@@ -1,6 +1,6 @@
 # ClearSkies Methodology
 
-**Version:** 0.1.2 (draft, pre-implementation)
+**Version:** 0.1.3 (draft, pre-implementation)
 **Status:** Phase 0 deliverable. Written before any scoring code exists, by design.
 **Pilot geography:** Louisiana
 **Last revised:** 2026-09-11
@@ -191,7 +191,7 @@ Both groups are physiologically more susceptible to air pollution. This subgroup
 
 ### 8.5 Recorded but not scored
 
-Race and ethnicity are ingested, stored, and displayed on every hex, and are used in the disparity analysis of §13.5. They are **not** inputs to the score. §14 explains why at length.
+Race and ethnicity are ingested, stored, and displayed on every hex, and are used in the disparity analysis of §13.6. They are **not** inputs to the score. §14 explains why at length.
 
 ---
 
@@ -333,7 +333,23 @@ Both are stated as expectations with rationale, not as pass/fail gates, because 
 
 The correlation between a hex's score percentile and its Black population share, and separately its overall people-of-colour share, is computed and published with confidence intervals, population-weighted.
 
-**This is a reported result, not a validation target.** Because race is not an input to the score (§14), any correlation found is a property of the pollution and vulnerability data rather than an artifact of the construction. There is no threshold it must meet, and a weaker-than-expected correlation would be a finding worth publishing rather than a bug to fix.
+**This is a reported result, not a validation target.** Because race is not an input to the score (§14), any correlation found is a property of the pollution and vulnerability data rather than an artifact of the construction. There is no threshold it must meet, and a weaker-than-expected correlation would be a finding worth publishing rather than a bug to fix. Nothing in the pipeline may gate on the number, and no weight may be adjusted on the strength of it; §13.7 governs here as everywhere else in this section.
+
+**Independence is stated wherever the number is shown.** The coefficient means what §14 says it means only if the reader knows that racial composition entered neither an indicator, nor a weight, nor a tiebreak. So the sentences making that argument are carried as required fields on the analysis output itself rather than left to each consumer to restate, and the API, the architecture write-up and the public site all render them from that one source. A result presented without them can be read as circular, which is the one failure this analysis cannot afford.
+
+**Both measures, both methods.** Each share is correlated against the hex's score percentile by weighted Pearson and by weighted Spearman. The percentile is already a rank, so Pearson against it is a rank-against-value association and is the more legible of the two; the shares are heavily right-skewed, so Spearman is the more robust. Where the two agree the finding does not rest on the choice between them, and where they diverge the divergence is itself reported.
+
+**Population weighting.** Hexes are equal-area, so an unweighted correlation would describe ground rather than people, and a cell of thirty residents would count for as much as a cell of twelve thousand. Every statistic here is weighted by hex population. Ranks for the Spearman variant are taken against the weighted empirical distribution, with ties placed at the midpoint of the weight they share, which is the same Hazen convention §9 uses for indicator percentiles.
+
+**Confidence intervals come from a parish cluster bootstrap.** Hexes are not independent observations: neighbouring cells share the tract-level ACS estimates that §7 spread across them, and they share the facilities that drive the proximity indicators. Treating them as independent buys precision the data does not have. The published interval therefore resamples whole parishes with replacement, which keeps that dependence inside the unit being resampled. The Fisher z interval computed on Kish's effective sample size is published beside it, narrower, and labelled as the interval that assumes independence; it is a comparison and never the reported result. The effective sample size is itself reported next to the hex count, because the gap between them is large and is part of what the interval is saying.
+
+**Two cohorts.** The reported figure excludes hexes in the insufficient confidence band, which §12 bars from validation statistics. The same figures are computed over every scored hex and published beside it as a sensitivity check, because an exclusion rule never shown to move the answer is indistinguishable from one chosen because it moved the answer.
+
+**A contrast accompanies the coefficient.** The population-weighted share in the top-decile hexes against the share elsewhere, as a difference in percentage points and as a ratio, carrying the same parish bootstrap interval. A correlation coefficient is the right summary and the wrong sentence, and this is the form the public site and the architecture write-up lead with. The decile threshold is the one §13.2 already uses.
+
+**Reproducibility.** The bootstrap runs from a fixed seed, so the same rows and the same methodology version produce the same interval, matching the guarantee §9 makes for the scores themselves.
+
+Implemented in `etl/pipeline/analysis/`, which is the only code in the project that reads the three racial composition columns and computes no score of any kind.
 
 ### 13.7 Failure protocol
 
@@ -407,6 +423,45 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 ---
 
 ## 18. Changelog
+
+### v0.1.3 — 2026-09-11 — disparity analysis specified
+
+§13.6 previously stated what would be computed in two sentences and left every
+methodological choice under it open. It now specifies them: both measures
+against the score percentile by weighted Pearson and weighted Spearman,
+population-weighted throughout, ranked against the weighted empirical
+distribution with ties at the midpoint of the weight they share.
+
+**Confidence intervals come from a parish cluster bootstrap.** Hexes in one
+parish share tract-level ACS estimates and share the facilities that drive the
+proximity indicators, so they are not independent observations, and an interval
+that treats them as independent is narrower than the evidence supports. The
+Fisher z interval on Kish's effective sample size is published beside the
+bootstrap one as an explicit comparison, so the cost of that assumption stays
+visible rather than being quietly taken.
+
+**The reported cohort excludes the insufficient confidence band, and the
+excluded hexes are published beside it.** §12 already bars those hexes from
+validation statistics. Reporting the all-scored figure alongside is what
+distinguishes an exclusion rule from one chosen because it moved the answer.
+
+**A top-decile contrast accompanies the coefficient**, in percentage points and
+as a ratio, on the threshold §13.2 already uses. This is the form the public
+site and the architecture write-up lead with; a coefficient alone is a summary
+most readers cannot act on.
+
+**The independence argument is now carried by the analysis output as required
+fields** rather than restated by each consumer, so the number cannot be
+published without it. §13.6 asks for the argument wherever the number is shown,
+and one source for it is what makes that enforceable rather than remembered.
+
+Also corrected: §8.5 cited the disparity analysis as §13.5, which is the
+robustness section. The disparity analysis is §13.6.
+
+No indicator, weight, normalization, or aggregation change, and no change to
+what §13.6 claims or to its standing as a reported result rather than a
+validation target. Scores are unaffected because none have been computed.
+
 
 ### v0.1.2 — 2026-09-11 — validation anchors verified, three corrected
 
