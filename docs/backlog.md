@@ -2034,7 +2034,7 @@ data that looked real would be its own unverifiable claim.
 
 ### CS-305 — Citation verifier
 
-**Size:** L · **Labels:** llm, safety, gate · **Depends on:** CS-303, CS-302, CS-101 · **Owner:** Lead · **Status:** Not started
+**Size:** L · **Labels:** llm, safety, gate · **Depends on:** CS-303, CS-302, CS-101 · **Owner:** Lead · **Status:** Done
 
 Every citation is checked against the database before a draft is ever shown.
 
@@ -2052,6 +2052,72 @@ Every citation is checked against the database before a draft is ever shown.
 - Tests cover fabricated IDs, near-miss IDs, sections that exist in the real
   world but not in the corpus, and a correct section paired with a proposition it
   does not support.
+
+**What landed:** `api/app/assistant/verifier.py`, migration
+`0020_draft_rejection`, and `scripts/check_verifier.py` with its committed
+result in `docs/validation/verifier.md`.
+
+- Every statute section is looked up in the sealed corpus and every record id in
+  `facility`. A draft with **any** unverifiable citation is rejected: not shown
+  with a warning, not shown with the bad citation stripped out. A warning is
+  read once and forgotten by whoever forwards the document, and a document with
+  a citation quietly removed is one whose remaining claims rest on nothing with
+  no sign anything was taken out.
+- Every failure is reported, not the first. A draft rejected for four bad
+  citations is four facts about how the assistant fails, and collapsing them
+  into one loses three of them.
+- `draft_rejection` logs one row per offending citation, with the section or id
+  **exactly as the model wrote it**. Not normalised: a near-miss identifier is
+  evidence about how the model fails and normalising it away destroys precisely
+  that. No foreign keys, because the whole point of a row here is that the thing
+  it names does not exist.
+
+**Existence is the easy half.** Rule 3 requires checking that the proposition
+appears in the passage, and the reason is worth stating precisely: a fabricated
+citation announces itself, while a *real* section attached to a claim it does
+not support is one a reader can look up, will find, and will read as confirming
+something it does not say. It is more persuasive than a true citation, because
+the effort of checking makes the reader more confident afterwards.
+
+So a second model is asked one narrow question about one passage, told the
+passage is the only evidence and that an inference is not support. Three
+verdicts, and the third decides the design: `unclear` **fails**, because a
+verifier that resolves its own uncertainty in favour of publishing is not a
+verifier.
+
+**It was checked against the real corpus and the real judge**, twelve
+hand-written pairs of which eight are traps: a real section with a claim that is
+plausible, adjacent, and not what the section says.
+
+| | |
+|---|---|
+| True propositions kept | 4 of 4 |
+| **False propositions caught** | **8 of 8** |
+
+The traps caught include a definitions subsection offered for the claim that a
+named facility exceeds a threshold, a duty-imposing section offered for the
+claim that the duty was breached, a reporting requirement offered for a
+facility's reported figure, and section 601 of Title VI offered for the claim
+that a resident may sue to enforce disparate-impact rules — the *Sandoval*
+failure aimed at the statute rather than the case.
+
+**That run found a false-rejection bug worth recording.** The lookup matched
+section labels exactly, which looks obviously right and is wrong: a citation
+names a unit and the corpus stores chunks, so a section whose every chunk
+carries a subdivision label has no chunk labelled with the bare section. The
+corpus holds `42 U.S.C. § 7410(a)` and nothing labelled `42 U.S.C. § 7410`, so a
+correct citation to the section was rejected as not in the corpus — the user
+told their statute does not exist. Four of the twelve cases failed on it. A
+citation is now satisfied by its label or any subdivision of it, with the
+boundary at an opening parenthesis so `§ 7412(b)` is not satisfied by
+`§ 7412(a)`.
+
+**One narrowing, stated rather than assumed.** A record citation may name only a
+dataset with a stable public identifier a reader can take to EPA: the facility
+sources. A modelled AirToxScreen value or an ACS estimate is a number for a
+hexagon or a tract and not a record, so a citation naming one is rejected. The
+alternative would be a citation with nothing behind it for a reader to check,
+which is the thing this component exists to prevent.
 
 ---
 

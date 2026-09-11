@@ -163,7 +163,89 @@ everything that holds without a key.
 
 ---
 
-## 6. The prohibited-language scan
+## 6. The citation verifier
+
+Every citation is checked against the database before a draft is rendered, and
+**a draft with any unverifiable citation is rejected**. Not shown with a
+warning, not shown with the bad citation stripped out. A warning is read once
+and then forgotten by whoever forwards the document, and a document with a
+citation quietly removed is one whose remaining claims now rest on nothing with
+no sign anything was taken out. The only safe failure is no document.
+
+### Existence is the easy half
+
+A section label is looked up in the sealed corpus; a record id in `facility`.
+Both catch the obvious failure, which is a citation to something that is not
+there.
+
+One subtlety cost a real bug. A citation names a *unit* and the corpus stores
+*chunks*, so a section whose every chunk carries a subdivision label has no
+chunk labelled with the bare section: the corpus holds `42 U.S.C. § 7410(a)` and
+nothing labelled `42 U.S.C. § 7410`. Matching exactly therefore rejected a
+correct citation to the section as not in the corpus, which is the worst kind of
+false rejection — the user is told their statute does not exist. A citation is
+now satisfied by its label or any subdivision of it, with the boundary at an
+opening parenthesis so `§ 7412(b)` is not satisfied by `§ 7412(a)`.
+
+### Support is the half that matters
+
+Appendix B.4 rule 3. Existence alone is not sufficient, and the reason is worth
+being precise about: a fabricated citation announces itself, and a **real**
+section attached to a claim it does not support is one a reader can look up,
+will find, and will read as confirming something it does not say. It is more
+persuasive than a true citation, because the effort of checking makes the reader
+more confident afterwards.
+
+Checking a paraphrase is not a string operation, so a second model is asked one
+narrow question about one passage: does this passage state or directly establish
+this proposition? It is told the passage is the only evidence, that an inference
+is not support, and that a proposition naming a facility, number or date is
+supported only if the passage carries it.
+
+Three verdicts, and the third decides the design. `supported` passes.
+`not_supported` fails. **`unclear` also fails**, because a verifier that
+resolves its own uncertainty in favour of publishing is not a verifier. A false
+rejection costs one draft somebody can ask for again; a false acceptance ships a
+citation nobody will check twice, because it has already been checked.
+
+### Does it work?
+
+`scripts/check_verifier.py` pairs real sections with propositions and records
+what the real judge said. Eight of the twelve are **traps**: a real section with
+a claim that is plausible, adjacent, and not what the section says.
+
+Results, 2026-09-11, gpt-4o as judge:
+
+| | |
+|---|---|
+| True propositions kept | 4 of 4 |
+| **False propositions caught** | **8 of 8** |
+
+The traps that were caught include a definitions subsection offered for the
+claim that a named facility exceeds a threshold, a duty-imposing section offered
+for the claim that the duty was breached, a reporting requirement offered for a
+facility's reported figure, and section 601 of Title VI offered for the claim
+that a resident may sue to enforce disparate-impact rules. That last is the
+*Sandoval* failure aimed at the statute rather than the case, and it is the one
+that would do the most damage.
+
+```bash
+make check-verifier                  # writes docs/validation/verifier.md
+make check-verifier REQUIRE_CLEAN=1  # and fails on any disagreement
+```
+
+### The rejection log
+
+A rejected draft is invisible by design: the user sees a failure and nobody sees
+the citation that caused it. `draft_rejection` (migration 0020) records one row
+per offending citation, with the section or id exactly as the model wrote it.
+Not normalised — a near-miss identifier is evidence about how the model fails,
+and normalising it away destroys exactly that. CS-308 reads this table to
+characterise the failure modes.
+
+---
+
+## 7. The prohibited-language scan
 
 `redteam.scan` flags the vocabulary of intent, culpability, prediction and
 litigation for a person to read. CS-308 reuses it over the fifty audited drafts.

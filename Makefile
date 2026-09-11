@@ -262,6 +262,16 @@ redteam: $(VENV) ## Run the red-team set against the model: make redteam
 	  $(if $(MODEL),--model $(MODEL),) \
 	  $(if $(REQUIRE_CLEAN),--require-clean,)
 
+# The other half of the same argument: does the judge catch a real section
+# attached to a claim it does not support? Eight traps and four true
+# propositions, against the real corpus.
+.PHONY: check-verifier
+check-verifier: $(VENV) ## Check the citation verifier against real sections
+	cd $(API) && .venv/bin/python ../scripts/check_verifier.py \
+	  --out ../docs/validation/verifier.md \
+	  $(if $(MODEL),--model $(MODEL),) \
+	  $(if $(REQUIRE_CLEAN),--require-clean,)
+
 .PHONY: install
 install: $(VENV) $(ETL_VENV) $(SCORING_VENV) $(ASSISTANT_VENV) ## Install Python and frontend dependencies
 	cd $(WEB) && npm ci
