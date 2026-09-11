@@ -67,7 +67,7 @@ CS-004.
 
 ## Ownership
 
-51 tickets: 27 Lead, 24 Terrence.
+52 tickets: 27 Lead, 25 Terrence.
 
 **What lands with the Lead**
 
@@ -123,6 +123,12 @@ These stay assigned to one owner, but need a specific handoff:
 - CS-006's remaining half is now the critical path for everyone: no adapter can
   load anything until the Postgres sink and the base tables exist. Do it before
   CS-101.
+- CS-106 is code-complete and its arithmetic is tested, but it cannot run until
+  CS-112 loads the 2020 block layer it reads. The transformation and its
+  ancillary data were split across a ticket that existed and one that did not,
+  so the gap only showed up when the interpolation went looking for blocks.
+  CS-112 is the thing to schedule before any tract-sourced indicator is
+  expected to produce a number.
 - Terrence's Phase 2 work (CS-207, CS-208, CS-210) can run in parallel with the
   lead's scoring work, since tiles and the API skeleton only need the score's
   shape, not its final values. The shape is already fixed in `api/app/schemas.py`,
@@ -552,7 +558,7 @@ race and ethnicity fields that are recorded and displayed but never scored.
 
 ### CS-106 — Dasymetric areal interpolation from tracts to hexes
 
-**Size:** L · **Labels:** geospatial, methodology · **Depends on:** CS-105, CS-007 · **Owner:** Lead · **Status:** Not started
+**Size:** L · **Labels:** geospatial, methodology · **Depends on:** CS-105, CS-007, CS-112 · **Owner:** Lead · **Status:** Done
 
 Move census data from tracts onto hexes without smearing population across empty
 land. The method is already specified in methodology section 7; this ticket
@@ -694,6 +700,38 @@ gate in CS-206 is meaningless until they are.
   full protocol. An anchor is never moved because it would improve a result, and
   the distinction is recorded explicitly for any anchor that changes.
 - Completed before CS-206 runs.
+
+---
+
+### CS-112 — Load the 2020 Decennial block layer
+
+**Size:** M · **Labels:** etl, geospatial · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Not started
+
+The ancillary layer of methodology section 7 has a table and a consumer but no
+adapter. `census_block` is created by migration 0003 and read by CS-106, and
+nothing fills it: CS-105 loads tracts, and no other ticket claims blocks. Until
+this lands, the dasymetric step of section 7 has correct arithmetic and no data
+to run it on.
+
+This was missed because section 7 names the block layer as a property of the
+method rather than as a source, and because `census_block` already existed in
+the schema, which made it look owned.
+
+**Acceptance criteria**
+
+- 2020 Decennial PL 94-171 population counts loaded per block for the pilot
+  state, as counts rather than estimates. The distinction is the whole reason
+  section 7 trusts blocks to distribute tract values.
+- Block geometries loaded from the TIGER vintage that nests inside the tract
+  geometries CS-105 loaded. Two vintages that disagree strand blocks on tract
+  boundaries and the crosswalk reports it as a grid defect.
+- Every block's `tract_geoid` resolves to a loaded tract, since migration 0003
+  makes it a foreign key and an unmatched block is a silent hole in a tract's
+  weights.
+- Statewide block population totalled and checked against the published 2020
+  state population, recorded like any other pull.
+- Written through the adapter interface, so the retry, rate limit,
+  partial-failure and provenance behaviour is inherited rather than rewritten.
 
 ---
 

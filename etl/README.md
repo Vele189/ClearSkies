@@ -187,6 +187,34 @@ Checks, the same ones CI runs:
 make etl-check      # from the repository root
 ```
 
+## Tracts to hexes
+
+Three of the five sources are tract-level, and methodology section 7 moves them
+onto the hex grid through an ancillary layer of 2020 Decennial block
+populations rather than by area share. That transformation is
+`pipeline.dasymetric`, and it is not an adapter: it reads tables that adapters
+filled and writes `tract_hex_weight`.
+
+```python
+from pipeline.dasymetric import build
+
+crosswalk, check = await build.build_and_verify(conn, state_fips="22", acs_vintage="2019-2023")
+print(crosswalk.describe())
+print(check.describe())  # the statewide total, and whether it closed
+```
+
+`build_and_verify` builds the crosswalk county by county, storing each inside
+its own transaction, and then re-derives the statewide population total from
+the rows it wrote. It raises `ReconciliationFailed` rather than returning a
+crosswalk whose totals did not close.
+
+Two things worth knowing before running it. The crosswalk needs `census_block`
+populated, which is CS-112 and is not yet written; until then the arithmetic is
+tested but has no data to run on. And the extensive/intensive distinction is
+enforced, not advised: apportioning a rate or averaging a count raises
+`KindMismatch`, because section 7 calls confusing the two the most common
+source of error in this step.
+
 ## Layout
 
 ```
@@ -199,8 +227,16 @@ etl/
 │   │   ├── echo.py          EPA ECHO/ICIS: facilities and compliance (F1-F4)
 │   │   ├── tri.py           EPA TRI: reported chemical releases
 │   │   ├── airtoxscreen.py  EPA AirToxScreen   (E1, E2)
-│   │   └── openaq.py        OpenAQ: measured PM2.5 and monitor coverage (E4)
+│   │   ├── openaq.py        OpenAQ: measured PM2.5 and monitor coverage (E4)
+│   │   └── census_acs.py    US Census ACS      (S1-S2, P1-P5)
 │   ├── interpolate.py     section 7: tract values onto the hex grid
+│   ├── dasymetric/        methodology section 7: tracts to hexes
+│   │   ├── weights.py     the crosswalk, built from 2020 block populations
+│   │   ├── quantities.py  extensive vs intensive, and margins of error
+│   │   ├── interpolate.py the two section 7 formulas, and derived rates
+│   │   ├── reconcile.py   statewide totals, and the tolerance they must meet
+│   │   ├── postgis.py     the block-hex intersection, and storing the result
+│   │   └── build.py       the order they run in, county by county, per state
 │   ├── policy.py          retry, rate limit, partial failure
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata
