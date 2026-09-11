@@ -1,0 +1,466 @@
+# ClearSkies anchor reference points — CS-111
+#
+# Independent, externally sourced coordinates used to verify the anchors in
+# sites.yml. This file answers the question sites.yml cannot answer about
+# itself: does each anchor actually sit in the community it names?
+#
+# sites.yml is the pre-registered fixture and is closed under methodology
+# section 17.4. This file is NOT part of the registered set. It is evidence
+# about the set, gathered afterwards, and adding a reference here changes no
+# score and no criterion.
+#
+# Every coordinate carries the authority it came from. Three are used:
+#
+#   USGS GNIS Domestic Names   — the federal authority for place names.
+#                                Vintage: files retrieved 2026-09-11 from
+#                                prd-tnm.s3.amazonaws.com/StagedProducts/
+#                                GeographicNames/DomesticNames/.
+#   US Census Bureau TIGERweb  — county/parish and incorporated place and
+#                                census designated place boundaries, current
+#                                vintage, queried 2026-09-11.
+#   EPA ECHO and EPA FRS       — facility coordinates for the plants and sites
+#                                named in each site's citations. ECHO is
+#                                already a registered ClearSkies source
+#                                (etl/pipeline/adapters/echo.py).
+#
+# Roles:
+#   community  — the populated place the site is named for. At least one
+#                community reference must fall inside the site's frozen cells.
+#   secondary  — a second community named in a compound site name. Recorded
+#                and reported; does not gate verification on its own.
+#   citation   — the facility or feature the site's citations name. Reported
+#                with its ring distance; a citation outside the frozen cells is
+#                a documented note, not automatically a failure, because the
+#                cells are anchored on where people live rather than on the
+#                fence line.
+#
+# anchor_county_actual and anchor_place_actual record what the Census says is
+# actually at the anchor coordinate, which is what catches a mislabelled parish.
+#
+# scripts/verify_anchors.py consumes this file and re-checks every anchor
+# against it offline. Regenerate only to add or re-source a reference.
+
+retrieved: 2026-09-11
+sources:
+  gnis: "USGS Geographic Names Information System, Domestic Names, state text files"
+  census: "US Census Bureau TIGERweb REST services, current vintage"
+  epa: "EPA ECHO air_rest_services and EPA Envirofacts FRS"
+
+sites:
+
+  "1":
+    anchor_county_actual: "St. John the Baptist"
+    anchor_place_actual: "Reserve (census designated place, 37.71 km2)"
+    references:
+      - role: community
+        label: "Reserve"
+        lat: 30.05381
+        lon: -90.55175
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1628041"
+        source_county: "St. John the Baptist"
+      - role: citation
+        label: "Denka Performance Elastomer / Pontchartrain Works"
+        lat: 30.0567
+        lon: -90.5243
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "2":
+    anchor_county_actual: "St. James"
+    anchor_place_actual: "Welcome (census designated place, 11.75 km2)"
+    references:
+      - role: community
+        label: "Welcome"
+        lat: 30.05937
+        lon: -90.86843
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1628458"
+        source_county: "St. James"
+      - role: citation
+        label: "FG LA LLC Sunshine Project"
+        lat: 30.03
+        lon: -90.9197
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "3":
+    anchor_county_actual: "Calcasieu"
+    anchor_place_actual: null
+    references:
+      - role: community
+        label: "Mossville"
+        lat: 30.24771
+        lon: -93.30904
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 537264"
+        source_county: "Calcasieu"
+      - role: citation
+        label: "Sasol Lake Charles Chemical Complex"
+        lat: 30.2423
+        lon: -93.2744
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "4":
+    anchor_county_actual: "East Baton Rouge"
+    anchor_place_actual: "Baton Rouge (incorporated place, 225.15 km2)"
+    references:
+      - role: community
+        label: "Alsen"
+        lat: 30.5713
+        lon: -91.20427
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 542924"
+        source_county: "East Baton Rouge"
+
+  "5":
+    anchor_county_actual: "St. Charles"
+    anchor_place_actual: "Norco (census designated place, 8.93 km2)"
+    references:
+      - role: community
+        label: "Norco"
+        lat: 29.99909
+        lon: -90.4123
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1627782"
+        source_county: "St. Charles"
+      - role: citation
+        label: "Shell / Equilon Norco Refinery"
+        lat: 30.001
+        lon: -90.4039
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "6":
+    anchor_county_actual: "Iberville"
+    anchor_place_actual: "Plaquemine (incorporated place, 7.57 km2)"
+    references:
+      - role: community
+        label: "Plaquemine"
+        lat: 30.28908
+        lon: -91.23427
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1629993"
+        source_county: "Iberville"
+      - role: citation
+        label: "Dow Louisiana Operations, Plaquemine"
+        lat: 30.32
+        lon: -91.2256
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "7":
+    anchor_county_actual: "St. Bernard"
+    anchor_place_actual: "Chalmette (census designated place, 18.58 km2)"
+    references:
+      - role: community
+        label: "Chalmette"
+        lat: 29.9427
+        lon: -89.9634
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1629922"
+        source_county: "St. Bernard"
+      - role: citation
+        label: "Chalmette Refining LLC"
+        lat: 29.9364
+        lon: -89.973
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "8":
+    anchor_county_actual: "Ascension"
+    anchor_place_actual: null
+    references:
+      - role: community
+        label: "Geismar"
+        lat: 30.20436
+        lon: -91.0226
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 554519"
+        source_county: "Ascension"
+      - role: citation
+        label: "NOVA Chemicals Geismar, former Williams Olefins"
+        lat: 30.2332
+        lon: -91.051
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "9":
+    anchor_county_actual: "Orleans"
+    anchor_place_actual: "New Orleans (incorporated place, 439.21 km2)"
+    references:
+      - role: community
+        label: "Agriculture Street Landfill, Almonaster Ave at Higgins Blvd"
+        lat: 29.99245
+        lon: -90.0429
+        source: "US Census Bureau geocoder, Public_AR_Current, intersection on the site's documented northern boundary"
+      - role: citation
+        label: "Agriculture Street Landfill, EPA FRS mailing address 3498 Abundance St"
+        lat: 29.98733
+        lon: -90.03409
+        source: "EPA Envirofacts FRS frs_facility_site, address geocoded by US Census"
+
+  "10":
+    anchor_county_actual: "West Baton Rouge"
+    anchor_place_actual: "Port Allen (incorporated place, 7.34 km2)"
+    references:
+      - role: community
+        label: "Port Allen"
+        lat: 30.45214
+        lon: -91.21011
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1629997"
+        source_county: "West Baton Rouge"
+      - role: secondary
+        label: "Brusly"
+        lat: 30.39436
+        lon: -91.25372
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 543035"
+        source_county: "West Baton Rouge"
+      - role: citation
+        label: "Placid Refining, Port Allen"
+        lat: 30.4758
+        lon: -91.2081
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "N-FLINT":
+    anchor_county_actual: "Genesee"
+    anchor_place_actual: "Flint (incorporated place, 86.61 km2)"
+    references:
+      - role: community
+        label: "Flint"
+        lat: 43.01253
+        lon: -83.68746
+        source: "USGS GNIS Domestic Names MI, feature class Populated Place, feature id 626170"
+        source_county: "Genesee"
+
+  "N-CHESTER":
+    anchor_county_actual: "Delaware"
+    anchor_place_actual: "Chester (incorporated place, 12.52 km2)"
+    references:
+      - role: community
+        label: "Chester"
+        lat: 39.84956
+        lon: -75.35575
+        source: "USGS GNIS Domestic Names PA, feature class Populated Place, feature id 1171694"
+        source_county: "Delaware"
+
+  "N-MANCHESTER":
+    anchor_county_actual: "Harris"
+    anchor_place_actual: "Houston (incorporated place, 1659.72 km2)"
+    references:
+      - role: community
+        label: "Manchester"
+        lat: 29.71828
+        lon: -95.26188
+        source: "USGS GNIS Domestic Names TX, feature class Populated Place, feature id 1340888"
+        source_county: "Harris"
+
+  "N-PORTARTHUR":
+    anchor_county_actual: "Jefferson"
+    anchor_place_actual: "Port Arthur (incorporated place, 195.68 km2)"
+    references:
+      - role: community
+        label: "Port Arthur"
+        lat: 29.89883
+        lon: -93.92878
+        source: "USGS GNIS Domestic Names TX, feature class Populated Place, feature id 1384151"
+        source_county: "Jefferson"
+      - role: secondary
+        label: "West Port Arthur"
+        lat: 29.85105
+        lon: -93.97712
+        source: "USGS GNIS Domestic Names TX, feature class Populated Place, feature id 1349783"
+        source_county: "Jefferson"
+
+  "N-WESTOAKLAND":
+    anchor_county_actual: "Alameda"
+    anchor_place_actual: "Oakland (incorporated place, 144.94 km2)"
+    references:
+      - role: community
+        label: "West Oakland"
+        lat: 37.81187
+        lon: -122.29497
+        source: "USGS GNIS Domestic Names CA, feature class Populated Place, feature id 253355"
+        source_county: "Alameda"
+
+  "N-KETTLEMAN":
+    anchor_county_actual: "Kings"
+    anchor_place_actual: "Kettleman City (census designated place, 0.55 km2)"
+    references:
+      - role: community
+        label: "Kettleman City"
+        lat: 36.00829
+        lon: -119.9618
+        source: "USGS GNIS Domestic Names CA, feature class Populated Place, feature id 1652733"
+        source_county: "Kings"
+      - role: citation
+        label: "Chemical Waste Management, Kettleman Hills"
+        lat: 36.0372
+        lon: -120.0035
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "N-INSTITUTE":
+    anchor_county_actual: "Kanawha"
+    anchor_place_actual: "Institute (census designated place, 0.74 km2)"
+    references:
+      - role: community
+        label: "Institute"
+        lat: 38.38371
+        lon: -81.76541
+        source: "USGS GNIS Domestic Names WV, feature class Populated Place, feature id 1540709"
+        source_county: "Kanawha"
+      - role: citation
+        label: "Bayer CropScience, Institute"
+        lat: 38.3831
+        lon: -81.7772
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "N-UNIONTOWN":
+    anchor_county_actual: "Perry"
+    anchor_place_actual: "Uniontown (incorporated place, 39.31 km2)"
+    references:
+      - role: community
+        label: "Uniontown"
+        lat: 32.44958
+        lon: -87.51417
+        source: "USGS GNIS Domestic Names AL, feature class Populated Place, feature id 153806"
+        source_county: "Perry"
+      - role: citation
+        label: "Arrowhead Landfill"
+        lat: 32.431
+        lon: -87.4822
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "N-WARREN":
+    anchor_county_actual: "Warren"
+    anchor_place_actual: null
+    references:
+      - role: community
+        label: "Afton"
+        lat: 36.33876
+        lon: -78.2161
+        source: "USGS GNIS Domestic Names NC, feature class Populated Place, feature id 980061"
+        source_county: "Warren"
+
+  "N-EASTCHICAGO":
+    anchor_county_actual: "Lake"
+    anchor_place_actual: "East Chicago (incorporated place, 36.54 km2)"
+    references:
+      - role: community
+        label: "East Chicago"
+        lat: 41.6392
+        lon: -87.45476
+        source: "USGS GNIS Domestic Names IN, feature class Populated Place, feature id 433875"
+        source_county: "Lake"
+
+  "N1":
+    anchor_county_actual: "St. Tammany"
+    anchor_place_actual: "Mandeville (incorporated place, 24.05 km2)"
+    references:
+      - role: community
+        label: "Mandeville"
+        lat: 30.35825
+        lon: -90.06563
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1627602"
+        source_county: "St. Tammany"
+
+  "N2":
+    anchor_county_actual: "Jefferson"
+    anchor_place_actual: "Metairie (census designated place, 59.98 km2)"
+    references:
+      - role: community
+        label: "Metairie"
+        lat: 29.98409
+        lon: -90.15285
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 555301"
+        source_county: "Jefferson"
+      - role: community
+        label: "Bonnabel Place"
+        lat: 29.99715
+        lon: -90.14313
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 543009"
+        source_county: "Jefferson"
+
+  "N3":
+    anchor_county_actual: "East Baton Rouge"
+    anchor_place_actual: "Baton Rouge (incorporated place, 225.15 km2)"
+    references:
+      - role: community
+        label: "Bocage"
+        lat: 30.42797
+        lon: -91.11177
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 559379"
+        source_county: "East Baton Rouge"
+
+  "N4":
+    anchor_county_actual: "Lafayette"
+    anchor_place_actual: "Lafayette (incorporated place, 146.2 km2)"
+    references:
+      - role: community
+        label: "City of Lafayette"
+        lat: 30.20804
+        lon: -92.03259
+        source: "USGS GNIS Domestic Names LA, feature class Civil, feature id 2404854"
+        source_county: "Lafayette"
+
+  "SA1":
+    anchor_county_actual: "East Carroll"
+    anchor_place_actual: "Lake Providence (incorporated place, 9.31 km2)"
+    references:
+      - role: community
+        label: "Lake Providence"
+        lat: 32.8043
+        lon: -91.17011
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1629967"
+        source_county: "East Carroll"
+
+  "SA2":
+    anchor_county_actual: "Madison"
+    anchor_place_actual: "Tallulah (incorporated place, 7.21 km2)"
+    references:
+      - role: community
+        label: "Tallulah"
+        lat: 32.40848
+        lon: -91.18678
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1630017"
+        source_county: "Madison"
+
+  "SA3":
+    anchor_county_actual: "Tensas"
+    anchor_place_actual: "St. Joseph (incorporated place, 2.31 km2)"
+    references:
+      - role: community
+        label: "Saint Joseph"
+        lat: 31.91849
+        lon: -91.23345
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1630007"
+        source_county: "Tensas"
+
+  "SB1":
+    anchor_county_actual: "Plaquemines"
+    anchor_place_actual: null
+    references:
+      - role: community
+        label: "Alliance"
+        lat: 29.68854
+        lon: -89.98174
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 542919"
+        source_county: "Plaquemines"
+      - role: citation
+        label: "Alliance Refinery terminal"
+        lat: 29.68
+        lon: -89.9808
+        source: "EPA ECHO air_rest_services, facility coordinates"
+
+  "SB2":
+    anchor_county_actual: "St. Landry"
+    anchor_place_actual: "Krotz Springs (incorporated place, 4.34 km2)"
+    references:
+      - role: community
+        label: "Krotz Springs"
+        lat: 30.53686
+        lon: -91.75289
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 1627411"
+        source_county: "St. Landry"
+
+  "SB3":
+    anchor_county_actual: "East Baton Rouge"
+    anchor_place_actual: null
+    references:
+      - role: community
+        label: "Port Hudson"
+        lat: 30.67824
+        lon: -91.26955
+        source: "USGS GNIS Domestic Names LA, feature class Populated Place, feature id 555708"
+        source_county: "East Baton Rouge"
+      - role: citation
+        label: "Georgia-Pacific Port Hudson mill"
+        lat: 30.65
+        lon: -91.2744
+        source: "EPA ECHO air_rest_services, facility coordinates"

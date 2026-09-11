@@ -1,9 +1,9 @@
 # ClearSkies Methodology
 
-**Version:** 0.1.1 (draft, pre-implementation)
+**Version:** 0.1.2 (draft, pre-implementation)
 **Status:** Phase 0 deliverable. Written before any scoring code exists, by design.
 **Pilot geography:** Louisiana
-**Last revised:** 2026-09-10
+**Last revised:** 2026-09-11
 
 ---
 
@@ -307,6 +307,8 @@ At least **8 of the 10** active pre-registered sites in Appendix A must have at 
 
 Each site resolves to an explicit set of resolution 8 cells rather than a radius evaluated at scoring time, so the cells a site is judged on are fixed in the fixture and cannot shift with the code that reads it. `scripts/check_validation_set.py` re-derives every cell list from its anchor and fails CI if the two disagree, which means an anchor cannot be nudged toward a better result without the committed cells contradicting it.
 
+That check is a closed loop: it proves the fixture consistent with itself, and cannot tell you that the anchor labelled "Welcome" is anywhere near Welcome. `scripts/verify_anchors.py` closes that gap, checking every anchor against coordinates from USGS GNIS, the US Census and EPA that are recorded in `docs/validation/anchor-references.yml`. It fails CI if any site's `verified` flag disagrees with the evidence. The run that verified the registered set is §18 v0.1.2, written up in `docs/validation/anchor-verification.md`.
+
 ### 13.3 Negative controls
 
 All **4 of 4** pre-registered negative controls, affluent low-industry areas listed in Appendix A, must fall below the statewide 50th percentile.
@@ -406,6 +408,62 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 
 ## 18. Changelog
 
+### v0.1.2 — 2026-09-11 — validation anchors verified, three corrected
+
+Every one of the thirty registered anchors was checked against coordinates from
+outside the project: USGS GNIS for where a named place is, the US Census for
+which parish and which city or CDP a coordinate falls in, and EPA ECHO and FRS
+for the plants and sites the citations name. The reference points and their
+sources are recorded in `docs/validation/anchor-references.yml`, the method and
+the full results in `docs/validation/anchor-verification.md`, and
+`scripts/verify_anchors.py` re-checks all of it in CI and fails if any
+`verified` flag disagrees with the evidence.
+
+Twenty-nine of thirty now carry `verified: true`.
+
+**Three anchors were corrected under §17.4, because each named a community it
+did not sit in and shared no cell with.** Site 2 "Welcome, 5th District" sat
+4.21 km east of Welcome, at the historical Uncle Sam site, six rings outside any
+cell of the community; its citations are the FG LA permits and *RISE St. James*,
+both about Welcome. N-WARREN "Afton, Warren County" sat in Franklin County,
+19.16 km and twenty-five rings from Afton. N3 "Bocage" sat 1.91 km from Bocage,
+three rings outside its own k=1 disk.
+
+Each was moved to that community's published GNIS coordinate, unrounded. `k` was
+not changed for any of them, so the one knob that could have been tuned toward a
+result was not touched. **Justification independent of validation outcome:** an
+anchor that shares no cell with the community it names is not measuring that
+community, whatever it scores. No scoring code existed when this ran and no
+score had ever been computed, so no correction here could have been motivated by
+one.
+
+**One parish label was corrected without moving an anchor.** SB3 "Port Hudson
+mill vicinity" recorded West Feliciana; the anchor and the Georgia-Pacific mill
+are both in East Baton Rouge Parish. No coordinate and no cell changed, so this
+is a metadata fix rather than a re-anchoring, and it is recorded separately to
+keep that distinction visible.
+
+**One site did not verify and was deliberately left alone.** Site 4 "Alsen /
+North Baton Rouge" sits in North Baton Rouge, which its compound name covers,
+but is 2.62 km and three rings from Alsen, which two of its three citations are
+about. Under §17.4 that makes it poorly chosen rather than misnamed, so it keeps
+`verified: false`, keeps its anchor, stays in the set and continues to be
+reported. Moving it would have produced a cleaner scoreboard and is exactly the
+edit §17.4 forbids.
+
+Also recorded, not acted on: eleven cited facilities lie outside their site's
+frozen cells, because cells are anchored on where people live rather than on the
+fence line; and three compound site names (`Reserve / LaPlace`,
+`Alsen / North Baton Rouge`, `Port Allen / Brusly`) cover only their first
+community at the registered `k`.
+
+Per §17.6 the three moved anchors require the full §13 protocol to be re-run
+before any score is published. No score exists yet, so nothing is invalidated.
+
+No indicator, weight, normalization, or aggregation change. Scores are
+unaffected because none have been computed.
+
+
 ### v0.1.1 — 2026-09-10 — validation set closed
 
 Validation set resolved from point anchors to explicit sets of H3 resolution 8
@@ -448,7 +506,9 @@ Machine-readable form: `docs/validation/sites.yml`. That file is authoritative; 
 
 Every site resolves to an explicit set of H3 resolution 8 cells, derived once from its anchor with `grid_disk(anchor, k)` and frozen in the fixture. A res-8 cell averages 0.737 km², so `k=1` is 7 cells spanning roughly 1.2 km, `k=2` is 19 cells spanning roughly 2.1 km, and `k=3` is 37 cells spanning roughly 3.0 km. `k` reflects the physical extent of each site and was set before any score existed.
 
-**Anchors carry `verified: false`** until each is checked against its cited documentation in Phase 1. Verification may correct an anchor that names the wrong community, which is a §17.4 revision. It may not move one to improve a result.
+**Anchors were verified in CS-111 on 2026-09-11** (§18, v0.1.2), before any scoring code existed. Twenty-nine of thirty carry `verified: true`. Each was checked against coordinates from USGS GNIS, the US Census and EPA, recorded in `docs/validation/anchor-references.yml` and re-checked in CI by `scripts/verify_anchors.py`, which fails if any flag disagrees with the evidence. The method and full results are in `docs/validation/anchor-verification.md`.
+
+Three anchors named a community they did not sit in and were corrected under §17.4: site 2 (Welcome), N-WARREN (Afton) and N3 (Bocage). One parish label was wrong and was fixed without moving its anchor (SB3). Site 4 did not verify, keeps its anchor and is reported as `verified: false`. Verification may correct an anchor that names the wrong community. It may not move one to improve a result.
 
 **`burden_pathway`** records which medium carries the harm. The v0 score covers air only, so a site whose burden is water, soil, or buried waste is not expected to score highly, and a miss there is evidence about the score's scope rather than about its quality.
 
@@ -457,7 +517,7 @@ Every site resolves to an explicit set of H3 resolution 8 cells, derived once fr
 | # | Site | Parish | Pathway | Cells | Anchor |
 |---|---|---|---|---|---|
 | 1 | Reserve / LaPlace | St. John the Baptist | air | 7 (k=1) | `88444600ddfffff` |
-| 2 | Welcome, 5th District | St. James | air | 19 (k=2) | `884446aa35fffff` |
+| 2 | Welcome, 5th District | St. James | air | 19 (k=2) | `884446aac7fffff` |
 | 3 | Mossville | Calcasieu | air | 19 (k=2) | `88446e4da9fffff` |
 | 4 | Alsen / North Baton Rouge | East Baton Rouge | air | 19 (k=2) | `884440cc51fffff` |
 | 5 | Norco | St. Charles | air | 7 (k=1) | `8844460161fffff` |
@@ -467,7 +527,7 @@ Every site resolves to an explicit set of H3 resolution 8 cells, derived once fr
 | 9 | Gordon Plaza, New Orleans | Orleans | soil | 7 (k=1) | `8844464051fffff` |
 | 10 | Port Allen / Brusly | West Baton Rouge | air | 19 (k=2) | `884440c1d3fffff` |
 
-Citations for each site are in the fixture. Two carry a scope caveat worth stating here: Gordon Plaza's burden is principally contaminated soil, and Mossville's residents were largely bought out and dispersed, so its population indicators may be weak even where its exposure indicators are strong.
+Citations for each site are in the fixture. Three carry a scope caveat worth stating here. Gordon Plaza's burden is principally contaminated soil. Mossville's residents were largely bought out and dispersed, so its population indicators may be weak even where its exposure indicators are strong. Site 4 is the one site in the set carrying `verified: false`: its cells cover North Baton Rouge but not Alsen, 2.62 km away, and two of its three citations are about Alsen specifically. It is scored and reported anyway, per §17.4.
 
 ### A.2 Registered but inactive, out of state
 
@@ -517,7 +577,7 @@ High-emission sites with sparse surrounding population, expected below the top d
 |---|---|---|---|
 | SB1 | Alliance Refinery vicinity | Plaquemines | 19 (k=2) |
 | SB2 | Krotz Springs | St. Landry | 19 (k=2) |
-| SB3 | Port Hudson mill vicinity | West Feliciana | 19 (k=2) |
+| SB3 | Port Hudson mill vicinity | East Baton Rouge | 19 (k=2) |
 
 Some cells at these anchors fall below the 25-person threshold in §5 and will be unscored. The criterion applies to scored cells, and a site with none is reported as `not_applicable` rather than as a pass.
 

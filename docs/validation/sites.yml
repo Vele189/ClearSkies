@@ -28,10 +28,20 @@ status: closed
 # k=3 gives 37 cells spanning roughly 3.0 km. k is chosen from the physical
 # extent of each site, before any score exists.
 #
-# Anchors carry verified: false until each is checked against the cited
-# documentation in Phase 1. Verification may correct an anchor that names the
-# wrong community, which is a methodology revision under section 17 and is
-# recorded as one. It may not move an anchor to improve a result.
+# Anchors were verified in CS-111 on 2026-09-11, before any scoring code
+# existed. Twenty-nine of the thirty carry verified: true. Each was checked
+# against coordinates from USGS GNIS, the US Census and EPA, recorded with
+# their sources in anchor-references.yml and re-checked in CI by
+# scripts/verify_anchors.py, which fails if any flag here disagrees with the
+# evidence. Three anchors named a community they did not sit in and were
+# corrected under section 17.4; one parish label was wrong and was fixed
+# without moving its anchor; one site remains verified: false and is reported
+# that way. Every one of those carries a verification_note below.
+#
+# Verification may correct an anchor that names the wrong community, which is a
+# methodology revision under section 17 and is recorded as one. It may not move
+# an anchor to improve a result. No score existed when this ran, so no
+# correction could have been motivated by one.
 
 criteria:
   high_burden:
@@ -81,7 +91,11 @@ high_burden_sites:
       - 88444600d9fffff
       - 88444600ddfffff
       - 88444602b7fffff
-    verified: false
+    verified: true
+    verification_note: >-
+      Verified against GNIS Reserve, which falls in the frozen cells. The
+      Denka Pontchartrain Works plant is 2.96 km away, three rings outside
+      them: the cells sit on the residential community, not on the fence line.
     citations:
       - "EPA AirToxScreen, census tract estimates of lifetime cancer risk from air toxics"
       - "United States v. Denka Performance Elastomer LLC, E.D. La., complaint filed February 2023"
@@ -92,31 +106,38 @@ high_burden_sites:
     state: LA
     active: true
     burden_pathway: air
-    lat: 30.045
-    lon: -90.828
+    lat: 30.05937
+    lon: -90.86843
     k: 2
-    h3_res8_anchor: 884446aa35fffff
+    h3_res8_anchor: 884446aac7fffff
     h3_cells:
-      - 884446a841fffff
-      - 884446a843fffff
-      - 884446a849fffff
-      - 884446a84bfffff
-      - 884446a84dfffff
-      - 884446a859fffff
-      - 884446a85dfffff
-      - 884446aa07fffff
-      - 884446aa21fffff
-      - 884446aa23fffff
-      - 884446aa27fffff
-      - 884446aa2bfffff
-      - 884446aa31fffff
-      - 884446aa33fffff
-      - 884446aa35fffff
-      - 884446aa37fffff
-      - 884446aa39fffff
-      - 884446aa3bfffff
-      - 884446aa3dfffff
-    verified: false
+      - 884446aa13fffff
+      - 884446aa81fffff
+      - 884446aa85fffff
+      - 884446aa89fffff
+      - 884446aa8bfffff
+      - 884446aa8dfffff
+      - 884446aac1fffff
+      - 884446aac3fffff
+      - 884446aac5fffff
+      - 884446aac7fffff
+      - 884446aac9fffff
+      - 884446aacbfffff
+      - 884446aacdfffff
+      - 884446aad5fffff
+      - 884446aaddfffff
+      - 884446aae1fffff
+      - 884446aae3fffff
+      - 884446aae9fffff
+      - 884446aaebfffff
+    verified: true
+    verification_note: >-
+      Anchor corrected 2026-09-11 under section 17.4. The registered anchor
+      lay 4.21 km east of Welcome, at the historical Uncle Sam site, and its
+      cells did not reach the community the site is named for or any cell of
+      it. Moved to the USGS GNIS coordinate for Welcome. k is unchanged and
+      the move was mechanical, to the published coordinate, not chosen. No
+      score existed when this was found.
     citations:
       - "Louisiana DEQ air permits issued to FG LA LLC for the Sunshine Project"
       - "St. James Parish land use plan and its designation of the 4th and 5th Districts"
@@ -151,7 +172,7 @@ high_burden_sites:
       - 88446e4de5fffff
       - 88446e4de7fffff
       - 88446e4debfffff
-    verified: false
+    verified: true
     citations:
       - "Advocates for Environmental Human Rights, petition to the Inter-American Commission on Human Rights, 2005"
       - "ATSDR, health consultation on dioxin exposure in the Calcasieu Estuary"
@@ -187,6 +208,14 @@ high_burden_sites:
       - 884440cee5fffff
       - 884440cee7fffff
     verified: false
+    verification_note: >-
+      NOT VERIFIED. The anchor sits in North Baton Rouge, among the Crestworth
+      and North Maryland neighbourhoods, which the site's compound name
+      covers. It does not reach Alsen, 2.62 km away and three rings outside
+      the frozen cells, and two of the three citations are specifically about
+      Alsen. The anchor is NOT moved: it falls in a community the site names,
+      so this is a poorly chosen site under section 17.4 rather than an anchor
+      naming the wrong community. It stays in the set and is reported.
     citations:
       - "Robert D. Bullard, Dumping in Dixie: Race, Class, and Environmental Quality, 1990"
       - "EPA Superfund records for the Rollins Environmental Services and Alsen landfill area"
@@ -209,7 +238,7 @@ high_burden_sites:
       - 8844460169fffff
       - 884446016bfffff
       - 884446016dfffff
-    verified: false
+    verified: true
     citations:
       - "Steve Lerner, Diamond: A Struggle for Environmental Justice in Louisiana's Chemical Corridor, MIT Press, 2005"
       - "Concerned Citizens of Norco relocation agreement with Shell, 2002"
@@ -244,7 +273,7 @@ high_burden_sites:
       - 884440d1d9fffff
       - 884440d1dbfffff
       - 884440d1ddfffff
-    verified: false
+    verified: true
     citations:
       - "EPA ECHO compliance and enforcement records for the Plaquemine chemical complex"
       - "EPA Toxics Release Inventory, Iberville Parish reporting facilities"
@@ -266,7 +295,7 @@ high_burden_sites:
       - 8844464365fffff
       - 8844464367fffff
       - 88444658dbfffff
-    verified: false
+    verified: true
     citations:
       - "EPA ECHO compliance and enforcement records for Chalmette Refining"
       - "Louisiana Bucket Brigade, community air monitoring reports for St. Bernard Parish"
@@ -300,7 +329,7 @@ high_burden_sites:
       - 884446ae97fffff
       - 884446aeb3fffff
       - 884446aebbfffff
-    verified: false
+    verified: true
     citations:
       - "US Chemical Safety Board, investigation of the Williams Olefins plant explosion, June 2013"
       - "EPA Toxics Release Inventory, Ascension Parish reporting facilities"
@@ -322,7 +351,7 @@ high_burden_sites:
       - 8844464059fffff
       - 884446405bfffff
       - 884446405dfffff
-    verified: false
+    verified: true
     citations:
       - "EPA Superfund records for the Agriculture Street Landfill site"
       - "ATSDR health consultation for the Agriculture Street Landfill"
@@ -357,7 +386,10 @@ high_burden_sites:
       - 884440c1d9fffff
       - 884440c1dbfffff
       - 884440c1ddfffff
-    verified: false
+    verified: true
+    verification_note: >-
+      Verified against GNIS Port Allen. Brusly, the second name, is 7.37 km
+      away and outside the frozen cells; the cells cover Port Allen only.
     citations:
       - "EPA ECHO compliance records for West Baton Rouge Parish refining and chemical facilities"
       - "EPA Toxics Release Inventory, West Baton Rouge Parish reporting facilities"
@@ -425,7 +457,7 @@ inactive_out_of_state_sites:
       - 88274d175dfffff
       - 88274d8db3fffff
       - 88274d8db7fffff
-    verified: false
+    verified: true
     note: "Burden pathway is drinking water. An air-only score is not expected to flag it, and a miss here is evidence about scope rather than about the score."
     citations:
       - "Flint Water Advisory Task Force, Final Report, State of Michigan, March 2016"
@@ -461,7 +493,7 @@ inactive_out_of_state_sites:
       - 882aacb1b9fffff
       - 882aacb1bbfffff
       - 882aacb1bdfffff
-    verified: false
+    verified: true
     citations:
       - "EPA Region III, Chester Risk Assessment Project, 1995"
       - "Chester Residents Concerned for Quality Living v. Seif, 132 F.3d 925, 3d Cir. 1997, vacated as moot 524 U.S. 974, 1998"
@@ -514,7 +546,7 @@ inactive_out_of_state_sites:
       - 88446c06e9fffff
       - 88446c06ebfffff
       - 88446c06edfffff
-    verified: false
+    verified: true
     citations:
       - "Union of Concerned Scientists and t.e.j.a.s., Double Jeopardy in Houston, 2016"
       - "EPA ECHO compliance records for Houston Ship Channel refining and petrochemical facilities"
@@ -549,7 +581,12 @@ inactive_out_of_state_sites:
       - 88446e12e5fffff
       - 88446e12e7fffff
       - 88446e12edfffff
-    verified: false
+    verified: true
+    verification_note: >-
+      Verified by boundary rather than by point: the anchor is inside the City
+      of Port Arthur, but the city's GNIS point is 3.45 km away and outside
+      the frozen cells. The cells cover the industrial south of the city
+      rather than downtown or the West Side.
     citations:
       - "EPA Title VI administrative complaints filed against Texas air permitting decisions in Port Arthur"
       - "EPA Toxics Release Inventory, Jefferson County reporting facilities"
@@ -584,7 +621,7 @@ inactive_out_of_state_sites:
       - 8828308153fffff
       - 8828308155fffff
       - 8828308157fffff
-    verified: false
+    verified: true
     citations:
       - "Bay Area Air Quality Management District, West Oakland Community Action Plan under AB 617, 2019"
       - "California Air Resources Board, diesel particulate matter exposure assessments for the Port of Oakland"
@@ -607,7 +644,7 @@ inactive_out_of_state_sites:
       - 8829a8b933fffff
       - 8829a8b937fffff
       - 8829a8b9e5fffff
-    verified: false
+    verified: true
     citations:
       - "California Department of Public Health, investigation of birth defects in Kettleman City, 2010"
       - "California DTSC permitting record for the Kettleman Hills hazardous waste facility"
@@ -642,7 +679,7 @@ inactive_out_of_state_sites:
       - 882a9caf2bfffff
       - 882a9caf2dfffff
       - 882a9caf67fffff
-    verified: false
+    verified: true
     citations:
       - "US Chemical Safety Board, Bayer CropScience pesticide waste tank explosion investigation, 2011"
       - "EPA ECHO compliance records for Kanawha Valley chemical manufacturing facilities"
@@ -677,7 +714,7 @@ inactive_out_of_state_sites:
       - 8844edd5e9fffff
       - 8844edd5ebfffff
       - 8844edd5edfffff
-    verified: false
+    verified: true
     note: "Burden pathway is solid waste and coal ash. An air-only score may not flag it."
     citations:
       - "EPA Title VI complaint against the Alabama Department of Environmental Management concerning the Arrowhead Landfill, 2013"
@@ -689,31 +726,37 @@ inactive_out_of_state_sites:
     active: false
     activate_when: "scoring coverage includes NC"
     burden_pathway: waste
-    lat: 36.204
-    lon: -78.083
+    lat: 36.33876
+    lon: -78.2161
     k: 2
-    h3_res8_anchor: 882a8914d1fffff
+    h3_res8_anchor: 882a8910c5fffff
     h3_cells:
-      - 882a891489fffff
-      - 882a89148bfffff
-      - 882a891499fffff
-      - 882a89149dfffff
-      - 882a8914c3fffff
-      - 882a8914cbfffff
-      - 882a8914d1fffff
-      - 882a8914d3fffff
-      - 882a8914d5fffff
-      - 882a8914d7fffff
-      - 882a8914d9fffff
-      - 882a8914dbfffff
-      - 882a8914ddfffff
-      - 882a8916b3fffff
-      - 882a8916b7fffff
-      - 882a89ab25fffff
-      - 882a89ab2dfffff
-      - 882a89ab65fffff
-      - 882a89ab67fffff
-    verified: false
+      - 882a891011fffff
+      - 882a891013fffff
+      - 882a891017fffff
+      - 882a89101bfffff
+      - 882a891089fffff
+      - 882a89108dfffff
+      - 882a8910c1fffff
+      - 882a8910c3fffff
+      - 882a8910c5fffff
+      - 882a8910c7fffff
+      - 882a8910c9fffff
+      - 882a8910cbfffff
+      - 882a8910cdfffff
+      - 882a8910e1fffff
+      - 882a8910e3fffff
+      - 882a8910e9fffff
+      - 882a8910ebfffff
+      - 882a8910edfffff
+      - 882a8912a7fffff
+    verified: true
+    verification_note: >-
+      Anchor corrected 2026-09-11 under section 17.4. The registered anchor
+      lay in Franklin County, 19.16 km from Afton and twenty-five rings
+      outside any cell of the community the site names. Moved to the USGS GNIS
+      coordinate for Afton, Warren County. k is unchanged and the move was
+      mechanical.
     note: "The 1982 PCB landfill protests here are the origin of the US environmental justice movement. Included for that reason even though the burden pathway is buried waste."
     citations:
       - "US General Accounting Office, Siting of Hazardous Waste Landfills and Their Correlation with Racial and Economic Status of Surrounding Communities, GAO/RCED-83-168, 1983"
@@ -749,7 +792,7 @@ inactive_out_of_state_sites:
       - 88266418edfffff
       - 88266419d9fffff
       - 88266419dbfffff
-    verified: false
+    verified: true
     note: "Burden pathway is lead-contaminated soil. An air-only score may not flag it."
     citations:
       - "EPA Superfund records for the USS Lead site and the West Calumet Housing Complex"
@@ -773,7 +816,7 @@ negative_controls:
       - 8844466b4bfffff
       - 8844466b55fffff
       - 8844466b5dfffff
-    verified: false
+    verified: true
   - id: N2
     name: "Old Metairie"
     parish: "Jefferson"
@@ -791,26 +834,36 @@ negative_controls:
       - 88444655e5fffff
       - 88444655e7fffff
       - 88444655edfffff
-    verified: false
+    verified: true
+    verification_note: >-
+      Verified by boundary rather than by point: the anchor is inside Metairie
+      CDP. Old Metairie has no GNIS entry or Census delineation of its own, so
+      no independent point exists for the neighbourhood itself.
     note: "The weakest control in the set. Affluent with no adjacent heavy industry, but across the river from the west bank industrial strip and inside a dense metropolitan airshed. Retained deliberately: a control that is merely easy tests nothing."
   - id: N3
     name: "Bocage"
     parish: "East Baton Rouge"
     state: LA
     active: true
-    lat: 30.418
-    lon: -91.128
+    lat: 30.42797
+    lon: -91.11177
     k: 1
-    h3_res8_anchor: 884440c135fffff
+    h3_res8_anchor: 884440cac7fffff
     h3_cells:
-      - 884440c123fffff
-      - 884440c131fffff
-      - 884440c135fffff
-      - 884440c137fffff
-      - 884440c13dfffff
-      - 884440cac9fffff
-      - 884440cacbfffff
-    verified: false
+      - 884440ca89fffff
+      - 884440ca8dfffff
+      - 884440cac1fffff
+      - 884440cac3fffff
+      - 884440cac5fffff
+      - 884440cac7fffff
+      - 884440caebfffff
+    verified: true
+    verification_note: >-
+      Anchor corrected 2026-09-11 under section 17.4. The registered anchor
+      lay 1.91 km from Bocage, in the Stafford Place and Concord Estates
+      neighbourhoods, three rings outside its own k=1 disk, so no cell of the
+      control covered the community it names. Moved to the USGS GNIS
+      coordinate for Bocage. k is unchanged and the move was mechanical.
   - id: N4
     name: "South Lafayette"
     parish: "Lafayette"
@@ -828,7 +881,12 @@ negative_controls:
       - 88444425cdfffff
       - 88444425e9fffff
       - 88444425ebfffff
-    verified: false
+    verified: true
+    verification_note: >-
+      Verified by boundary rather than by point: the anchor is inside the City
+      of Lafayette, 4.24 km south of its centre, which is what the name
+      records. South Lafayette is a direction, not a delineated place, so no
+      independent point exists.
 
 # High poverty, low industry. Landing in the top decile means population
 # characteristics are dominating the product.
@@ -862,7 +920,7 @@ stress_not_a_poverty_map:
       - 88445d8dd9fffff
       - 88445d8dddfffff
       - 88445d8debfffff
-    verified: false
+    verified: true
   - id: SA2
     name: "Tallulah"
     parish: "Madison"
@@ -892,7 +950,7 @@ stress_not_a_poverty_map:
       - 88445d9325fffff
       - 88445d9327fffff
       - 88445d932dfffff
-    verified: false
+    verified: true
   - id: SA3
     name: "St. Joseph"
     parish: "Tensas"
@@ -922,7 +980,7 @@ stress_not_a_poverty_map:
       - 88444301d3fffff
       - 88444301d9fffff
       - 88444301dbfffff
-    verified: false
+    verified: true
 
 # High emissions, sparse population. Landing at the very top means pollution
 # burden is dominating.
@@ -956,7 +1014,7 @@ stress_not_an_emissions_map:
       - 88447326cdfffff
       - 88447326e9fffff
       - 88447326edfffff
-    verified: false
+    verified: true
   - id: SB2
     name: "Krotz Springs"
     parish: "St. Landry"
@@ -986,10 +1044,10 @@ stress_not_an_emissions_map:
       - 8844408ecdfffff
       - 8844408ed9fffff
       - 8844408eddfffff
-    verified: false
+    verified: true
   - id: SB3
     name: "Port Hudson mill vicinity"
-    parish: "West Feliciana"
+    parish: "East Baton Rouge"
     state: LA
     active: true
     lat: 30.68
@@ -1016,7 +1074,14 @@ stress_not_an_emissions_map:
       - 88444019cdfffff
       - 88444019e9fffff
       - 88444019edfffff
-    verified: false
+    verified: true
+    verification_note: >-
+      Parish corrected 2026-09-11 from West Feliciana to East Baton Rouge. The
+      anchor is 0.20 km from GNIS Port Hudson and both it and the
+      Georgia-Pacific mill are in East Baton Rouge Parish; the registered
+      label was simply wrong. The anchor is unchanged, so this is a metadata
+      correction and not a re-anchoring under section 17.4. The mill is 3.36
+      km away and outside the frozen cells.
 
 # Reported, never gated. See docs/methodology.md section 13.6.
 # Race is not an input to the score, so any correlation found here is an

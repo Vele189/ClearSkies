@@ -222,8 +222,9 @@ derived once from an anchor with `h3.grid_disk` and frozen.
 under `scoring/`; `scripts/check_validation_set.py` re-derives every cell list
 from its anchor and fails CI if they disagree. Both run in CI.
 
-**Note:** every anchor is committed with `verified: false`. Verifying them is
-CS-111 and must happen before CS-206.
+**Note:** every anchor was committed with `verified: false`. CS-111 verified
+them on 2026-09-11 and corrected three that named a community they did not sit
+in; twenty-nine of thirty now carry `verified: true`.
 
 ---
 
@@ -784,7 +785,7 @@ tables with the Postgres sink.
 
 ### CS-111 — Verify the validation set anchors
 
-**Size:** M · **Labels:** validation, methodology · **Depends on:** CS-003, CS-007 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** validation, methodology · **Depends on:** CS-003, CS-007 · **Owner:** Lead · **Status:** Done
 
 Every one of the thirty registered sites carries `verified: false`. The anchors
 were chosen from documentation without being checked against the grid, and the
@@ -802,6 +803,35 @@ gate in CS-206 is meaningless until they are.
   full protocol. An anchor is never moved because it would improve a result, and
   the distinction is recorded explicitly for any anchor that changes.
 - Completed before CS-206 runs.
+
+**What landed:** 29 of 30 anchors verified. `docs/validation/anchor-references.yml`
+records an externally sourced coordinate for every site's community and for the
+facilities its citations name, each carrying its authority: USGS GNIS for place
+names, US Census TIGERweb for parish and place boundaries, EPA ECHO and FRS for
+facilities. `scripts/verify_anchors.py` re-checks every anchor against them and
+fails CI if any `verified` flag disagrees with the evidence; it runs in CI and in
+`make check` alongside `check_validation_set.py`. Method and full results are in
+`docs/validation/anchor-verification.md`, changelog entry in methodology §18
+v0.1.2.
+
+Three anchors named a community they shared no cell with and were corrected under
+§17.4, each moved mechanically to that community's published GNIS coordinate with
+`k` untouched: site 2 Welcome (was 4.21 km east, at the historical Uncle Sam
+site), N-WARREN Afton (was in Franklin County, 19.16 km away) and N3 Bocage (was
+1.91 km away, outside its own k=1 disk). SB3's parish label was corrected from
+West Feliciana to East Baton Rouge without moving its anchor, recorded separately
+as metadata rather than a re-anchoring.
+
+Site 4 Alsen / North Baton Rouge did **not** verify and was deliberately left
+alone: it sits in North Baton Rouge, which its compound name covers, but is 2.62
+km from Alsen, which two of its three citations are about. Under §17.4 that makes
+it poorly chosen rather than misnamed, so it keeps its anchor, keeps
+`verified: false`, and is still reported. CS-206 should read its result knowing
+the cells cover North Baton Rouge and not Alsen.
+
+**Note:** the three moved anchors make this a §17 revision, so §17.6 requires the
+full §13 protocol to re-run before any score is published. No scoring code exists
+yet, so this costs nothing — which is why CS-111 was scheduled ahead of CS-206.
 
 ---
 
