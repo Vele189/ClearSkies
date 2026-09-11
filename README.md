@@ -77,7 +77,7 @@ Every component is open source. Two line items cost money: a Railway Hobby plan 
 | Vector tiles | Static PMTiles on Cloudflare R2 |
 | Object storage | Cloudflare R2 (tiles, raw source snapshots as Parquet) |
 | LLM integration | Pydantic AI |
-| LLM provider | Anthropic or OpenAI |
+| LLM provider | OpenAI |
 | Frontend | React, TypeScript, Tailwind, MapLibre GL |
 | Basemap | OpenFreeMap or Protomaps |
 | Hosting | Railway (frontend, API, database) |

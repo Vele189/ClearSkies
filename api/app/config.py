@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     pilot_state: str = "LA"
 
     # Absent in Phase 0; the draft endpoint reports 503 rather than failing at import.
-    anthropic_api_key: str = ""
+    openai_api_key: str = ""
 
     # Keep startup fast when the database is not running, so the API still
     # serves /health and reports the database as unavailable.

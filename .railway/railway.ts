@@ -92,7 +92,7 @@ export default defineRailway(() => {
       LOG_LEVEL: "info",
       // Absent in Phase 0; the draft endpoint reports 503 rather than failing
       // at import. Sealed in the dashboard when it is issued.
-      ANTHROPIC_API_KEY: preserve(),
+      OPENAI_API_KEY: preserve(),
     },
   });
 
