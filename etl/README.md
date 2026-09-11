@@ -39,6 +39,32 @@ All of it is configured by one `SourcePolicy` (`pipeline/policy.py`). The field
 expected to vary between sources is the rate limit, because each upstream
 publishes its own. Change anything else and say why in the commit message.
 
+## Credentials
+
+Most sources need none. Where one does, the adapter names it and reads it from
+`ctx.credentials`; it never touches `os.environ`, so a test can run it without
+arranging the environment and a missing key is a stated requirement rather than
+a surprise at three in the morning. `pipeline/__main__.py` holds the one table
+mapping a credential name to its environment variable.
+
+| Source | Credential | Environment variable |
+|---|---|---|
+| `census_acs` | `census_api_key` | `CENSUS_API_KEY` |
+
+Two rules for a credential in an adapter:
+
+- Pass it as `ctx.http.get(url, secret_params={...})`, never in `url` or
+  `params`. `Artifact.url` is published verbatim in `docs/provenance.md`, and it
+  is also the snapshot key and the text of the retry log line.
+- Since `url` is the snapshot key, a source paged or chunked over several
+  requests has to vary `url` rather than `params`. Two calls sharing a URL share
+  one snapshot, and a later stale night would replay one response for all of
+  them.
+
+A run with no key **fails**; it does not fall back to the last good snapshot. An
+absent credential is a broken deployment, and `stale` would make it look
+survivable.
+
 ## How to add a new data source
 
 Worked example to copy: `pipeline/adapters/fake.py`, about 130 lines including

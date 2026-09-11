@@ -2,7 +2,7 @@
 
 The context is the only channel through which an adapter touches the outside
 world: HTTP through `http`, the database through `sink`, the clock through `now`,
-credentials through `credential`. Nothing in an adapter should call
+and credentials through `credential`. Nothing in an adapter should call
 `datetime.now()`, open a socket, or read an environment variable directly. That
 is what makes an adapter testable against a fake source, and what keeps a single
 pull timestamp on every record and on the manifest.
@@ -12,6 +12,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from types import MappingProxyType
 
 import httpx
 
@@ -33,9 +34,13 @@ class RunContext:
     policy: SourcePolicy
     pilot_state: str = "LA"
     dry_run: bool = False
-    # Secrets the run was started with, keyed by the name the adapter asks for.
-    # Most sources are open data and need none; OpenAQ is the first that does.
-    credentials: Mapping[str, str] = field(default_factory=dict)
+    # Credentials the run was started with, under the names adapters ask for.
+    # Filled at the command line boundary, because an adapter that reads
+    # os.environ itself is an adapter a test cannot run without arranging the
+    # environment, and one whose requirements are invisible until it fails at
+    # three in the morning. An adapter that needs a key it was not given should
+    # raise PermanentSourceError saying which name it looked for.
+    credentials: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     log: logging.Logger = field(default_factory=lambda: logging.getLogger("pipeline"))
 
     def credential(self, name: str) -> str:
@@ -83,6 +88,6 @@ def make_context(
         policy=policy,
         pilot_state=pilot_state,
         dry_run=dry_run,
-        credentials=dict(credentials or {}),
+        credentials=MappingProxyType(dict(credentials or {})),
         log=logging.getLogger(f"pipeline.{source}"),
     )

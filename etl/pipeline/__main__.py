@@ -17,7 +17,7 @@ import sys
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
-from pipeline.adapters import fake, get, specs
+from pipeline.adapters import census_acs, fake, get, openaq, specs
 from pipeline.context import make_context
 from pipeline.http import build_client
 from pipeline.metadata import PullMetadata
@@ -25,16 +25,23 @@ from pipeline.runner import run_adapter
 from pipeline.sinks import InMemorySink
 from pipeline.snapshots import InMemorySnapshotStore
 
-# The one place in the package that reads the environment. An adapter asks for
-# a secret by name through `ctx.credential` and never touches os.environ itself,
-# which is what keeps it testable and keeps a key out of a log line.
+# The only place the pipeline reads the environment. Adapters ask for a secret
+# by name from this table, through `ctx.credential`, and never touch os.environ
+# themselves; an adapter that did would be one no test could run, one whose
+# requirements stayed invisible until it failed in the middle of the night, and
+# one that could put a key in a log line.
 CREDENTIAL_ENV: Mapping[str, str] = {
-    "openaq_api_key": "OPENAQ_API_KEY",
+    census_acs.CREDENTIAL: "CENSUS_API_KEY",
+    openaq.API_KEY_CREDENTIAL: "OPENAQ_API_KEY",
 }
 
 
 def _credentials() -> dict[str, str]:
-    return {name: os.environ.get(variable, "") for name, variable in CREDENTIAL_ENV.items()}
+    return {
+        name: value
+        for name, variable in CREDENTIAL_ENV.items()
+        if (value := os.environ.get(variable, "").strip())
+    }
 
 
 def _list_sources() -> int:

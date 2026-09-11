@@ -14,6 +14,7 @@ Each is one module here plus one line in this file.
 
 from pipeline.adapters.airtoxscreen import AirToxScreenAdapter
 from pipeline.adapters.base import FetchResult, SourceAdapter
+from pipeline.adapters.census_acs import CensusAcsAdapter
 from pipeline.adapters.echo import EpaEchoAdapter
 from pipeline.adapters.fake import FakeAirAdapter
 from pipeline.adapters.openaq import OpenAqAdapter
@@ -23,6 +24,7 @@ from pipeline.adapters.tri import EpaTriAdapter
 __all__ = [
     "REGISTRY",
     "AirToxScreenAdapter",
+    "CensusAcsAdapter",
     "EpaEchoAdapter",
     "EpaTriAdapter",
     "FakeAirAdapter",
