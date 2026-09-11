@@ -77,3 +77,12 @@ class InMemorySink:
 
     def rows(self, table: str) -> list[NormalizedRecord]:
         return list(self.tables.get(table, {}).values())
+
+    def table_names(self) -> tuple[str, ...]:
+        """Tables holding at least one committed row.
+
+        With `rows`, this is the whole of the `quality.Dataset` protocol, so a
+        sink can be handed straight to the gate. Staged-but-uncommitted rows are
+        deliberately invisible: the gate judges what a run actually loaded.
+        """
+        return tuple(sorted(name for name, rows in self.tables.items() if rows))

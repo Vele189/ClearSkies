@@ -65,6 +65,39 @@ A run with no key **fails**; it does not fall back to the last good snapshot. An
 absent credential is a broken deployment, and `stale` would make it look
 survivable.
 
+## What a good load looks like
+
+`SourcePolicy` decides whether a pull lost too many records. It cannot decide
+whether the records it kept are believable, because that needs domain knowledge:
+how many air facilities Louisiana has, how high a modeled cancer risk can
+credibly go, which fields may be null and how often. That is the second
+declaration an adapter makes, `expectations`, and it works the same way:
+
+```python
+@register
+class EpaTriAdapter(SourceAdapter[TriSite]):
+    spec = SourceSpec(name="epa_tri", ...)
+    expectations = SourceExpectations(
+        source="epa_tri",
+        tables=(
+            TableExpectations(
+                table="tri_release",
+                rows=RowCount(800, 40_000, note="Facility x chemical x year, one year."),
+                bounds=(Bounds("stack_air", low=0.0, high=50_000_000.0),),
+            ),
+        ),
+    )
+```
+
+Declare a row count range, null rates, plausible value bounds, geometry validity
+and known code sets, and give every number a `note` saying why it holds that
+value. A threshold without a reason gets tightened by whoever is on call and
+stops meaning anything.
+
+The gate then runs these, plus the cross-source checks no adapter can make about
+itself, and exits non-zero if the night's load should not be scored. See
+`docs/quality.md`.
+
 ## How to add a new data source
 
 Worked example to copy: `pipeline/adapters/fake.py`, about 130 lines including
@@ -181,6 +214,16 @@ python -m pipeline run fake --json      # the full manifest
 python -m pipeline run fake --dry-run   # fetch and normalize, write nothing
 ```
 
+The data quality gate (CS-108), which runs the adapters and then judges the
+night as a whole:
+
+```bash
+python -m pipeline check                 # every registered source, then the gate
+python -m pipeline check fake --no-store # one source, nothing persisted
+python -m pipeline check --require epa_echo
+python -m pipeline history               # what each check has measured over time
+```
+
 Checks, the same ones CI runs:
 
 ```bash
@@ -238,6 +281,12 @@ etl/
 │   │   ├── postgis.py     the block-hex intersection, and storing the result
 │   │   └── build.py       the order they run in, county by county, per state
 │   ├── policy.py          retry, rate limit, partial failure
+│   ├── quality/           the CS-108 gate: thresholds, cross-source checks
+│   │   ├── checks.py      the rules, and what applying one means
+│   │   ├── expectations.py what each of the five sources should look like
+│   │   ├── cross.py       checks no single adapter can make
+│   │   ├── gate.py        runs everything, returns one verdict
+│   │   └── store.py       every check's measurement, kept per run
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata
 │   ├── records.py         NormalizedRecord, Measurement

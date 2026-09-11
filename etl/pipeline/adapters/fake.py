@@ -32,6 +32,14 @@ from pipeline.context import RunContext
 from pipeline.errors import PermanentSourceError, RecordRejected
 from pipeline.metadata import KnownGap, SourceSpec
 from pipeline.policy import PartialFailurePolicy, RateLimit, SourcePolicy
+from pipeline.quality.checks import (
+    Bounds,
+    Geometry,
+    NullRate,
+    RowCount,
+    SourceExpectations,
+    TableExpectations,
+)
 from pipeline.records import Measurement, NormalizedRecord
 
 # Methodology section 5. Every point in this project lands on resolution 8.
@@ -96,6 +104,43 @@ class FakeAirAdapter(SourceAdapter[dict[str, str]]):
     policy: ClassVar[SourcePolicy] = SourcePolicy(
         rate_limit=RateLimit.unlimited(),
         partial_failure=PartialFailurePolicy(max_reject_fraction=0.5, min_records=1),
+    )
+
+    # The second declaration, and the one CS-108 added. `policy` above decides
+    # whether a pull lost too many records; this decides whether the records it
+    # kept are believable. Copy the shape, not the numbers: every real source
+    # sets its own, and every number says in its `note` why it is what it is.
+    #
+    # The fixture holds seven rows, four of which survive validation, so the
+    # range is four to four. A real source never gets a range that tight — see
+    # pipeline/quality/expectations.py, where most are deliberately loose
+    # envelopes until a fortnight of nightly runs says otherwise.
+    expectations: ClassVar[SourceExpectations | None] = SourceExpectations(
+        source="fake",
+        tables=(
+            TableExpectations(
+                table="fake_station_readings",
+                rows=RowCount(4, 4, note="The fixture is fixed, so this one can be exact."),
+                null_rates=(
+                    NullRate("station_id", 0.0),
+                    NullRate("h3", 0.0),
+                    # A station that reported nothing is an absence, not a zero,
+                    # and the fixture carries one on purpose. The limit is set
+                    # above it so the absence passes and a column that stopped
+                    # arriving altogether does not.
+                    NullRate("pm25", 0.5, severity="warn", note="One station reports nothing."),
+                ),
+                bounds=(
+                    Bounds(
+                        "pm25",
+                        low=0.0,
+                        high=500.0,
+                        note="ug/m3. Negative is a parse error; above 500 is a faulty sensor.",
+                    ),
+                ),
+                geometry=(Geometry("h3", "h3_cell", allow_null=False),),
+            ),
+        ),
     )
 
     async def fetch(self, ctx: RunContext) -> FetchResult[dict[str, str]]:

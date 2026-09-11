@@ -65,6 +65,11 @@ jobs:
       # The reference adapter runs against a fixture, so this proves the four
       # stages still fit together without depending on an upstream being up.
       - run: python -m pipeline run fake
+      # And the CS-108 gate runs over it, so a change that breaks the checks is
+      # caught on the pull request rather than at 07:00 the next morning. No
+      # --require here: on a pull request the point is that the gate still runs,
+      # not that every source was pulled.
+      - run: python -m pipeline check fake --no-store
 
   web:
     name: Frontend

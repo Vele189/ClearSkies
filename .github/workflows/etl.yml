@@ -30,3 +30,35 @@ jobs:
         # real source is wired in.
         working-directory: etl
         run: python -m pipeline run fake
+
+      # CS-108. Runs the named adapters into one sink and applies the quality
+      # gate: per-source thresholds, then the cross-source checks no adapter can
+      # make about itself. Exit 1 means the night's load must not become the
+      # current run.
+      #
+      # Scoped to the reference adapter for the same reason the step above is:
+      # running the five real sources in dependency order is CS-109, and a
+      # nightly job that starts pulling live EPA endpoints should do so in the
+      # ticket that owns that decision. What this proves tonight is that the gate
+      # itself works end to end.
+      #
+      # CS-109 replaces the source list with the five real sources and adds
+      # `--require <source>` for each. That flag is what turns "the check skipped
+      # because nothing loaded" into a failure rather than a green tick, so each
+      # source joins it in the same pull request that wires its adapter in.
+      - name: Data quality gate
+        working-directory: etl
+        run: python -m pipeline check fake
+
+      # The gate already wrote its report to the step summary and raised an
+      # annotation per failure, so the run page carries the reason without
+      # anyone opening the log. This keeps the evidence for the next fortnight,
+      # which is how the envelope thresholds get narrowed from observed values
+      # rather than from memory.
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report
+          path: etl/quality-runs/
+          retention-days: 30

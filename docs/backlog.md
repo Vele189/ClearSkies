@@ -625,7 +625,7 @@ adapter declares that as a known gap rather than leaving it to be discovered.
 
 ### CS-108 — Data quality checks and pipeline gate
 
-**Size:** M · **Labels:** etl, testing · **Depends on:** CS-101, CS-102, CS-103, CS-104, CS-105 · **Owner:** Lead · **Status:** Not started
+**Size:** M · **Labels:** etl, testing · **Depends on:** CS-101, CS-102, CS-103, CS-104, CS-105 · **Owner:** Lead · **Status:** Done
 
 A bad load should fail loudly, not quietly poison the score.
 
@@ -638,12 +638,48 @@ failures. What remains is source-specific and cross-source.
 
 - Per-source thresholds tuned beyond the interface default: expected row count
   range, required-field null rates, geometry validity, plausible value bounds.
+  **Done:** `etl/pipeline/quality/expectations.py`, all five sources, every
+  number carrying the reason it holds that value.
 - Cross-source checks the interface cannot see: TRI facilities matching ECHO
   facilities above a threshold, tract coverage complete after interpolation,
   every scored hex having at least the group minimums from section 11.
+  **Done:** `etl/pipeline/quality/cross.py`.
 - Check results persisted per run alongside the manifests, so trends over time
-  are visible.
-- Failure surfaces somewhere visible rather than only in a log.
+  are visible. **Done:** a directory per run plus an append-only history file,
+  and the `quality_run` and `quality_check_result` tables in migration `0011`.
+- Failure surfaces somewhere visible rather than only in a log. **Done:** the
+  Actions step summary, a workflow annotation per failure, a non-zero exit
+  status, the persisted tables, and a thirty-day run artifact.
+
+**What landed:** `etl/pipeline/quality/`, `python -m pipeline check` and
+`python -m pipeline history`, migration `0011`, `docs/quality.md`, and 68 tests.
+The gate runs in CI on every pull request and in the nightly job.
+
+**Four statuses, not two.** `skip` is a first-class result. A check that could
+not run is not a check that passed, and a gate reporting green because half its
+checks found no data is the failure this ticket exists to close. `--require`
+names the sources a run must produce, and turns a skip on one of them into a
+failure.
+
+**Two things are deliberately not finished here, and the gate says so every
+run rather than hiding it.**
+
+*Most thresholds are envelopes, not tuned ranges.* Four of the five adapters are
+on unmerged branches and have never run against live upstream, so the numbers are
+set to catch catastrophe rather than drift. That is why every run persists the
+value it observed: `python -m pipeline history` is the evidence for narrowing
+them, and doing so is a follow-up once a fortnight of nightly runs exists.
+
+*The section 11 group minimums are checked only where a hex-level table exists.*
+E1, E2 and E4 have one. E3 and F1 through F4 need CS-107 and CS-202; S1, S2 and
+P1 through P5 need CS-106. Those groups report `skip` naming the indicators they
+could not look for, because evaluating a group on the indicators that happen to
+exist invents failures. Each becomes live by adding one line to
+`HEX_INDICATORS`.
+
+*The nightly job gates the reference adapter only.* Running the five real
+sources in dependency order is CS-109, and pointing the nightly job at live EPA
+endpoints belongs in the ticket that owns that decision.
 
 ---
 
