@@ -138,6 +138,8 @@ clearskies/
 │   ├── burden/validation.py      The section 13 phase gate
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
+│   ├── src/lib/ramp.ts           The choropleth ramp and section 12's bands
+│   └── src/components/Legend.tsx What the colours mean, on screen
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
 ├── infra/r2/                     Tile bucket: CORS policy and why not Railway
 ├── scripts/                      Pre-registration and fixture guards

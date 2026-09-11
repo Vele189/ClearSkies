@@ -1397,7 +1397,7 @@ One request returns everything the explain panel shows.
 
 ### CS-210 — Map shell
 
-**Size:** L · **Labels:** frontend · **Depends on:** CS-207 · **Owner:** Terrence · **Status:** Partly done
+**Size:** L · **Labels:** frontend · **Depends on:** CS-207 · **Owner:** Terrence · **Status:** Done, ramp awaiting Lead sign-off
 
 React and MapLibre GL frontend rendering the scored hexes.
 
@@ -1407,21 +1407,68 @@ React and MapLibre GL frontend rendering the scored hexes.
   builds, with `MapView` and `HexPanel` components and a typed API client.
 - PMTiles wired up. **Done:** the protocol is registered and torn down with the
   map, and the vector source is added from `VITE_TILES_URL` when one is set.
-  There is no archive to point it at until CS-207.
-- A documented, colourblind-safe choropleth ramp and a visible legend.
-  **Not done.** Ramp and legend need Lead sign-off.
+  CS-207 now produces an archive in the shape it expects.
+- A documented, colourblind-safe choropleth ramp and a visible legend. **Built;
+  the sign-off is what is outstanding.** The ramp is ColorBrewer YlOrRd,
+  sequential and published as colourblind-safe, chosen because it is monotonic
+  in lightness. That is the property doing the work twice over: the ordering
+  survives deuteranopia and protanopia because lightness rather than hue carries
+  it, and it survives greyscale printing, which a tool whose output gets
+  attached to a public comment should not ignore. A test asserts the
+  monotonicity rather than trusting the hex codes. There is an extra stop at the
+  90th so the top decile the validation protocol gates on is the band the eye
+  can find, and the legend sits on the map with the Louisiana-percentile caveat,
+  the three confidence treatments and the toggle. `web/src/lib/ramp.ts` is the
+  one declaration both the map and the legend read, because a legend that has
+  drifted from the map it labels is worse than no legend.
 - Confidence is drawn, not just reported. Section 12 specifies the treatment:
   full opacity for high and moderate, hatched fill for low, and the insufficient
-  band hidden by default behind a toggle.
+  band hidden by default behind a toggle. **Done:** four fill layers rather than
+  one, because an expression cannot switch a fill pattern on and off. The hatch
+  is generated as a bitmap at runtime so it cannot go missing from a build and
+  the map needs no sprite sheet for a single texture. A hex whose confidence was
+  never computed draws plainly rather than vanishing: a run from before CS-205
+  has scores and no confidence, and treating absent as zero would blank the map.
 - Free basemap configured from `VITE_BASEMAP_STYLE`, currently OpenFreeMap
-  Positron.
+  Positron. **Done**, and now set per environment in the Railway config rather
+  than relying on the client's fallback.
 - Pan, zoom and search-to-location work across desktop and mobile viewports.
+  **Done:** the search box takes an H3 index, a latitude and longitude, or a
+  place name, and says which of the three it tried when nothing happens, because
+  a box that clears itself and does nothing is the least debuggable control on a
+  page. An index resolves through `GET /hex/{h3}`, which returns the centroid to
+  fly to and the panel's contents in one round trip, so the frontend needs no H3
+  library. Place-name search needs a geocoder and is **off unless
+  `VITE_GEOCODER_URL` is set**: sending everything a user types to a third party
+  is not a default worth having, and the box says so rather than doing nothing.
+  On a phone the panel stacks under the map instead of taking 24rem beside it,
+  and two-finger rotation is off so it does not fight pinch-zoom.
 - Deployed on the Railway `web` service with the CDN enabled, built by Vite and
   served by `serve -s dist`. Preview environments per pull request if Railway
   supports it on the plan; otherwise document that previews are not available.
+  **Configured, not deployed.** `.railway/railway.ts` now passes
+  `VITE_TILES_URL`, `VITE_BASEMAP_STYLE` and `VITE_GEOCODER_URL` to `web`, the
+  first and last preserved so an apply cannot clear a sealed value. **Previews
+  are not available**: Railway builds them from additional environments, which
+  the Hobby plan this project runs on does not include. That is written into the
+  IaC file, because a reviewer hunting for a preview URL that was never going to
+  exist will assume the deploy is broken. The deploy itself remains blocked on
+  CS-009, as CS-208 already records.
 - Loading and error states handled; a tile fetch failure does not leave a blank
   screen. The Phase 0 banner explaining that no hexagon is scored yet is the
-  current example of this and should not be deleted until scores exist.
+  current example of this and should not be deleted until scores exist. **Done,
+  and the banner is untouched.** A source error on the hex layer raises an alert
+  naming the two likely causes, an unreachable archive or a bucket not sending
+  CORS headers for this origin. Without it the map sits on the basemap looking
+  finished, which is the worst of the three outcomes: a reader cannot tell an
+  unscored state from a broken one.
+
+**A real bug fixed on the way.** The ramp coalesced a missing percentile to 0,
+so an unscored hexagon rendered as the palest colour on the scale. A cell nobody
+measured was being painted as the cleanest in Louisiana, which is the
+zero-for-missing failure section 11 spends a page ruling out, arriving in the
+render layer by the back door. Unscored cells are now off the ramp entirely, in
+a neutral grey, and the legend says the panel will explain why.
 
 ---
 
