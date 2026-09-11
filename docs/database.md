@@ -149,8 +149,11 @@ first use, so an empty database needs no bootstrap step.
 
 ## 4. The schema
 
-Twenty-two tables in five groups, plus the runner's own ledger. Every fact
-table carries a `snapshot_id`, and every derived hex table carries a `run_id`.
+Twenty-three tables in five groups, plus the runner's own ledger. Every fact
+table carries a `snapshot_id`, and every derived hex table carries a `run_id`,
+except `hex_exposure`, which is keyed by the source's own vintage instead
+because it holds one interpolation of one release rather than one run's view of
+it.
 
 ### Provenance (`0002`)
 
@@ -179,7 +182,7 @@ serve, and a partial unique index allows only one.
 are averaged over `population`. Both formulas in that section become one join.
 Confusing the two is, per the paper, the most common way this step goes wrong.
 
-### Sources (`0004` to `0008`)
+### Sources (`0004` to `0008`, and `0011`)
 
 | Table | Grain | Feeds |
 |---|---|---|
@@ -189,12 +192,25 @@ Confusing the two is, per the paper, the most common way this step goes wrong.
 | `chemical_toxicity_weight` | One CAS number | E3 |
 | `tri_release` | Facility, year, chemical | E3 |
 | `tract_exposure` | Tract, AirToxScreen vintage | E1, E2 |
+| `hex_exposure` | Hex, AirToxScreen vintage | E1, E2 |
 | `monitor` | One OpenAQ location | E4, and the c_monitor confidence term |
 | `monitor_measurement` | Monitor, parameter, day | E4 |
 | `tract_demographics` | Tract, ACS vintage, variable | S1, S2, P1 to P5 |
 | `hex_demographics` | Run, hex | The displayed profile |
 
-Three things in here are load-bearing rather than incidental:
+Four things in here are load-bearing rather than incidental:
+
+`hex_exposure` is `tract_exposure` with section 7 applied, and the pair is the
+worked example of the rule that section states. Modeled risks are intensive, so
+a hex takes the population-weighted mean of the tract values overlapping it,
+never their area-weighted mean and never a rate rebuilt from separately
+interpolated parts. The tract table stays the source of record, so a hex value
+walks back to the tracts it came from and a change to the interpolation is a
+recompute rather than a re-download. Every hex in the pilot state gets a row,
+including the ones that got no number: `cancer_risk_absence` says whether the
+crosswalk knew of no overlapping tract, the overlapping tracts were absent from
+the release, or the overlaps held no population at all, and a check constraint
+forbids a row that carries both a value and a reason or neither.
 
 `facility.coordinate_status` implements section 6's positional accuracy rule.
 ECHO and TRI coordinates are self-reported and some land in the wrong parish or
