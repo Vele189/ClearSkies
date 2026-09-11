@@ -1,99 +1,106 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import SearchBox from "./SearchBox.tsx";
 
-const getHex = vi.fn();
-
-vi.mock("../lib/api.ts", () => ({
-  getHex: (h3: string) => getHex(h3) as unknown,
-  ApiError: class extends Error {},
-}));
-
-function search(text: string) {
-  fireEvent.change(screen.getByRole("searchbox"), { target: { value: text } });
-  fireEvent.submit(screen.getByRole("search"));
+function stubPhoton(names: string[]) {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: () =>
+      Promise.resolve({
+        features: names.map((name, i) => ({
+          geometry: { coordinates: [-91 - i, 30 + i] },
+          properties: { name, state: "Louisiana", osm_type: "R", osm_id: 100 + i },
+        })),
+      }),
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }
 
-beforeEach(() => {
-  getHex.mockReset();
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
-describe("the search box", () => {
-  it("flies to a coordinate without asking anything of the network", () => {
-    const onGoTo = vi.fn();
-    render(<SearchBox onGoTo={onGoTo} onSelect={vi.fn()} />);
-
-    search("30.45, -91.15");
-
-    expect(onGoTo).toHaveBeenCalledWith(-91.15, 30.45, 12);
-    expect(getHex).not.toHaveBeenCalled();
+describe("SearchBox", () => {
+  it("exposes itself as a combobox to assistive technology", () => {
+    render(<SearchBox onPick={vi.fn()} />);
+    const input = screen.getByRole("combobox", { name: /search for a place/i });
+    expect(input).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("says so when a coordinate is outside the only state that is scored", () => {
-    // It still flies there. The map would otherwise look broken rather than
-    // empty, and a reader deserves to know which of the two they are seeing.
-    const onGoTo = vi.fn();
-    render(<SearchBox onGoTo={onGoTo} onSelect={vi.fn()} />);
+  it("offers matches for what was typed", async () => {
+    stubPhoton(["Baton Rouge", "Baton Rouge Airport"]);
+    render(<SearchBox onPick={vi.fn()} />);
 
-    search("29.76, -95.37");
+    await userEvent.type(screen.getByRole("combobox"), "Baton Rouge");
 
-    expect(onGoTo).toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent(/outside Louisiana/i);
+    expect(await screen.findByRole("option", { name: /Baton Rouge Airport/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("resolves a hexagon index through the API and opens its panel", async () => {
-    // Through the API rather than a client-side H3 library: one round trip
-    // brings back both the centroid to fly to and the panel's content.
-    const onGoTo = vi.fn();
-    const onSelect = vi.fn();
-    getHex.mockResolvedValue({ h3: "88444600ddfffff", centroid: [-90.555, 30.055] });
-    render(<SearchBox onGoTo={onGoTo} onSelect={onSelect} />);
+  it("is drivable from the keyboard alone", async () => {
+    stubPhoton(["Baton Rouge", "Reserve"]);
+    const onPick = vi.fn();
+    render(<SearchBox onPick={onPick} />);
 
-    search("88444600ddfffff");
+    const input = screen.getByRole("combobox");
+    await userEvent.type(input, "Reserve");
+    await screen.findByRole("option", { name: /Reserve/ });
 
-    await waitFor(() => expect(onGoTo).toHaveBeenCalledWith(-90.555, 30.055, 13));
-    expect(onSelect).toHaveBeenCalledWith("88444600ddfffff");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick.mock.calls[0][0].name).toBe("Reserve");
   });
 
-  it("explains an index that does not resolve rather than clearing itself", async () => {
-    // A search box that empties and does nothing is the least debuggable
-    // control on a page.
-    getHex.mockRejectedValue(new Error("404"));
-    render(<SearchBox onGoTo={vi.fn()} onSelect={vi.fn()} />);
+  it("dismisses the list on Escape without picking anything", async () => {
+    stubPhoton(["Baton Rouge"]);
+    const onPick = vi.fn();
+    render(<SearchBox onPick={onPick} />);
 
-    search("88444600ddfffff");
+    const input = screen.getByRole("combobox");
+    await userEvent.type(input, "Baton Rouge");
+    await screen.findByRole("option", { name: /Baton Rouge/ });
 
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/No hexagon with that index/i),
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    });
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("debounces so a typed word is one request and not nine", async () => {
+    const fetchMock = stubPhoton(["Reserve"]);
+    render(<SearchBox onPick={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole("combobox"), "Reserve");
+    await screen.findByRole("option", { name: /Reserve/ });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("says a search failed rather than showing an empty list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503, json: () => Promise.resolve(null) }),
     );
+    render(<SearchBox onPick={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole("combobox"), "Baton Rouge");
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/unavailable/i);
   });
 
-  it("says place search is off rather than failing silently", () => {
-    // VITE_GEOCODER_URL is unset in the test environment, which is also the
-    // default: a deployment does not send what people type to a third party
-    // unless somebody turned that on deliberately.
-    render(<SearchBox onGoTo={vi.fn()} onSelect={vi.fn()} />);
+  it("distinguishes no match from a broken search", async () => {
+    stubPhoton([]);
+    render(<SearchBox onPick={vi.fn()} />);
 
-    search("Reserve");
+    await userEvent.type(screen.getByRole("combobox"), "Zzzzzz");
 
-    expect(screen.getByRole("status")).toHaveTextContent(/Place search is off/i);
-    expect(screen.getByRole("status")).toHaveTextContent(/H3 index, will still work/i);
-  });
-
-  it("asks for something usable when the box holds nonsense", () => {
-    render(<SearchBox onGoTo={vi.fn()} onSelect={vi.fn()} />);
-
-    search("   ");
-
-    expect(screen.getByRole("status")).toHaveTextContent(/place, a latitude and longitude/i);
-  });
-
-  it("is reachable by keyboard and named for a screen reader", () => {
-    render(<SearchBox onGoTo={vi.fn()} onSelect={vi.fn()} />);
-
-    expect(
-      screen.getByLabelText(/Search for a place, coordinate, or hexagon/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(/no match/i);
   });
 });

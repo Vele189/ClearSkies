@@ -1,99 +1,126 @@
-import { CONFIDENCE, RAMP, UNSCORED_COLOR } from "../lib/ramp.ts";
+import { useState } from "react";
 
-/** The hatch the map draws over low-confidence hexes, as an inline SVG swatch.
- *  Drawn from the same idea as the map's fill pattern so the legend shows the
- *  reader the thing they are actually looking at. */
-function HatchSwatch() {
+import { LEGEND_CLASSES, NO_SCORE_COLOR } from "../lib/ramp.ts";
+
+/** The hatch, as an inline SVG pattern rather than the canvas image the map
+ *  uses. Two renderers, one appearance: the angle, spacing and weight are the
+ *  same numbers on both sides, so the swatch matches the fill. */
+function HatchSwatch({ color }: { color: string }) {
   return (
-    <svg width="24" height="14" aria-hidden="true" className="shrink-0 rounded-sm">
+    <svg viewBox="0 0 16 16" className="h-4 w-6 shrink-0 rounded-xs" aria-hidden="true">
       <defs>
-        <pattern id="legend-hatch" width="4" height="4" patternUnits="userSpaceOnUse">
-          <path d="M0 4 L4 0" stroke="#1e293b" strokeWidth="1" opacity="0.67" />
+        <pattern
+          id="legend-hatch"
+          width="8"
+          height="8"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(-45)"
+        >
+          <rect width="8" height="8" fill={color} />
+          <line x1="0" y1="0" x2="0" y2="8" stroke="#282828" strokeOpacity="0.67" strokeWidth="2" />
         </pattern>
       </defs>
-      <rect width="24" height="14" fill="#fd8d3c" />
-      <rect width="24" height="14" fill="url(#legend-hatch)" />
+      <rect width="16" height="16" fill="url(#legend-hatch)" />
     </svg>
   );
 }
 
 interface Props {
-  /** Whether the insufficient-confidence hexes are currently drawn. */
-  showUntrusted: boolean;
-  onToggleUntrusted: (next: boolean) => void;
+  showInsufficient: boolean;
+  onShowInsufficientChange: (next: boolean) => void;
 }
 
-/**
- * What the colours mean, on screen rather than in the documentation.
- *
- * A choropleth without a legend is a picture. The confidence treatments are in
- * here too, because section 12 draws them and a reader who cannot tell a hatched
- * hex from a solid one is reading a map that is quietly lying to them about how
- * much it knows.
- */
-export default function Legend({ showUntrusted, onToggleUntrusted }: Props) {
-  const gradient = `linear-gradient(to right, ${RAMP.map(
-    ({ at, color }) => `${color} ${at}%`,
-  ).join(", ")})`;
+export default function Legend({ showInsufficient, onShowInsufficientChange }: Props) {
+  // Collapsed on small screens by default. The legend has to be visible, but on
+  // a phone a permanently open one covers the map it is explaining.
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="pointer-events-auto absolute bottom-6 left-3 z-10 w-64 rounded-lg border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
-      <p className="font-semibold text-slate-900">Burden score</p>
-      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-        Statewide percentile. A Louisiana 90th is not a national 90th.
-      </p>
-
-      <div className="mt-2 h-3 w-full rounded" style={{ background: gradient }} />
-      <div className="mt-1 flex justify-between text-[11px] text-slate-500">
-        <span>0</span>
-        <span>50</span>
-        <span className="font-medium text-slate-700">90</span>
-        <span>100</span>
-      </div>
-      <p className="mt-1 text-[11px] text-slate-500">
-        The 90th is the top decile the validation protocol gates on.
-      </p>
-
-      <p className="mt-3 font-semibold text-slate-900">Confidence</p>
-      <ul className="mt-1 space-y-1.5 text-[11px] text-slate-600">
-        <li className="flex items-center gap-2">
-          <span
-            className="h-3.5 w-6 shrink-0 rounded-sm"
-            style={{ backgroundColor: "#fd8d3c" }}
-            aria-hidden="true"
-          />
-          <span>High or moderate, drawn plainly</span>
-        </li>
-        <li className="flex items-center gap-2">
-          <HatchSwatch />
-          <span>Low, hatched</span>
-        </li>
-        <li className="flex items-center gap-2">
-          <span
-            className="h-3.5 w-6 shrink-0 rounded-sm border border-slate-300"
-            style={{ backgroundColor: UNSCORED_COLOR }}
-            aria-hidden="true"
-          />
-          <span>Not scored; the panel says why</span>
-        </li>
-      </ul>
-
-      <label className="mt-3 flex items-start gap-2 text-[11px] text-slate-600">
-        <input
-          type="checkbox"
-          className="mt-0.5"
-          checked={showUntrusted}
-          onChange={(event) => onToggleUntrusted(event.target.checked)}
-        />
-        <span>
-          Show hexes below {CONFIDENCE.insufficient.toFixed(2)} confidence. These are
-          excluded from validation statistics and cannot produce a document.
+    <section
+      aria-label="Map legend"
+      className="pointer-events-auto absolute bottom-6 left-2 z-10 max-w-[calc(100vw-1rem)] rounded-md border border-slate-200 bg-white/95 text-slate-900 shadow-sm backdrop-blur-sm sm:bottom-8 sm:left-3"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-700 uppercase sm:hidden"
+      >
+        Legend
+        <span aria-hidden="true" className="text-slate-400">
+          {open ? "▾" : "▸"}
         </span>
-      </label>
+      </button>
 
-      <p className="mt-2 text-[11px] text-slate-400">
-        Confidence is how well supported a score is, never how severe the burden is.
-      </p>
-    </div>
+      <div className={`${open ? "block" : "hidden"} px-3 pt-1 pb-3 sm:block sm:pt-3`}>
+        <h2 className="hidden text-xs font-semibold tracking-wide text-slate-700 uppercase sm:block">
+          Burden score
+        </h2>
+        <p className="mt-0.5 text-[0.6875rem] text-slate-500">Louisiana percentile</p>
+
+        <ul className="mt-2 flex flex-col gap-0.5">
+          {LEGEND_CLASSES.map((cls) => (
+            <li key={cls.label} className="flex items-center gap-2 text-xs text-slate-700">
+              <span
+                className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
+                style={{ backgroundColor: cls.color }}
+                aria-hidden="true"
+              />
+              <span className="tabular-nums">
+                {cls.label}
+                {cls.from === 90 && <span className="text-slate-500"> (top decile)</span>}
+              </span>
+            </li>
+          ))}
+          <li className="flex items-center gap-2 text-xs text-slate-700">
+            <span
+              className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
+              style={{ backgroundColor: NO_SCORE_COLOR }}
+              aria-hidden="true"
+            />
+            <span>Not scored</span>
+          </li>
+        </ul>
+
+        <h3 className="mt-3 border-t border-slate-200 pt-2 text-xs font-semibold tracking-wide text-slate-700 uppercase">
+          Confidence
+        </h3>
+        <ul className="mt-1.5 flex flex-col gap-1">
+          <li className="flex items-center gap-2 text-xs text-slate-700">
+            <span
+              className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
+              style={{ backgroundColor: LEGEND_CLASSES[3].color }}
+              aria-hidden="true"
+            />
+            <span>High or moderate</span>
+          </li>
+          <li className="flex items-center gap-2 text-xs text-slate-700">
+            <HatchSwatch color={LEGEND_CLASSES[3].color} />
+            <span>Low — read with caution</span>
+          </li>
+        </ul>
+
+        <label className="mt-2 flex items-start gap-2 text-xs text-slate-700">
+          <input
+            type="checkbox"
+            checked={showInsufficient}
+            onChange={(event) => onShowInsufficientChange(event.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-slate-700"
+          />
+          <span>
+            Show insufficient-data hexes
+            <span className="mt-0.5 block text-[0.6875rem] leading-snug text-slate-500">
+              Scored, but not well enough for us to stand behind. Excluded from validation
+              statistics and from the drafting assistant.
+            </span>
+          </span>
+        </label>
+
+        <p className="mt-2 text-[0.6875rem] leading-snug text-slate-500">
+          Colour is how burdened, texture is how sure. A pale hex is a low percentile, never a
+          missing measurement.
+        </p>
+      </div>
+    </section>
   );
 }

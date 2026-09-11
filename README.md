@@ -46,6 +46,8 @@ The methodology is written before the code. The output is validated against ten 
 
 A React and MapLibre GL frontend serves scored hexes as static vector tiles. Clicking a hex opens a panel with a waterfall breakdown of the sub-scores, the contributing facilities each linking to its EPA record, the confidence value, and a short explainer covering what the score means and what it does not.
 
+The map colours by statewide percentile rather than raw score, on a ramp that is monotone in lightness so it stays readable under any colour vision deficiency. Confidence is drawn rather than only reported: a low-confidence hex is hatched, not faded, because a faded fill reads as a lower score and would conflate how certain we are with how bad it is. Hexes the pipeline does not trust enough to stand behind are hidden behind a toggle that says why. [docs/frontend.md](docs/frontend.md) covers the ramp, the legend, the band treatment and what the detail panel shows.
+
 Nothing on the screen is a black box. Every number traces back to a source record.
 
 ### The drafting assistant
@@ -139,8 +141,8 @@ clearskies/
 │   ├── burden/validation.py      The section 13 phase gate
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
-│   ├── src/lib/ramp.ts           The choropleth ramp and section 12's bands
-│   └── src/components/Legend.tsx What the colours mean, on screen
+│   ├── src/lib/ramp.ts           The ramp, section 12's bands, and the legend's source of truth
+│   └── src/components/           MapView, Legend, SearchBox, HexPanel
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
 ├── infra/r2/                     Tile bucket: CORS policy and why not Railway
 ├── scripts/                      Pre-registration and fixture guards

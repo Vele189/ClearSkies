@@ -1,56 +1,60 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { LEGEND_CLASSES } from "../lib/ramp.ts";
 import Legend from "./Legend.tsx";
 
-describe("the legend", () => {
-  it("says the percentiles are Louisiana percentiles", () => {
-    // The most common way a score like this gets misread, per section 15, so
-    // the caveat is on the map rather than only in the documentation.
-    render(<Legend showUntrusted={false} onToggleUntrusted={vi.fn()} />);
+function renderLegend(showInsufficient = false) {
+  const onChange = vi.fn();
+  render(
+    <Legend showInsufficient={showInsufficient} onShowInsufficientChange={onChange} />,
+  );
+  return onChange;
+}
 
-    expect(screen.getByText(/Louisiana 90th is not a national 90th/i)).toBeInTheDocument();
+describe("Legend", () => {
+  it("is present without the reader having to open anything", () => {
+    renderLegend();
+    expect(screen.getByRole("region", { name: /map legend/i })).toBeInTheDocument();
   });
 
-  it("marks the top decile the validation protocol gates on", () => {
-    render(<Legend showUntrusted={false} onToggleUntrusted={vi.fn()} />);
-
-    expect(screen.getByText("90")).toBeInTheDocument();
-    expect(screen.getByText(/top decile/i)).toBeInTheDocument();
+  it("labels every class on the ramp", () => {
+    renderLegend();
+    for (const cls of LEGEND_CLASSES) {
+      expect(screen.getByText(cls.label)).toBeInTheDocument();
+    }
   });
 
-  it("explains all three confidence treatments the map draws", () => {
-    // A reader who cannot tell a hatched hex from a solid one is reading a map
-    // that is quietly lying about how much it knows.
-    render(<Legend showUntrusted={false} onToggleUntrusted={vi.fn()} />);
-
-    expect(screen.getByText(/High or moderate, drawn plainly/i)).toBeInTheDocument();
-    expect(screen.getByText(/Low, hatched/i)).toBeInTheDocument();
-    expect(screen.getByText(/Not scored; the panel says why/i)).toBeInTheDocument();
+  it("distinguishes an unscored hex from a low-scoring one", () => {
+    renderLegend();
+    expect(screen.getByText(/not scored/i)).toBeInTheDocument();
   });
 
-  it("keeps the untrusted hexes off by default and offers the toggle", () => {
-    render(<Legend showUntrusted={false} onToggleUntrusted={vi.fn()} />);
-
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
-    expect(screen.getByText(/cannot produce a document/i)).toBeInTheDocument();
+  it("explains the hatching as confidence and not as burden", () => {
+    renderLegend();
+    expect(screen.getByText(/low — read with caution/i)).toBeInTheDocument();
+    expect(screen.getByText(/colour is how burdened, texture is how sure/i)).toBeInTheDocument();
   });
 
-  it("asks for the untrusted hexes when the toggle is used", () => {
-    const onToggle = vi.fn();
-    render(<Legend showUntrusted={false} onToggleUntrusted={onToggle} />);
-
-    fireEvent.click(screen.getByRole("checkbox"));
-
-    expect(onToggle).toHaveBeenCalledWith(true);
+  it("leaves the insufficient band off by default", () => {
+    renderLegend(false);
+    expect(screen.getByRole("checkbox", { name: /insufficient/i })).not.toBeChecked();
   });
 
-  it("does not let confidence be read as severity", () => {
-    // Section 12 is explicit that the interface must never conflate the two.
-    render(<Legend showUntrusted={false} onToggleUntrusted={vi.fn()} />);
+  it("reflects the insufficient band being switched on", () => {
+    renderLegend(true);
+    expect(screen.getByRole("checkbox", { name: /insufficient/i })).toBeChecked();
+  });
 
-    expect(
-      screen.getByText(/how well supported a score is, never how severe/i),
-    ).toBeInTheDocument();
+  it("reports the toggle to the map", async () => {
+    const onChange = renderLegend(false);
+    await userEvent.click(screen.getByRole("checkbox", { name: /insufficient/i }));
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it("says why an insufficient hex is withheld rather than only that it is", () => {
+    renderLegend();
+    expect(screen.getByText(/excluded from validation statistics/i)).toBeInTheDocument();
   });
 });
