@@ -123,3 +123,125 @@ export const BAND_LABELS: Record<ConfidenceBand, string> = {
   low: "Low confidence",
   insufficient: "Insufficient data",
 };
+
+// ---- The drafting assistant (CS-303, CS-306) ---------------------------
+//
+// Mirrors api/app/assistant/documents.py and guardrails.py. Two shapes encode a
+// safety property rather than data: `DraftableBand` has no "insufficient"
+// member, and a citation is a discriminated union rather than a string. Both
+// mean the failure they prevent cannot be represented on this side either.
+
+export type DocumentType =
+  | "public_comment_letter"
+  | "agency_complaint_draft"
+  | "community_briefing_sheet"
+  | "journalist_fact_sheet";
+
+/** Section 12's bands, minus the one that cannot be drafted from. */
+export type DraftableBand = "high" | "moderate" | "low";
+
+export interface StatuteCitation {
+  kind: "statute";
+  section: string;
+  document_id: string;
+  proposition: string;
+}
+
+export interface RecordCitation {
+  kind: "record";
+  record_id: string;
+  dataset: string;
+  proposition: string;
+}
+
+export type Citation = StatuteCitation | RecordCitation;
+
+export interface DraftParagraph {
+  text: string;
+  citations: Citation[];
+}
+
+export interface KeyFigure {
+  label: string;
+  value: string;
+  unit: string;
+  citation: Citation;
+}
+
+/** Every document type's fields. The optional ones belong to one type each. */
+export interface DraftDocument {
+  document_type: DocumentType;
+  paragraphs: DraftParagraph[];
+  draft_notice: string;
+  citations: Citation[];
+
+  // public_comment_letter
+  recipient?: string;
+  subject?: string;
+  docket_reference?: string | null;
+  requested_action?: string;
+
+  // agency_complaint_draft
+  forum?: "administrative_complaint";
+  recipient_office?: string;
+  legal_basis?: StatuteCitation[];
+  relief_sought?: string;
+  filing_note?: string;
+
+  // community_briefing_sheet
+  headline?: string;
+  area_description?: string;
+  what_this_means?: string;
+  what_you_can_do?: string[];
+
+  // journalist_fact_sheet
+  key_figures?: KeyFigure[];
+  caveats?: string[];
+}
+
+export interface GeneratedDraft {
+  document: DraftDocument;
+  h3: string;
+  confidence_band: DraftableBand;
+  methodology_version: string;
+  corpus_version: string;
+  prompt_version: string;
+  model: string;
+  generated_at: string;
+  review_required: true;
+}
+
+export type RefusalReason =
+  | "no_supporting_authority"
+  | "insufficient_data"
+  | "would_require_prohibited_claim"
+  | "request_seeks_legal_advice"
+  | "request_out_of_scope";
+
+export interface Refusal {
+  refused: true;
+  reason: RefusalReason;
+  explanation: string;
+  missing: string[];
+}
+
+export interface DraftResponse {
+  status: "drafted" | "refused";
+  draft: GeneratedDraft | null;
+  refusal: Refusal | null;
+  from_cache: boolean;
+}
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  public_comment_letter: "Public comment letter",
+  agency_complaint_draft: "Agency complaint",
+  community_briefing_sheet: "Community briefing sheet",
+  journalist_fact_sheet: "Journalist fact sheet",
+};
+
+export const DOCUMENT_TYPE_BLURBS: Record<DocumentType, string> = {
+  public_comment_letter: "For a permit proceeding, addressed to the agency's docket.",
+  agency_complaint_draft: "An administrative complaint to a civil rights or environmental office.",
+  community_briefing_sheet: "Plain language, for the people who live here.",
+  journalist_fact_sheet: "Checkable figures, each with the record it came from.",
+};

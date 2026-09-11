@@ -2189,7 +2189,7 @@ key is used on a deployment anyone else can reach.**
 
 ### CS-307 — Draft viewer UI
 
-**Size:** M · **Labels:** frontend · **Depends on:** CS-306, CS-211 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** frontend · **Depends on:** CS-306, CS-211 · **Owner:** Terrence · **Status:** Done
 
 "Draft a document" on any hex, with the draft framing impossible to miss.
 
@@ -2203,6 +2203,42 @@ key is used on a deployment anyone else can reach.**
 - Citations rendered as links to the underlying EPA record or statute section.
 - Copy and download only. No send, publish or share-to-agency functionality
   anywhere in the UI.
+
+**What landed:** `web/src/components/DraftPanel.tsx`, `web/src/lib/draft.ts`,
+and the drafting types and client in `lib/`. It sits at the bottom of the detail
+panel, below the evidence: a document should be written after reading what it
+would be about, and a reader who has scrolled past the confidence breakdown has
+seen how much the score behind it is trusted.
+
+- A picker for the four types, each with a line saying who it is for. Progress
+  says what is actually happening — the draft is written, then every citation in
+  it is checked — because a spinner that says nothing makes a ten-second wait
+  feel like a hang.
+- **The draft framing is impossible to miss.** The notice is the first thing in
+  the document, not dismissible, and repeated at the top of anything copied or
+  downloaded. People paste rather than screenshot, and a document that arrives
+  somewhere without its notice is the failure the banner exists to prevent.
+- **Every citation is a link.** US Code sections to Cornell's LII, regulations
+  to the eCFR, records to the same ECHO facility report the panel already links
+  to. Where no public page exists, the reference renders as plain text rather
+  than a guessed URL: a link that lands on the wrong page is worse than no link,
+  because the reader believes they have checked.
+- **Copy and download, and nothing else.** Three tests keep it that way: the
+  only two controls are Copy and Download, the component's text contains no
+  send, submit, publish or share wording, and the only endpoint it ever posts to
+  is `/draft`. A grep over the whole frontend confirms the only outbound calls
+  are the API, the draft endpoint and the opt-in geocoder.
+
+**The insufficient band offers no document types at all**, and says why before
+anything is clicked, in the words a reader needs rather than a status code: there
+is not enough data behind this hexagon's score to stand behind a document built
+on it, and drafting from it would give you something that looks well supported
+and is not. A test asserts no status code and no instance of the word "error"
+appears in that state.
+
+Every other failure renders the sentence the API wrote. The API knows which of
+six things went wrong and the frontend does not, so inventing wording from a
+status code would produce a worse message than the one already in the response.
 
 ---
 

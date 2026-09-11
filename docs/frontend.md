@@ -206,7 +206,68 @@ follows the reader rather than continuing from the map and walking the whole
 panel in reverse. Escape closes it. The close button and every facility link
 carry visible focus rings.
 
-## 8. Deployment
+## 8. The drafting assistant in the panel
+
+`DraftPanel` sits at the bottom of the detail panel, below the evidence rather
+than above it. A document should be written after reading what it would be
+about, and a reader who has scrolled past the confidence breakdown has seen how
+much the score behind their document is trusted.
+
+Three things in this component are safety properties rather than design choices,
+and each has a test whose job is to keep it true through a redesign.
+
+**The draft framing is impossible to miss.** The notice is the first thing in
+the rendered document, in a banner that is not dismissible, and
+`renderDraftText` repeats it at the top of anything copied or downloaded. People
+paste rather than screenshot, and a document that leaves here and arrives
+somewhere without its notice is the failure the banner exists to prevent.
+
+**Every citation is a link.** A citation a reader cannot follow is one they take
+on trust, which is the opposite of the point of having one. US Code sections go
+to Cornell's Legal Information Institute and regulations to the eCFR, both of
+which show the section rather than a chapter to scroll. Records go to the same
+ECHO facility report the panel already links to, so a reader following a
+citation lands somewhere they recognise.
+
+Where no public page exists — case law, and anything the parser does not
+recognise — the reference renders as plain text rather than a guessed URL. A
+link that lands on the wrong page is worse than no link, because the reader
+believes they have checked.
+
+**There is no send button.** Copy and download, and nothing else, anywhere in
+the application. Both put a person between the draft and whoever receives it,
+which is the whole argument for the tool: it produces a first draft for somebody
+to check, and a system that could file one directly would be a system that files
+unchecked legal documents. One test asserts the only two controls are Copy and
+Download; another asserts the component's text contains no send, submit, publish
+or share wording; a third asserts the only endpoint it ever posts to is
+`/draft`.
+
+### The insufficient band
+
+A hexagon in that band offers no document types at all, and says why before
+anything is clicked:
+
+> There is not enough data behind this hexagon's score to stand behind a
+> document built on it. Drafting from it would give you something that looks
+> well supported and is not.
+
+Not a disabled button with no reason on it, and not an error code. The reader is
+being told the tool does not trust its own number for their neighbourhood, and
+that deserves a sentence. A test asserts no status code or the word "error"
+appears in that state.
+
+### Failures
+
+The API writes each failure message knowing which of six things went wrong. The
+frontend renders that sentence rather than inventing wording from a status code,
+because it does not have the information to write a better one. A refusal is
+shown as a refusal, with what was missing listed and a line explaining that the
+assistant declined rather than failed.
+
+---
+
+## 9. Deployment
 
 The Railway `web` service, described in `.railway/railway.ts`. Vite builds it,
 `serve -s dist` serves it. `serve` is a devDependency, so the build must not
