@@ -51,6 +51,12 @@ carries the size of the blocks a hex was built from, which is what turns that
 paragraph into the `c_spatial` term of section 12.
 """
 
+from pipeline.dasymetric.areal import (
+    AREA_SHARE_TOLERANCE,
+    PartialCrosswalk,
+    areal_counterpart,
+    divergence,
+)
 from pipeline.dasymetric.build import (
     TOTAL_POPULATION,
     CountyCrosswalk,
@@ -101,6 +107,7 @@ from pipeline.dasymetric.weights import (
 
 __all__ = [
     "ACS_MOE_Z",
+    "AREA_SHARE_TOLERANCE",
     "DEFAULT_RELATIVE_TOLERANCE",
     "HIGH_UNCERTAINTY_CV",
     "TOTAL_POPULATION",
@@ -111,6 +118,7 @@ __all__ = [
     "HexValue",
     "Kind",
     "KindMismatch",
+    "PartialCrosswalk",
     "PopulationCheck",
     "Reconciliation",
     "ReconciliationFailed",
@@ -136,5 +144,7 @@ __all__ = [
     "require",
     "standard_error",
     "tract_populations",
+    "areal_counterpart",
+    "divergence",
     "verify_statewide_population",
 ]

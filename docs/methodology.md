@@ -408,6 +408,58 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 
 ## 18. Changelog
 
+### v0.1.3 — 2026-09-11 — robustness checks implemented, §13.5 harness unrun
+
+The three checks §13.5 specifies are implemented, unit tested, and runnable in
+one command. **None has been run against data.** The five adapters have never
+been executed against live EPA and Census sources and no `hex_score` row exists,
+so there is no result to record here beyond the fact that the apparatus exists.
+The method, the design decisions and what is needed to finish are in
+`docs/validation/robustness.md`; `scripts/run_robustness.py` is the command and
+`make robustness-harness` proves it runs in CI without a database.
+
+This entry exists because the alternative was worse. §13.5 had no implementation
+at all, so a reader of v0.1.2 had no way to tell an unanswered question from an
+unasked one, and a later run would have had nothing to record itself against.
+
+**No indicator, weight, normalization or aggregation change.** Scores are
+unaffected because none have been computed. The version moves because §18 has a
+new entry and §17.3 makes the version part of what a published score means, not
+because anything about the score changed.
+
+Three decisions are recorded here rather than left in the code, because each
+resolves something §13.5 states without fixing.
+
+**The additive variant is reported, never gating**, as §13.5 says. §3 rejects the
+additive model because it makes a different claim about cumulative burden, so a
+high correlation with it would be the surprising result. Requiring one would
+assert that the choice between the two models does not matter.
+
+**A hex that loses its score under a leave-one-out run counts as moved.** §13.5
+sets the criterion in deciles and does not say what to do with a hex that has no
+decile afterwards. Dropping it from the denominator would let an indicator whose
+removal destroys part of the map report as one that changes nothing, so it counts
+as a move and is also reported separately. Alongside it, hexes whose group fell
+under the §11 rule 2 minimum are counted apart from the movement itself: an
+indicator that carried information and one whose absence tripped a count rule
+look identical in the movement figure and mean opposite things for whether that
+indicator needs re-arguing here.
+
+**The areal counterfactual replaces the population estimator and nothing else.**
+§13.5 asks for "simple areal weighting" without saying what happens to the
+intensive formula, which is a population-weighted mean by definition. Both §7
+formulas are left alone and `P(t ∩ h)` is estimated as `P(t) · area(t ∩ h) /
+area(t)`, so every difference the check reports is attributable to the ancillary
+layer. Weighting a rate by raw overlap area would have changed the estimator and
+the formula together, leaving the divergence attributable to neither. Because the
+population estimate itself changes, so does which cells clear the 25-person line
+of §5; that count is reported on its own rather than averaged away, since it is
+the largest single consequence of the choice.
+
+Per §17.6, the full §13 protocol must be re-run before any score is published
+under this version. No score exists, so nothing is invalidated.
+
+
 ### v0.1.2 — 2026-09-11 — validation anchors verified, three corrected
 
 Every one of the thirty registered anchors was checked against coordinates from

@@ -30,6 +30,15 @@ jobs:
       - name: The section 13 gate runs end to end
         run: python scripts/run_validation.py
           --scores scoring/tests/fixtures/synthetic_scores.json --out /dev/null
+      # CS-212, on the same terms. Section 13.5 asks whether the score is an
+      # artifact of its own construction, which is answerable only by building
+      # the score three other ways, so this proves those four paths still run
+      # over one set of values. The values are invented and the fixture is built
+      # to fail both gating checks, so again this asserts that the checks run.
+      # A real robustness run is `make robustness VALUES=...`.
+      - name: The section 13.5 robustness checks run end to end
+        run: python scripts/run_robustness.py
+          --values scoring/tests/fixtures/synthetic_values.json --out /dev/null
 
   api:
     name: API
