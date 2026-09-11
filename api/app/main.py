@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__, db
 from app.config import get_settings
-from app.routers import health, hex, meta
+from app.routers import health, hex, meta, provenance
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level.upper())
@@ -48,4 +48,5 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(meta.router)
+app.include_router(provenance.router)
 app.include_router(hex.router)

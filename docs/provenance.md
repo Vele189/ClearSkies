@@ -8,6 +8,27 @@ The table is generated, not hand-written. Each adapter run produces a
 hand-maintained provenance page is a provenance page that stops matching the
 data.
 
+The nightly job regenerates it and commits the result, so the page cannot drift
+from what was actually loaded. Only the block between the two generated markers
+is rewritten; everything else here is prose. To regenerate it by hand:
+
+```bash
+cd etl && python -m pipeline provenance --page ../docs/provenance.md
+```
+
+**This page shows the latest pull, which is not the same as the latest
+successful one.** If last night's ECHO pull failed, the row below says `failed`
+rather than reverting to the last row that went well. A green row from three
+nights ago would tell a reader the data is current when it is not.
+
+**Every pull is kept, not just the one shown.** The row below answers "where
+does this number come from today". A reader checking a claim made last month
+needs last month's manifest, so each pull is recorded in `source_pull` and its
+two child tables (migration 0012) and the history is queryable per source. The
+same content is served as JSON at `GET /provenance`, which is what the map's
+detail panel reads; `GET /provenance?source=epa_echo` returns that source's
+history newest first.
+
 Columns:
 
 | Column | Meaning |

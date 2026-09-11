@@ -145,3 +145,47 @@ def test_runs_says_so_when_nothing_has_been_promoted(tmp_path: Path, capsys) -> 
 
     assert main(["runs", "--state", str(tmp_path)]) == 0
     assert "no runs recorded" in capsys.readouterr().out
+
+
+def test_the_night_records_where_its_data_came_from(tmp_path: Path) -> None:
+    """CS-110: the manifest outlives the run directory that held it."""
+    from pipeline.provenance import ProvenanceStore
+
+    state, store = tmp_path / "state", tmp_path / "store"
+    nightly(state, store)
+
+    recorded = ProvenanceStore(state).history()
+    assert [p.source for p in recorded] == ["fake"]
+    assert ProvenanceStore(state).run_ids() == [RunLedger(state).runs()[-1].run_id]
+
+
+def test_a_carried_night_adds_no_provenance_row(tmp_path: Path) -> None:
+    """Nothing was pulled, so nothing new came from anywhere."""
+    from pipeline.provenance import ProvenanceStore
+
+    state, store = tmp_path / "state", tmp_path / "store"
+    nightly(state, store)
+    nightly(state, store)
+
+    assert len(ProvenanceStore(state).history()) == 1
+
+
+def test_the_provenance_command_regenerates_the_page(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    from pipeline.__main__ import main
+    from pipeline.provenance import BEGIN, END
+
+    state, store = tmp_path / "state", tmp_path / "store"
+    nightly(state, store)
+
+    page = tmp_path / "provenance.md"
+    page.write_text(f"# Provenance\n\n{BEGIN}\n\n_Nothing yet._\n\n{END}\n", encoding="utf-8")
+
+    assert main(["provenance", "--state", str(state), "--page", str(page)]) == 0
+    assert "fake" in page.read_text()
+    assert "updated" in capsys.readouterr().out
+
+
+def test_regenerating_a_missing_page_fails_rather_than_creating_one(tmp_path: Path) -> None:
+    from pipeline.__main__ import main
+
+    assert main(["provenance", "--state", str(tmp_path), "--page", str(tmp_path / "gone.md")]) == 1
