@@ -1,64 +1,185 @@
 name: Nightly ETL
 
-# Also keeps the database warm. Railway does not idle a service, but the daily
-# run is the thing that proves the adapters still work against upstream sources
-# that have a habit of moving.
+# Scheduled orchestration of every adapter, with no server to manage.
+#
+# The job is deliberately thin. It installs the package and calls
+# `python -m pipeline nightly`, which decides what is due, pulls it, gates it,
+# records the night and promotes it only if the gate passed. Putting that
+# sequence in Python rather than in YAML is what lets it be tested: `etl/tests`
+# covers the planner, the ledger and the promotion rule, and none of that would
+# be reachable if the orchestration lived in these steps.
+#
+# ---- the free-tier budget ----------------------------------------------
+#
+# Actions is unmetered for public repositories and 2,000 minutes a month on the
+# free tier for private ones, so the budget below is written against the tighter
+# of the two.
+#
+# Per-source envelopes are declared in `pipeline/schedule.py` and add up to about
+# 26 minutes if every source pulls on the same night. That happens roughly once a
+# month, when the three annual sources come due together. A typical night pulls
+# only OpenAQ and the reference adapter, about 6 minutes.
+#
+#     30 nights x  ~6 min typical pull                  ~185 min
+#      4 nights x  ~3 min for ECHO's weekly refresh      ~12 min
+#      1 night  x ~17 min for the three annual sources   ~17 min
+#     30 nights x  ~2 min of checkout, install, gate     ~60 min
+#                                                      ---------
+#                                                       ~275 min
+#
+# Under 300 minutes a month against a 2,000 minute floor, and the reason it is
+# that low is the cadence policy: pulling all six every night would be about
+# 900 minutes, which is still inside the tier but spends three times the budget
+# and three times EPA's bandwidth to produce the same numbers.
+#
+# `timeout-minutes` is set well above the all-six figure so that a genuinely slow
+# night finishes rather than being cut in half. If it ever does cut a night off,
+# the planner's cheapest-first ordering decides what survived.
+
 on:
   schedule:
     - cron: "0 7 * * *" # 07:00 UTC, roughly 01:00 in the pilot state
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Comma-separated sources to pull regardless of cadence, or 'all'"
+        required: false
+        default: ""
+
+# A scheduled run and a hand-triggered one must not load at the same time. They
+# share a ledger and a database, and two nights promoting themselves in parallel
+# is how a run that failed its gate ends up current.
+concurrency:
+  group: nightly-etl
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Only for the failure notice below. Nothing in the pipeline writes to the repo.
+  issues: write
 
 jobs:
   ingest:
-    name: Ingest and score
+    name: Ingest and gate
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Install the ingestion package
         working-directory: etl
         run: pip install -e .
-      - name: Registered sources
-        working-directory: etl
-        run: python -m pipeline sources
-      - name: Reference adapter
-        # Phase 1 replaces this with the five real adapters. Until then the
-        # nightly job still exercises the interface end to end, so a change that
-        # breaks the contract is caught here rather than on the night the first
-        # real source is wired in.
-        working-directory: etl
-        run: python -m pipeline run fake
 
-      # CS-108. Runs the named adapters into one sink and applies the quality
-      # gate: per-source thresholds, then the cross-source checks no adapter can
-      # make about itself. Exit 1 means the night's load must not become the
-      # current run.
+      # The ledger is the only state that has to outlive a run: a cadence counts
+      # from the last successful pull, and a runner keeps nothing by default.
+      # The key is unique per run so the cache is always written; the prefix
+      # restore picks up the most recent one.
       #
-      # Scoped to the reference adapter for the same reason the step above is:
-      # running the five real sources in dependency order is CS-109, and a
-      # nightly job that starts pulling live EPA endpoints should do so in the
-      # ticket that owns that decision. What this proves tonight is that the gate
-      # itself works end to end.
-      #
-      # CS-109 replaces the source list with the five real sources and adds
-      # `--require <source>` for each. That flag is what turns "the check skipped
-      # because nothing loaded" into a failure rather than a green tick, so each
-      # source joins it in the same pull request that wires its adapter in.
-      - name: Data quality gate
-        working-directory: etl
-        run: python -m pipeline check fake
+      # This is interim. The durable home is `pipeline_run` in migration 0002,
+      # and the ledger moves there with the Postgres sink. A cache miss, which
+      # GitHub will eventually cause by evicting an entry, costs one redundant
+      # pull of everything and nothing else, which is why it is safe to rely on
+      # in the meantime.
+      - name: Restore the run ledger
+        uses: actions/cache@v4
+        with:
+          path: etl/pipeline-state
+          key: pipeline-state-${{ github.run_id }}
+          restore-keys: |
+            pipeline-state-
 
-      # The gate already wrote its report to the step summary and raised an
-      # annotation per failure, so the run page carries the reason without
-      # anyone opening the log. This keeps the evidence for the next fortnight,
-      # which is how the envelope thresholds get narrowed from observed values
-      # rather than from memory.
+      - name: What tonight will pull
+        working-directory: etl
+        run: python -m pipeline plan
+
+      # The gate's verdict is the run's verdict. Exit 1 means the night did not
+      # become the current one, so the map keeps serving the run that last
+      # passed.
+      #
+      # `--require` names the sources that must produce what they were asked for
+      # on a night their cadence says they are due. A source that is carried is
+      # not required of that run, so the flag stays correct as each cadence
+      # comes and goes. Today only the reference adapter is registered; CS-102
+      # through CS-105 each add their own `--require` in the pull request that
+      # wires the adapter in, which is what keeps "the check skipped because
+      # nothing loaded" from reading as a green tick.
+      - name: Nightly run
+        working-directory: etl
+        env:
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          args=""
+          if [ "$FORCE" = "all" ]; then
+            args="--all"
+          elif [ -n "$FORCE" ]; then
+            for source in ${FORCE//,/ }; do
+              args="$args --force $source"
+            done
+          fi
+          python -m pipeline nightly --require fake $args
+
+      # The gate wrote its plan and its report to the step summary and raised an
+      # annotation per failure, so the run page carries the reason without anyone
+      # opening the log. This keeps the evidence for the next fortnight, which is
+      # how the envelope thresholds in pipeline/quality/expectations.py get
+      # narrowed from observed values rather than from memory.
       - name: Keep the report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: quality-report
-          path: etl/quality-runs/
+          path: |
+            etl/quality-runs/
+            etl/pipeline-state/
           retention-days: 30
+
+      # A scheduled job that fails silently is a job nobody runs. A failed run
+      # page is only seen by someone who goes looking, so the failure is turned
+      # into an issue, which notifies whoever watches the repository.
+      #
+      # One issue, reopened and commented on, rather than one a night: a source
+      # that has been down for a week should read as one problem lasting a week,
+      # not as seven. The issue closes by hand once the night is green again,
+      # which is deliberate - an auto-closing notice is one nobody reads.
+      - name: Open or update the failure notice
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Nightly ETL failed';
+            const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                        `/actions/runs/${context.runId}`;
+            const body =
+              `The nightly ETL run failed and was not promoted, so the map is still ` +
+              `serving the last run that passed its quality gate.\n\n` +
+              `Run: ${url}\nCommit: ${context.sha}\n\n` +
+              `The step summary on that run lists every check, and the quality-report ` +
+              `artifact holds the full report and the ledger.`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'nightly-etl',
+            });
+
+            const open = existing.data.find((issue) => issue.title === title);
+            if (open) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['nightly-etl'],
+              });
+            }

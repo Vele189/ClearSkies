@@ -224,6 +224,17 @@ python -m pipeline check --require epa_echo
 python -m pipeline history               # what each check has measured over time
 ```
 
+The nightly run (CS-109), which wraps the gate in a cadence, a ledger and a
+promotion. See `docs/nightly.md`:
+
+```bash
+python -m pipeline plan                  # what tonight would pull, and why
+python -m pipeline nightly               # plan, pull what is due, gate, promote
+python -m pipeline nightly --force epa_tri   # ignore one source's cadence
+python -m pipeline nightly --all         # ignore every cadence
+python -m pipeline runs                  # past nights, and the one being served
+```
+
 Checks, the same ones CI runs:
 
 ```bash
@@ -287,6 +298,8 @@ etl/
 │   │   ├── cross.py       checks no single adapter can make
 │   │   ├── gate.py        runs everything, returns one verdict
 │   │   └── store.py       every check's measurement, kept per run
+│   ├── schedule.py        what tonight pulls, and in what order
+│   ├── ledger.py          the night's record, and which run is served
 │   ├── runner.py          runs the stages, applies the policy, emits the manifest
 │   ├── metadata.py        SourceSpec, KnownGap, Artifact, PullMetadata
 │   ├── records.py         NormalizedRecord, Measurement

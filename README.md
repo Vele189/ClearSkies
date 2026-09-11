@@ -189,6 +189,8 @@ Two rules the types enforce. A missing value is stored as missing, never as zero
 
 An adapter also declares what a good load of it looks like: the row count range to expect, how often a field may be null, what values are physically plausible. The gate applies those, then the checks no adapter can make about itself, and refuses to let a bad night become the current run. A check that could not run reports as skipped rather than passed, because a green report over missing data is the failure the gate exists to prevent. [docs/quality.md](docs/quality.md) covers it.
 
+The nightly job runs on GitHub Actions with no server to manage. It decides which sources are due before pulling any of them, because only one of the five changes daily: ECHO refreshes weekly and the other three publish once a year or less, so re-downloading them every night would spend the budget and the upstream's bandwidth to arrive at identical numbers. A source that is not due is carried, which the ledger records as a different thing from a source that failed. A night that fails its gate is not rolled back, because every source committed hours earlier; it is simply not promoted, and the map keeps serving the run that last passed. [docs/nightly.md](docs/nightly.md) covers the cadence, the budget and what a failure does.
+
 The full contract, a worked example, and step-by-step instructions are in [`etl/README.md`](etl/README.md). The reference implementation in `etl/pipeline/adapters/fake.py` runs against a fixture with no network:
 
 ```bash

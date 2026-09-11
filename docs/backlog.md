@@ -685,24 +685,56 @@ endpoints belongs in the ticket that owns that decision.
 
 ### CS-109 — Nightly ETL workflow on GitHub Actions
 
-**Size:** M · **Labels:** infra, etl · **Depends on:** CS-108 · **Owner:** Terrence · **Status:** Partly done
+**Size:** M · **Labels:** infra, etl · **Depends on:** CS-108 · **Owner:** Terrence · **Status:** Done
 
 Scheduled orchestration of every adapter, with no server to manage.
+
+The orchestration lives in `python -m pipeline nightly`, not in workflow steps,
+because it has rules worth testing and a rule written in YAML is a rule no test
+can reach. The job installs the package and calls it. See `docs/nightly.md`.
 
 **Acceptance criteria**
 
 - Scheduled workflow exists with a manual trigger. **Done:**
   `.github/workflows/etl.yml` runs at 07:00 UTC, roughly 01:00 in the pilot
-  state, and supports `workflow_dispatch`. It currently installs the ingestion
-  package, lists the registered sources and runs the reference adapter, which
-  keeps the interface exercised nightly until real sources exist.
-- All adapters run in dependency order. **Not started.**
-- Refresh cadence is per-source and documented: annually-published sources are
-  not re-pulled in full every night.
-- Run stays inside GitHub Actions free-tier limits.
-- Failures notify. A failed run leaves the previous dataset intact, which the
-  runner's transaction handling already guarantees per source; this ticket
-  extends it to the run as a whole.
+  state, and supports `workflow_dispatch` with a `force` input for the morning a
+  new release lands.
+- All adapters run in dependency order. **Done:** `pipeline/schedule.py`
+  topologically sorts the declared graph and orders cheapest first within a
+  level, so a night cut off by the timeout has spent its minutes on the sources
+  most likely to have finished. Today's edge set is empty and that is designed
+  rather than missing: the adapter interface gives a source no way to read
+  another, and TRI joins ECHO's registry ids from ECHO's own endpoint. A test
+  asserts the emptiness so a future edge has to be argued for. The mechanism is
+  here because CS-106, CS-107 and CS-204 consume what the adapters write, and
+  each should land as one entry rather than as a rewrite of the job.
+- Refresh cadence is per-source and documented. **Done:** one interval per
+  source, each carrying its reason, in `pipeline/schedule.py` and tabulated in
+  `docs/nightly.md`. OpenAQ and the reference adapter pull nightly, ECHO every
+  seven days to match its upstream refresh, and the three annual sources every
+  thirty. The interval counts from the last success, so a failing source stays
+  due nightly instead of resting out its cadence. A source that is not due is
+  *carried*, which the ledger records as a distinct outcome from a failed pull.
+- Run stays inside GitHub Actions free-tier limits. **Done:** about 275 minutes
+  a month against the 2,000-minute private-repo floor, and unmetered on a public
+  one. The cadence policy is what buys that: pulling all six nightly would be
+  roughly 900 minutes for identical numbers. The job carries a 45-minute timeout
+  and a concurrency group, so a scheduled run and a hand-triggered one cannot
+  load at once.
+- Failures notify, and a failed run leaves the previous dataset intact as a
+  whole. **Done:** the run is recorded and then not promoted. Nothing is rolled
+  back, because every source's transaction closed before the gate ran; the map
+  keeps serving the run that last passed. `pipeline/ledger.py` mirrors
+  `pipeline_run` from migration 0002, including the rule that only a succeeded
+  run may be current. A night on which every source was carried is also not
+  promoted, since its gate passed by having nothing to check. Failure surfaces
+  as a non-zero exit, the step summary, annotations, a 30-day artifact, and an
+  issue labelled `nightly-etl` that is commented on rather than reopened nightly.
+
+**Interim, and named as such.** The ledger is files carried between runs by the
+Actions cache. Its durable home is `pipeline_run`, and it moves there with the
+Postgres sink; `row_for_sql` already emits the table's shape. A cache miss costs
+one redundant full pull and nothing else, which is the right failure direction.
 
 ---
 
