@@ -143,7 +143,76 @@ a document nobody here has been able to open would be writing fiction.
 
 ---
 
-## 5. Versioning and immutability
+## 5. Embeddings and retrieval
+
+Every chunk carries a 1024-dimension vector from `text-embedding-3-small`,
+indexed with HNSW over cosine distance. The width is fixed by
+`statute_chunk.embedding` and the model is recorded on the version row, because
+a corpus holding vectors from two models returns quietly worse retrievals rather
+than failing.
+
+**Embedding happens before sealing, and that order is forced rather than
+chosen.** A sealed version refuses every write, embeddings included, so a
+version sealed with vectors missing has gaps that can never be filled: retrieval
+would rank the chunks it has and silently never return the rest. `seal`
+therefore refuses to close a version that is not fully embedded, which makes
+"sealed" mean "complete and searchable" rather than "complete on paper".
+
+Re-running ingestion does not re-embed. Only chunks with no vector are sent, so
+the paid step costs nothing on a second run. The whole corpus is about 700,000
+tokens, which is roughly 1.4 cents.
+
+Retrieval reads `statute_corpus_active` and nothing else. That single fact is
+the "cannot return anything outside the corpus" guarantee: there is no version
+to filter on in the query, so a caller cannot forget to, cannot reach a version
+still being built, and cannot reach a superseded one. Reaching anything else
+needs a different query written by hand against `statute_chunk`, which is a diff
+a reviewer sees. `api/tests/test_retrieval_sql.py` seeds all three cases against
+real Postgres and asserts only the current sealed version comes back.
+
+Passages come back with their section label and with `may_reason_from`. The
+label is what a citation has to quote character for character so CS-305 can look
+it up. The flag is false for the two cases of Appendix B.3 and is carried out of
+the database rather than inferred from the citation text, so the prompt layer
+and the verifier read the same flag instead of each deciding for itself what
+counts as case law. The prompt context marks those passages CITE ONLY on the
+passage itself rather than once at the top, because a rule stated at the top of
+a long prompt competes with everything after it.
+
+### Retrieval quality
+
+`corpus/questions.py` holds twenty hand-written question and expected-section
+pairs. Every one was written by reading the statute and asking what somebody
+drafting a comment would type, then recording which section answers it. None was
+produced by running retrieval and writing down what came back, which would
+measure nothing.
+
+This is a spot-check, not a benchmark. Twenty pairs cannot tell you the corpus
+retrieves well; they can tell you it has stopped retrieving things it used to,
+which is the failure that would otherwise be found by reading a bad draft.
+
+Measured 2026-09-11 against the sealed corpus:
+
+| | |
+|---|---|
+| recall@8 | 19 of 20 (95%) |
+| mean rank of a hit | 1.84 |
+
+The one miss is "What can a federal agency do if a recipient of its funds
+discriminates?", which expects 42 U.S.C. § 2000d-1 and returns 40 C.F.R. § 7.35
+instead. The regulation is the agency's own implementation of that authority, so
+the neighbour is reasonable and the statute is still the right answer. It is
+recorded here rather than tuned away, because a question set edited until it
+passes measures nothing.
+
+```bash
+make corpus-spotcheck                    # print the report
+make corpus-spotcheck REQUIRE_RECALL=0.9 # and fail below a threshold
+```
+
+---
+
+## 6. Versioning and immutability
 
 Rules 4 and 5. A corpus version is a row in `statute_corpus_version`, and every
 document and chunk belongs to one. A version is open while it is being built and
@@ -176,13 +245,15 @@ against an unsealed corpus.
 
 ---
 
-## 6. Running it
+## 7. Running it
 
 ```bash
 make corpus-check      # manifest against the paper; no network
 make corpus-build      # fetch, parse and chunk; writes nothing
 make corpus-ingest     # build, then write a corpus version
-make corpus-seal       # build, write and seal, if it covers the manifest
+make corpus-embed      # generate embeddings for an open version
+make corpus-seal       # build, embed, write and seal, if it covers the manifest
+make corpus-spotcheck  # measure retrieval against the question set
 make corpus-versions   # what the database holds
 ```
 
@@ -200,7 +271,7 @@ normal use.
 
 ---
 
-## 7. What the corpus holds today
+## 8. What the corpus holds today
 
 Built 2026-09-11 against the 2024 edition of the US Code and the eCFR as of
 2025-01-01.
@@ -211,4 +282,5 @@ Built 2026-09-11 against the 2024 edition of the US Code and the eCFR as of
 | Documents | 12 |
 | Chunks | 2,850 |
 | Distinct citable labels | 2,198 |
-| Embeddings | CS-302 |
+| Embeddings | 2,850, `text-embedding-3-small` at 1024 dimensions |
+| recall@8 on the spot-check set | 19 of 20 |

@@ -24,10 +24,11 @@ import json
 import logging
 import os
 import sys
+from typing import Any
 
 import asyncpg
 
-from corpus import appendix, store
+from corpus import appendix, embed, spotcheck, store
 from corpus.fetch import Cache, build_client
 from corpus.ingest import Build, version_label
 from corpus.ingest import build as build_corpus
@@ -36,9 +37,10 @@ from corpus.manifest import MANIFEST, manifest_sha256
 log = logging.getLogger("corpus")
 
 # The corpus is built for one embedding model and statute_chunk.embedding has a
-# fixed dimension. CS-302 generates the vectors; the name is recorded here so a
-# mismatch is a visible property of the version rather than a silent drop in
-# retrieval quality.
+# fixed dimension. The name is recorded on the version row, so a mismatch is a
+# visible property of the version rather than a silent drop in retrieval
+# quality. Changing it means a new corpus version and a full re-embed, which is
+# the intended friction.
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 DEFAULT_DATABASE_URL = "postgresql://clearskies:clearskies@localhost:5432/clearskies"
@@ -46,6 +48,25 @@ DEFAULT_DATABASE_URL = "postgresql://clearskies:clearskies@localhost:5432/clears
 
 def _database_url(args: argparse.Namespace) -> str:
     return args.database_url or os.environ.get("DATABASE_URL") or DEFAULT_DATABASE_URL
+
+
+def _embedding_client() -> Any:
+    """The OpenAI client, imported late and failing with a sentence.
+
+    Late so that `manifest`, `check` and `build` run with no API key and no
+    provider SDK installed, which is what CI does. A missing key is a legible
+    message rather than an ImportError from three frames down.
+    """
+    try:
+        from openai import AsyncOpenAI
+    except ImportError as exc:  # pragma: no cover - depends on the install
+        raise SystemExit("embedding needs the openai package: pip install -e '.[embed]'") from exc
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise SystemExit(
+            "OPENAI_API_KEY is not set. Embedding calls a paid API; see docs/corpus.md section 6."
+        )
+    return AsyncOpenAI()
 
 
 def cmd_manifest(args: argparse.Namespace) -> int:
@@ -126,6 +147,18 @@ async def _ingest(args: argparse.Namespace) -> int:
     try:
         await store.write(conn, version, result, EMBEDDING_MODEL, notes=args.notes)
         print(f"\nwrote corpus version {version}")
+
+        # Before sealing, always. A sealed version refuses writes, embeddings
+        # included, so a version sealed with vectors missing has gaps that can
+        # never be filled.
+        if args.embed or args.seal:
+            run = await embed.embed_version(conn, version, _embedding_client(), EMBEDDING_MODEL)
+            print(
+                f"embedded {run.chunks} chunks in {run.batches} batches, "
+                f"{run.tokens} tokens, about ${run.estimated_cost_usd:.4f}"
+                + (f" ({run.skipped} already had vectors)" if run.skipped else "")
+            )
+
         if args.seal:
             try:
                 await store.seal(conn, version, result, force=args.force)
@@ -165,6 +198,23 @@ async def _versions(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _spotcheck(args: argparse.Namespace) -> int:
+    conn = await asyncpg.connect(_database_url(args))
+    try:
+        report = await spotcheck.run(conn, _embedding_client(), EMBEDDING_MODEL, k=args.k)
+    finally:
+        await conn.close()
+
+    print(spotcheck.render(report))
+    if args.require_recall is not None and report.recall < args.require_recall:
+        print(
+            f"\nrecall {report.recall:.0%} is below the required {args.require_recall:.0%}",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m corpus",
@@ -188,6 +238,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             p.add_argument("--version", default=None, help="override the version name")
             p.add_argument("--prefix", default="appendix-b", help="version name prefix")
             p.add_argument("--notes", default="", help="recorded on the version row")
+            p.add_argument(
+                "--embed",
+                action="store_true",
+                help="generate embeddings; implied by --seal",
+            )
             p.add_argument("--seal", action="store_true", help="seal once complete")
             p.add_argument(
                 "--force",
@@ -197,6 +252,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     versions = sub.add_parser("versions", help="what the database holds")
     versions.add_argument("--json", action="store_true")
+
+    spot = sub.add_parser(
+        "spotcheck", help="measure retrieval against the hand-written question set"
+    )
+    spot.add_argument("--k", type=int, default=8, help="how many passages to consider")
+    spot.add_argument(
+        "--require-recall",
+        type=float,
+        default=None,
+        help="exit non-zero below this recall, e.g. 0.9",
+    )
 
     return parser.parse_args(argv)
 
@@ -214,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
         return status
     if args.command == "ingest":
         return asyncio.run(_ingest(args))
+    if args.command == "spotcheck":
+        return asyncio.run(_spotcheck(args))
     return asyncio.run(_versions(args))
 
 
