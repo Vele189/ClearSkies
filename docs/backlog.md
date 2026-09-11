@@ -107,7 +107,7 @@ These stay assigned to one owner, but need a specific handoff:
 | CS-111 Anchor verification | Lead | Terrence checks each anchor against its cited documentation; Lead decides whether a correction is a methodology revision under section 17. |
 | CS-203 Population characteristics | Terrence | Weights come from the methodology paper, not from judgment at the keyboard. Lead reviews before it feeds CS-204. |
 | CS-210 Map shell | Terrence | Colour ramp, legend and the confidence-band treatment need Lead sign-off — how uncertainty is drawn is a communication decision, not a styling one. Terrence has built and documented all three in `docs/frontend.md`; what is outstanding is the Lead's decision on them. |
-| CS-211 Detail panel | Terrence | Lead writes the "what this means and doesn't mean" copy. Terrence builds everything around it. |
+| CS-211 Detail panel | Terrence | Lead writes the "what this means and doesn't mean" copy. Terrence builds everything around it, and has added the two pieces methodology names outright: the multiplicative surprise from section 10 and the zero-inflation limitation from section 9. Both are still the Lead's to review. |
 | CS-306 Generation endpoint | Terrence | Lead sets the hard spend cap on the API key directly with the provider; Terrence owns caching and usage logging. |
 | CS-307 Draft viewer | Terrence | Lead reviews all disclaimer copy and confirms there's no send or publish path, as part of CS-407. |
 | CS-308 50-draft audit | Lead | Terrence generates the drafts and does the first pass on record ID verification. Lead does the language review for intent claims and legal advice, and signs off the gate. |
@@ -1154,7 +1154,7 @@ React and MapLibre GL frontend rendering the scored hexes.
   **Not done, and blocked**: the three Railway services still do not exist, so
   nothing has been deployed and previews cannot be tested. PR environments are
   a dashboard action and not expressible in the IaC schema.
-  `docs/frontend.md` section 7 records the two things that have to hold for
+  `docs/frontend.md` section 8 records the two things that have to hold for
   previews to be usable and says to amend it to "not available" if they do not.
 - Loading and error states handled; a tile fetch failure does not leave a blank
   screen. **Done:** a loading overlay, a full-viewport basemap failure with a
@@ -1187,20 +1187,45 @@ the parts that need data the API cannot yet return.
 - Demographics shown with an explicit note that they are recorded and displayed
   but never scored. **Done.**
 - A short "what this means and doesn't mean" explainer, written by hand rather
-  than generated. **Partly done:** the footer carries the wrongdoing and
-  Louisiana-percentile caveats. Lead reviews and extends this copy rather than
-  writing it from scratch.
-- Waterfall breakdown showing how the total was reached. **Not done:** the
-  components section prints each component's score out of 10 but not the four
-  group scores, their weights, or how they compose. The `GroupScore` objects are
-  already on the response.
-- Confidence displayed with a plain-language reading. **Partly done:** the band
-  label and value are shown. The four-term breakdown is not, and the low band
-  does not yet lead with its caveat.
-- Source and vintage shown for each indicator. **Not done:** waiting on
-  `data_vintage` being populated in CS-209.
-- Panel is keyboard-navigable and works at mobile width. **Not verified.** The
-  close button is labelled; nothing else has been checked.
+  than generated. **Partly done, still the Lead's:** the footer keeps the
+  wrongdoing and Louisiana-percentile caveats, and two pieces of copy that
+  methodology names explicitly have been added — the multiplicative surprise
+  from section 10 ("a hexagon in the 95th for pollution and the 20th for
+  vulnerability scores about 19; one in the 60th for both scores about 36"),
+  which section 10 requires on the panel, and the zero-inflation limitation
+  from section 9, shown against a facility indicator sitting at zero so it
+  reads as "none within 10 km" and not "cleaner than 40% of the state". Lead
+  reviews and extends all of it.
+- Waterfall breakdown showing how the total was reached. **Done:** each
+  component lists its groups with the mean percentile, the weight, and how many
+  of the required indicators were present, then the weighted mean they produce
+  and the rescale to 0–10, then the two components multiplying into the total.
+  An uncomputable group is named as dropped rather than silently removed, since
+  section 11 rule 1 keeps it out of the mean and a reader would otherwise see
+  weights that do not add up. The one step that cannot be checked from the
+  response is the statewide maximum that does the rescaling, and the panel says
+  so rather than implying the arithmetic is fully auditable.
+- Confidence displayed with a plain-language reading. **Done:** all four terms
+  with their section 12 weights, a sentence per band, and the weakest term
+  named, since a weighted geometric mean is driven by its worst term and naming
+  it explains the number better than the number does. Monitor support quotes
+  the distance to the nearest monitor. The low and insufficient bands now open
+  the panel with the caveat instead of carrying it under a number the reader
+  has already absorbed.
+- Source and vintage shown for each indicator. **Source done, vintage wired and
+  waiting.** Every row names its source, which was already on the response. The
+  vintage renders as soon as `data_vintage` carries the source name as its key,
+  and shows nothing until then. **That key is an assumption:** `schemas.py`
+  documents the map as "source name to release identifier", and the frontend
+  looks the indicator's own `source` string up in it. CS-209 should confirm it
+  emits exactly those strings, or this silently shows no vintage at all.
+- Panel is keyboard-navigable and works at mobile width. **Done:** the panel
+  takes focus when a hexagon is selected, so the keyboard follows the reader
+  instead of continuing from the map; Escape closes it; the close button and
+  every facility link are reachable and have visible focus rings. Tests cover
+  the focus move, Escape, and the tab order. Mobile width is handled by CS-210
+  making the panel a sheet below the map rather than a 24rem rail beside it.
+  **Not verified on a physical handset**, only at mobile viewport width.
 
 ---
 

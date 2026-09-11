@@ -21,7 +21,7 @@
 //      own 2026-03-30 incident was exactly that failure mode.
 //   3. Per-pull-request preview environments, under Settings > Environments.
 //      Also not in the IaC schema. Unverified against this project, since the
-//      services do not exist yet; docs/frontend.md section 7 records what has
+//      services do not exist yet; docs/frontend.md section 8 records what has
 //      to hold for previews to be usable and what to do if it does not.
 //
 // Both of those need CLI >= 5.x. `railway config` and `railway cdn` do not

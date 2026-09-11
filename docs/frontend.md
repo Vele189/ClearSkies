@@ -153,7 +153,60 @@ The Phase 0 banner is separate from all three and stays until scores exist. It
 explains that no hexagon is scored yet, which is the current and correct
 behaviour of a pipeline that has not run.
 
-## 7. Deployment
+## 7. The detail panel
+
+Clicking a hexagon has to explain it, not just report it. The panel narrates
+methodology sections 10 and 12 in the order the arithmetic happens.
+
+**The waterfall.** Each component lists its groups with the mean percentile,
+the weight it carries, and how many of its required indicators were present.
+Then the weighted mean those produce, then the rescale to 0–10, then the two
+components multiplying into the total.
+
+A group that was not computable is named as dropped rather than quietly
+removed. Section 11 rule 1 keeps it out of the mean, so a reader who adds the
+weights up gets a different denominator than the panel used, and is owed an
+explanation of why.
+
+**The step that cannot be checked.** Rescaling a component to 0–10 divides by
+the highest value anywhere in the state, and that maximum is not on the
+response. The panel says so. Claiming the arithmetic is fully auditable while
+one divisor is invisible would be worse than the gap itself.
+
+**The multiplicative surprise.** A hexagon in the 95th percentile for pollution
+and the 20th for vulnerability scores about 19. One in the 60th for both scores
+about 36. The second is higher. Section 10 identifies this as the behaviour a
+reader is most likely to find surprising and requires it stated on the panel,
+so it sits directly under the multiplication rather than in a footnote.
+
+**Confidence.** All four terms with their section 12 weights, a plain sentence
+per band, and the weakest term named. A weighted geometric mean is driven by
+its worst term, so naming that term explains the number better than the number
+does. Monitor support quotes the distance to the nearest monitor, because "0.12"
+means nothing and "the nearest PM2.5 monitor is 84 km away" means everything.
+
+For the low and insufficient bands the caveat opens the panel. Putting it under
+the score would let the reader absorb the number first and the hedge second,
+which is the wrong order for a score we are hedging.
+
+**Zero inflation.** E3 and F1 through F4 are zero for every hexagon with no
+qualifying facility within 10 km, and section 9 records that a large block of
+the state therefore shares one mid-rank percentile. Where that applies, the row
+says so. Without it the percentile reads as a ranking when it is only the size
+of the zero block.
+
+**Vintage.** Each indicator names its source, and its release identifier as
+soon as `data_vintage` carries one. The frontend looks the indicator's own
+`source` string up in that map, which assumes CS-209 keys it by exactly those
+strings. If it does not, the panel shows no vintage rather than a wrong one,
+and CS-209 should confirm the key.
+
+**Keyboard.** Selecting a hexagon moves focus to the panel, so the keyboard
+follows the reader rather than continuing from the map and walking the whole
+panel in reverse. Escape closes it. The close button and every facility link
+carry visible focus rings.
+
+## 8. Deployment
 
 The Railway `web` service, described in `.railway/railway.ts`. Vite builds it,
 `serve -s dist` serves it. `serve` is a devDependency, so the build must not
