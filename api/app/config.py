@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,6 +10,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://clearskies:clearskies@localhost:5432/clearskies"
     cors_origins: str = "http://localhost:5173"
     log_level: str = "info"
+
+    # "json" for the deploy, where Railway indexes the fields; "text" for a
+    # readable line locally. See app/logging_config.py.
+    log_format: Literal["json", "text"] = "json"
 
     # Locked in Phase 0. See docs/methodology.md section 4.
     pilot_state: str = "LA"

@@ -1,7 +1,7 @@
 import h3
 from fastapi import APIRouter, HTTPException, Path
 
-from app import db
+from app import db, hex_detail, runs
 from app.schemas import HexDetail
 
 router = APIRouter(tags=["hex"])
@@ -9,7 +9,15 @@ router = APIRouter(tags=["hex"])
 TARGET_RESOLUTION = 8
 
 
-@router.get("/hex/{h3_index}", response_model=HexDetail)
+@router.get(
+    "/hex/{h3_index}",
+    response_model=HexDetail,
+    responses={
+        404: {"description": "A resolution 8 cell the current run did not score"},
+        422: {"description": "Not an H3 cell index, or not resolution 8"},
+        503: {"description": "No run has been promoted, or the database is unreachable"},
+    },
+)
 async def get_hex(
     h3_index: str = Path(description="H3 cell index at resolution 8, e.g. 88444600ddfffff"),
 ) -> HexDetail:
@@ -19,6 +27,10 @@ async def get_hex(
     every indicator with its percentile and whether it was observed or dropped,
     the confidence breakdown, the contributing facilities, and the demographic
     profile that is displayed but never scored.
+
+    A hexagon the run examined and could not score comes back 200 with `score`
+    null and `no_score_reason` set, because "too few people live here to score"
+    is an answer. 404 is reserved for a cell the run holds nothing about at all.
     """
     if not h3.is_valid_cell(h3_index):
         raise HTTPException(status_code=422, detail=f"{h3_index!r} is not a valid H3 cell index")
@@ -41,22 +53,22 @@ async def get_hex(
         )
 
     async with p.acquire() as conn:
-        scored = await conn.fetchval("SELECT to_regclass('public.hex_score') IS NOT NULL")
+        run = await runs.current(conn)
+        if run is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "No scored data yet. The Phase 1 ingestion and Phase 2 scoring steps "
+                    "have not run for this deployment. See GET /health."
+                ),
+            )
 
-    if not scored:
+        detail = await hex_detail.load(conn, h3_index, run)
+
+    if detail is None:
         raise HTTPException(
-            status_code=503,
-            detail=(
-                "No scored data yet. The Phase 1 ingestion and Phase 2 scoring steps "
-                "have not run for this deployment. See GET /health."
-            ),
+            status_code=404,
+            detail=f"No scored hex {h3_index} in the pilot state.",
         )
 
-    # Phase 2 replaces this with the real query against hex_score and its joins.
-    # The facilities half of that payload is already here and already indexed:
-    # app.facilities.contributing, over the neighbour query in migration 0014.
-    # What is still missing is the score itself, which nothing has computed yet.
-    raise HTTPException(
-        status_code=404,
-        detail=f"No scored hex {h3_index} in the pilot state.",
-    )
+    return detail

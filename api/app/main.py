@@ -7,10 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__, db
 from app.config import get_settings
+from app.logging_config import REQUEST_ID_HEADER, RequestLogMiddleware, configure_logging
 from app.routers import health, hex, meta, provenance
 
 settings = get_settings()
-logging.basicConfig(level=settings.log_level.upper())
+configure_logging(settings.log_level, settings.log_format)
+log = logging.getLogger(__name__)
 
 DESCRIPTION = """
 Cumulative environmental burden scores for Louisiana, on an H3 resolution 8 grid.
@@ -26,9 +28,14 @@ vulnerable population. It is not a finding of wrongdoing by any operator.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    log.info(
+        "starting",
+        extra={"version": __version__, "pilot_state": settings.pilot_state},
+    )
     await db.connect()
     yield
     await db.disconnect()
+    log.info("stopped")
 
 
 app = FastAPI(
@@ -44,7 +51,12 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    expose_headers=[REQUEST_ID_HEADER],
 )
+
+# Added last, so it sits outside CORS and times the whole exchange including a
+# rejected preflight. A request refused by CORS is a request worth seeing.
+app.add_middleware(RequestLogMiddleware)
 
 app.include_router(health.router)
 app.include_router(meta.router)

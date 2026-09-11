@@ -1,8 +1,12 @@
 from app.indicators import (
+    COMPONENT_COLUMNS,
     COMPONENT_GROUPS,
+    GROUP_MEAN_COLUMNS,
     GROUP_MINIMUM_PRESENT,
     GROUP_WEIGHTS,
     INDICATORS,
+    SOURCE_NAMES,
+    Component,
     Group,
     in_group,
 )
@@ -44,3 +48,22 @@ def test_every_group_belongs_to_exactly_one_component() -> None:
 def test_minimums_are_satisfiable() -> None:
     for group, minimum in GROUP_MINIMUM_PRESENT.items():
         assert 1 <= minimum <= len(in_group(group))
+
+
+def test_every_indicator_source_can_be_given_a_vintage() -> None:
+    """The hex detail payload keys its vintage map by these names.
+
+    An indicator whose source is not in SOURCE_NAMES is one the panel displays
+    and cannot cite, because the vintage arrives under the snapshot's short key
+    and nothing looks it up under the registry's name.
+    """
+    named = set(SOURCE_NAMES.values())
+    for indicator in INDICATORS:
+        assert indicator.source in named, f"{indicator.id} cites an unmappable source"
+
+
+def test_every_group_and_component_maps_to_a_stored_column() -> None:
+    """A group with no column would silently report a null mean percentile."""
+    assert set(GROUP_MEAN_COLUMNS) == set(Group)
+    assert set(COMPONENT_COLUMNS) == set(Component)
+    assert len(set(GROUP_MEAN_COLUMNS.values())) == len(Group)

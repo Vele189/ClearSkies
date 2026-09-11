@@ -27,10 +27,14 @@ async def connect() -> None:
             timeout=settings.db_connect_timeout,
             command_timeout=30,
         )
-        log.info("database pool established")
+        log.info("database pool established", extra={"database": "connected"})
     except Exception as exc:  # noqa: BLE001 - startup must not fail on a cold database
         _pool = None
-        log.warning("database unavailable at startup: %s", exc)
+        log.warning(
+            "database unavailable at startup: %s",
+            exc,
+            extra={"database": "unavailable", "error_type": type(exc).__name__},
+        )
 
 
 async def disconnect() -> None:

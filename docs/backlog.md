@@ -1357,20 +1357,37 @@ The API skeleton, deployed and documented.
   reports the extension list from `clearskies_extensions`, whether `hex_score`
   exists, how many hexes are scored, and degrades rather than failing when the
   database is unreachable. `GET /indicators` publishes the running indicator set
-  and weights so a reader can check them against the methodology paper.
+  and weights so a reader can check them against the methodology paper. Logging
+  is JSON on stdout, one object per record, in `app/logging_config.py`; Railway's
+  log view indexes those fields, which a formatted line does not give it.
 - OpenAPI docs auto-generated and publicly reachable. **Done** locally at `/docs`.
+  Publicly is the deploy, below.
 - CORS configured for the frontend origin. **Done:** driven by `CORS_ORIGINS`.
 - Deployed on the Railway `api` service with CDN disabled and the healthcheck
-  path wired up. **Not started**, and dependent on CS-009.
+  path wired up. **Blocked on CS-009**, which is itself blocked on credentials:
+  the healthcheck is declared in `.railway/railway.ts` but nothing has been
+  applied to a live project, and CDN is not expressible in the IaC schema at all
+  (dashboard, or `railway cdn`, which needs CLI >= 5.x; 4.31.0 is what is
+  installed). Nothing further can land in the repository for this one.
 - Startup does not require the database: a deploy that comes up before Postgres
   is reachable reports the problem instead of crash-looping. **Done** in
-  `app/db.py`, worth keeping as a regression check.
+  `app/db.py`, and now held by `api/tests/test_startup.py`, which starts the app
+  against a refused DSN and asserts the app boots, `/health` answers 200
+  degraded, `/docs` and `/indicators` still serve, and `/hex` reports 503 rather
+  than 500.
+
+**What landed:** every record is one JSON object carrying a request id, taken
+from an incoming `X-Request-Id` when the frontend supplies one and generated
+otherwise, echoed back on the response and stamped onto every record logged
+while the request is handled. `/health` logs at DEBUG so the Railway healthcheck
+poll does not become the log. The access line is ASGI middleware rather than a
+`BaseHTTPMiddleware` subclass, which keeps the response off an anyio stream.
 
 ---
 
 ### CS-209 — `GET /hex/{h3}` drill-down endpoint
 
-**Size:** M · **Labels:** backend, api · **Depends on:** CS-208, CS-205, CS-107 · **Owner:** Lead · **Status:** Partly done
+**Size:** M · **Labels:** backend, api · **Depends on:** CS-208, CS-205, CS-107 · **Owner:** Lead · **Status:** Done
 
 One request returns everything the explain panel shows.
 
@@ -1385,13 +1402,44 @@ One request returns everything the explain panel shows.
   at the wrong resolution, with a message pointing at section 5. 503 while the
   pipeline has not run. 404 for a valid resolution 8 cell that is not in the
   scored set.
-- The real query against `hex_score` and its joins. **Not started:** the handler
-  currently raises 404 with a Phase 2 note.
+- The real query against `hex_score` and its joins. **Done** in
+  `api/app/hex_detail.py`: `hex`, `hex_score` and `hex_demographics` share the
+  grain and are one joined row; `hex_indicator` is a second query; the
+  facilities are the section 8.1 geography query. Three round trips on one
+  connection, all keyed by the run id from `pipeline_run.is_current`, so a
+  payload cannot pair one run's score with another run's inputs.
 - Per-indicator source and vintage returned, so the panel can cite what it
-  displays. The `data_vintage` field exists on the schema and needs filling from
-  the provenance data.
-- Contributing facilities returned with their EPA record links.
-- Response time acceptable under a realistic query load.
+  displays. **Done:** `data_vintage` is filled from `pipeline_run_source` joined
+  to `source_snapshot`, which is what migration 0002 says that table is for, and
+  keyed by the names the indicator registry uses in `Indicator.source` rather
+  than by the snapshot's short key. A caller holding an indicator reads its
+  vintage straight out of the map. `indicators.SOURCE_NAMES` is the mapping and
+  `tests/test_indicators.py` fails if an indicator ever cites a source that is
+  not in it.
+- Contributing facilities returned with their EPA record links. **Done:**
+  `app.facilities.contributing`, with `actions_since` bounded five years back
+  from the run rather than from today, so the enforcement count on the panel
+  matches the count the score was built from however old the run is.
+- Response time acceptable under a realistic query load. **Done, with a caveat.**
+  A full drill-down measures a median of 0.4 ms and a worst case of 1.4 ms over
+  twenty calls against a local database. That is measured against a three-hexagon
+  seed, not the 90,000-hexagon grid, so the timing alone would not catch a plan
+  that degrades with the grid. `tests/test_hex_detail_sql.py` therefore also
+  asserts that every table the query filters is index-addressable, checked with
+  sequential scans disabled, which is the property that has to hold before the
+  grid is loaded rather than after.
+
+**What landed:** the three answers a valid resolution 8 cell can get are now
+distinct and each is tested. A scored cell returns its payload. A cell the run
+examined and could not score returns 200 with `score` null and its
+`no_score_reason` set, because "too few people live here" is an answer and a 404
+would throw it away. A cell the run holds nothing about, in the grid or outside
+it, is the 404. `app/runs.py` holds the current run and its vintage map, cached
+for 30 seconds because both are constant for the life of a nightly run.
+
+**Still open:** nothing in this ticket, but the endpoint has never answered from
+real pipeline output, because no pipeline run exists yet. Every assertion above
+is against seeded rows.
 
 ---
 
