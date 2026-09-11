@@ -31,13 +31,22 @@ compares false against every threshold, so it would sail through the filter and
 into a denominator. It is refused here, where the hex that produced it is still
 in hand.
 
-`outside_pilot_state` is the other section 5 exclusion, for hexes whose centroid
-falls outside Louisiana. It belongs to CS-204, which builds the grid cover; this
-module is handed the hexes that survived that test.
+**The other section 5 exclusion is the state line.** The grid covers Louisiana's
+land area plus coastal water out to the boundary, and a hex straddling the line
+is included only if its centroid falls inside. That test is geometry and is done
+upstream, where PostGIS and the grid cover are; what arrives here is the list of
+hexes that failed it, and they leave with `outside_pilot_state`. The reason wins
+over `low_population` when both would apply, because a cell in Mississippi is
+not a Louisiana cell that happens to be empty, and calling it one would invite
+the question of why the pilot is scoring Mississippi at all.
+
+Facility contributions from out-of-state sources still count toward hexes inside
+the line, per section 5. Excluding a hex from scoring and ignoring the plant next
+to it are different things, and only the first happens here.
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -82,19 +91,33 @@ class Eligibility:
         return {row.h3: row.reason for row in self.excluded}
 
 
-def eligible(population: Mapping[str, float | None]) -> Eligibility:
+def eligible(
+    population: Mapping[str, float | None],
+    *,
+    outside_pilot_state: Collection[str] = (),
+) -> Eligibility:
     """Split the grid into the hexes section 5 scores and the ones it does not.
 
     `population` is the whole grid cover: every hex the run knows about, with
     its dasymetric population estimate from CS-106 or None where the estimate is
-    absent. The returned `scored` tuple is what every percentile denominator and
-    both components are computed over.
+    absent. `outside_pilot_state` names the hexes whose centroid falls outside
+    Louisiana, decided upstream where the geometry is. The returned `scored`
+    tuple is what every percentile denominator and both components are computed
+    over.
     """
+    outside = set(outside_pilot_state)
     scored: list[str] = []
     excluded: list[ExcludedHex] = []
 
-    for h3 in sorted(population):
-        people = population[h3]
+    for h3 in sorted(set(population) | outside):
+        people = population.get(h3)
+
+        # Tested before the threshold, and before the finiteness check: a cell
+        # across the state line is out of scope whatever its population says,
+        # and a bad estimate there is not this run's problem to report.
+        if h3 in outside:
+            excluded.append(ExcludedHex(h3=h3, reason="outside_pilot_state", population=people))
+            continue
 
         if people is not None and not math.isfinite(people):
             raise ValueError(f"population estimate for hex {h3} is not finite: {people!r}")

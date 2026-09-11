@@ -1059,25 +1059,60 @@ worth a check that fails a well-intentioned pull request.
 
 ### CS-204 — Final burden score
 
-**Size:** S · **Labels:** scoring · **Depends on:** CS-202, CS-203 · **Owner:** Lead · **Status:** Not started
+**Size:** S · **Labels:** scoring · **Depends on:** CS-202, CS-203 · **Owner:** Lead · **Status:** Done
 
 Compose the two components into one score per hex.
 
 **Acceptance criteria**
 
-- Pollution Burden × Population Characteristics, per section 10.
+- Pollution Burden × Population Characteristics, per section 10. **Done:**
+  `scoring/burden/score.py`. Nothing is rescaled again; the product of two
+  values in (0, 10] is already in (0, 100], and it cannot reach zero because
+  every percentile is strictly positive. A test states the contrast section 3
+  rests on: 10 × 1 scores 10 and 5 × 5 scores 25, where adding would have
+  ranked them the other way round.
 - Score scaled to 0 to 100 and its statewide distribution recorded, alongside
-  each hex's own percentile.
+  each hex's own percentile. **Done:** the score goes through the same section 9
+  ranking every indicator does, over the hexes that actually got one, so an
+  unscorable hex is absent from this denominator as from every other.
 - All four `no_score` reasons handled and stored: `low_population`,
   `insufficient_pollution_data`, `insufficient_population_data`,
   `outside_pilot_state`. A hex without a score reports why rather than returning
-  a bare null.
+  a bare null. **Done:** `outside_pilot_state` joins `eligibility.py`, where it
+  outranks `low_population`, since a cell in Mississippi is not a Louisiana cell
+  that happens to be empty. A hex failing both components could honestly carry
+  either reason and the column holds one string, so the tie breaks toward
+  pollution. Nothing is hidden by that convention: both components' group means
+  sit on the row, so the panel still shows that both halves failed.
 - Scoring run is reproducible: the same inputs and the same methodology version
-  produce identical output.
+  produce identical output. **Done:** rows ordered by hex rather than by dict
+  insertion, stdlib float arithmetic throughout, and `digest` hashing the
+  canonical form of the run. Tested by building the same run from inputs in
+  reversed order and comparing both the rows and the hash.
 - Methodology version stamped on every scored row, matching the version the API
-  reports from `/indicators`.
+  reports from `/indicators`. **Done, and the two had drifted.** The endpoint was
+  answering 0.1.0 from a string literal while the paper had moved to 0.1.2. The
+  version now has one declaration, `api/app/methodology.py`, which the router
+  reads and the scoring package restates under the usual drift guard, and an API
+  test parses section 18 and fails if the newest entry there is not that string.
+  It is not repeated onto every `hex_score` row: it lives on `pipeline_run` and
+  each row reaches it through `run_id`, which is what section 17 asks for and
+  what the foreign key is for.
 - Written to `hex_score`, the table name the API already probes in `/health` and
-  `GET /hex/{h3}`.
+  `GET /hex/{h3}`. **Done:** `rows_for_sql` emits plain dicts, on the same terms
+  as the ingestion package's provenance module, since this package has no
+  database dependency. A test reads the column list out of migration 0009 and
+  compares, so a column added in a later migration fails there rather than at an
+  insert. Unscored hexes are written too, which is what the table comment
+  promises and what `/health` counts.
+
+**No migration was needed.** `pipeline_run.methodology_version` has existed since
+0002 and its comment already says what it is for. The temptation was to add a
+column to `hex_score`; the run row is the right home and the schema said so
+first.
+
+**The confidence columns are emitted and empty.** CS-205 fills them. Naming them
+now means the insert shape does not change when it does.
 
 ---
 

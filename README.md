@@ -132,6 +132,7 @@ clearskies/
 │   ├── burden/component.py       Subgroup means into a component, section 10
 │   ├── burden/pollution.py       The Pollution Burden half
 │   ├── burden/population.py      The Population Characteristics half
+│   ├── burden/score.py           The two halves multiplied, section 10 step 4
 │   └── tests/
 ├── web/                          React, MapLibre GL, PMTiles
 ├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
