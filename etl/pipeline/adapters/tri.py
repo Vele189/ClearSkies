@@ -817,10 +817,13 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
                 scope="methodological",
                 detail=(
                     "E3 weights each chemical by its EPA RSEI inhalation toxicity weight. "
-                    "This adapter loads releases only; chemical_toxicity_weight is still "
-                    "empty and no backlog ticket currently fills it. Until it is loaded, "
-                    "E3 cannot be computed, and TRI chemicals RSEI has no weight for are "
-                    "excluded from E3 by design while remaining visible in the drill-down."
+                    "This adapter loads releases only; chemical_toxicity_weight is filled "
+                    "by the epa_rsei source, which is a separate pull because a new RSEI "
+                    "edition is a data load rather than a reload of every release. TRI "
+                    "chemicals RSEI has no weight for are excluded from E3 by design while "
+                    "remaining visible in the drill-down, and the share of each facility's "
+                    "reported poundage that carried a weight is what "
+                    "facility_release_toxicity reports."
                 ),
                 affects=("E3",),
             ),

@@ -138,7 +138,7 @@ class SourceSchedule:
 # so a declaration cannot live on a class this tree cannot import. Unlike the
 # expectations, these do not move onto the adapter when it merges. How often to
 # pull a source is a property of the nightly job's budget, not of the adapter,
-# and keeping the six intervals on one page is what makes the budget reviewable.
+# and keeping the seven intervals on one page is what makes the budget reviewable.
 
 DAILY = Refresh(
     cadence="daily",
@@ -205,6 +205,19 @@ SCHEDULES: dict[str, SourceSchedule] = {
         note=(
             "Envelope. The Basic Data File for one reporting year, the TRI facility "
             "directory, the ECHO registry ids it joins against, and the ZIP gazetteer."
+        ),
+    ),
+    "epa_rsei": SourceSchedule(
+        source="epa_rsei",
+        refresh=MONTHLY,
+        budget_minutes=0.5,
+        note=(
+            "One 134 KB workbook, and the cheapest real source in the job. RSEI "
+            "republishes on its own model-version schedule rather than a calendar "
+            "one, so the monthly interval bounds how long a new edition sits "
+            "unnoticed. It does not depend on epa_tri: the two write different "
+            "tables and only E3 joins them, so a night where one is due and the "
+            "other is not is a normal night."
         ),
     ),
     "airtoxscreen": SourceSchedule(

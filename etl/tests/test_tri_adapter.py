@@ -534,14 +534,21 @@ async def test_the_manifest_records_every_artifact_with_a_checksum(sink: InMemor
     assert GAZETTEER_URL in urls
 
 
-async def test_the_e3_toxicity_weights_are_declared_missing_rather_than_assumed(
+async def test_the_e3_toxicity_weights_are_declared_as_another_sources_job(
     sink: InMemorySink,
 ) -> None:
+    """This adapter loads the poundage; `epa_rsei` loads what multiplies it.
+
+    The split is the point, not an omission: keeping the weights in their own
+    table and their own pull means adopting a new RSEI edition never re-reads a
+    single release.
+    """
     result = await run(sink)
 
     detail = gaps_text(result)
     assert "RSEI" in detail
-    assert "chemical_toxicity_weight is still" in detail
+    assert "chemical_toxicity_weight is filled" in detail
+    assert "epa_rsei" in detail
 
 
 async def test_the_reporting_threshold_gap_is_declared(sink: InMemorySink) -> None:

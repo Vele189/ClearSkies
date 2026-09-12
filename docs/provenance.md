@@ -53,7 +53,7 @@ nightly job and this table fills itself in._
 
 <!-- END GENERATED PROVENANCE -->
 
-## The five sources
+## The sources
 
 Pinned vintages, cadences and native geographies are argued in
 `docs/methodology.md` section 6. Summarised:
@@ -62,9 +62,27 @@ Pinned vintages, cadences and native geographies are argued in
 |---|---|---|---|
 | EPA ECHO / ICIS | Facilities, permits, inspections, violations, enforcement | Point | Weekly upstream |
 | EPA TRI | Annual on-site air releases | Point | Annual, ~18-month lag |
+| EPA RSEI | Inhalation toxicity weight per TRI chemical | None; one row per chemical | Annual, by model version |
 | EPA AirToxScreen | Modeled cancer risk and respiratory hazard | Census tract | Every 1–2 years, ~3-year lag |
 | OpenAQ | Measured PM2.5 | Point (monitor) | Daily |
 | US Census ACS 5-year | Income, poverty, education, language, age, housing | Census tract | Annual, 5-year pooled |
+
+RSEI is the one source that describes no place. It publishes a multiplier per
+chemical, and E3 is the product of it and TRI's poundage, so neither source is
+an indicator without the other. Its vintage is an RSEI model version such as
+`v2312` rather than a year, because two editions can appear in one calendar year
+and one edition can stand for several.
+
+**What RSEI does not weight.** EPA publishes an inhalation toxicity weight for
+461 of the 823 chemicals and categories on the TRI list. A chemical it has no
+weight for keeps its release rows and stays in the drill-down, and is left out
+of E3 rather than scored as harmless, which is the rule below applied to a
+multiplier instead of to a measurement. Because that exclusion is otherwise
+invisible — a facility releasing an unweighted chemical reaches the score with
+the same weighted total as one releasing nothing — the view
+`facility_release_toxicity` reports the share of each facility's reported air
+poundage that carried a weight. For Louisiana's 2024 releases that share is
+99.81% state-wide, and two of its 373 facilities are at zero.
 
 ## Why checksums
 
