@@ -16,7 +16,7 @@ The order is section 10's:
                        -> score = PB x PC (step 4)
                        -> confidence (section 12)
 
-**What is missing is missing, not zero.** Four indicators have no source data
+**What is missing is missing, not zero.** Three indicators have no source data
 in this database and one has no implementable definition, and every one of them
 is left out rather than filled in. `component.compute` drops an absent
 indicator, re-weights the groups that survive, and records the loss as a
@@ -85,7 +85,6 @@ UNAVAILABLE: Mapping[str, str] = {
     "E2": "AirToxScreen is not loaded: its 2010 tracts do not all exist in the 2020 set",
     "E3": "chemical_toxicity_weight is empty, so RSEI weighting cannot be applied",
     "E4": "OpenAQ exceeded its partial-failure tolerance and loaded nothing",
-    "F4": "ECHO's RCRA flags are never populated by the adapter, so every value would be a false zero",
 }
 
 # F3 is left out on different grounds from the five above. Section 8.2 defines
@@ -248,13 +247,21 @@ def _summed(
 
 # ---- the facility-proximity indicators ---------------------------------
 
-# One pass over the links relation for both indicators. `hex_facility_links_all`
-# is the same definition of "near" the drill-down uses, so a facility that the
-# panel shows contributing to a hex is a facility that scored it.
+# One pass over the links relation for all three indicators.
+# `hex_facility_links_all` is the same definition of "near" the drill-down uses,
+# so a facility that the panel shows contributing to a hex is a facility that
+# scored it.
+#
+# F4 counts a facility once however many of the two flags it carries: section 8.2
+# defines it as a count of generators and TSD facilities, not of designations, and
+# a site that is both is still one site. The flags are populated by the ECHO
+# adapter from RCRA (CS-116); before that they were false for every row, which is
+# why this indicator was listed unavailable rather than computed as zero.
 FACILITY_INDICATORS = """
 SELECT l.h3::text AS h3,
        sum(l.decay_weight) FILTER (WHERE f.is_major_source OR f.has_title_v) AS f1,
-       sum(l.decay_weight * COALESCE(q.bad_quarters, 0))                     AS f2
+       sum(l.decay_weight * COALESCE(q.bad_quarters, 0))                     AS f2,
+       sum(l.decay_weight) FILTER (WHERE f.is_rcra_lqg OR f.is_rcra_tsdf)     AS f4
   FROM hex_facility_links_all($1) l
   JOIN facility f ON f.facility_id = l.facility_id
   LEFT JOIN (
@@ -275,10 +282,16 @@ async def facility_indicators(conn: asyncpg.Connection) -> dict[str, dict[str, f
     rows = await conn.fetch(FACILITY_INDICATORS, INTERACTION_RADIUS_M, COMPLIANCE_QUARTERS)
     f1: dict[str, float | None] = {}
     f2: dict[str, float | None] = {}
+    f4: dict[str, float | None] = {}
     for row in rows:
+        # A null sum means no facility within the radius matched the filter, which
+        # for a proximity count is an observed zero rather than an absence: the
+        # facilities were looked for and there are none. An absence here would be a
+        # hex the links relation says nothing about, and those get no row at all.
         f1[row["h3"]] = float(row["f1"]) if row["f1"] is not None else 0.0
         f2[row["h3"]] = float(row["f2"]) if row["f2"] is not None else 0.0
-    return {"F1": f1, "F2": f2}
+        f4[row["h3"]] = float(row["f4"]) if row["f4"] is not None else 0.0
+    return {"F1": f1, "F2": f2, "F4": f4}
 
 
 # ---- writing the three tables ------------------------------------------
