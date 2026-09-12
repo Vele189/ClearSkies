@@ -27,6 +27,49 @@ Qtr1Start the oldest quarter. Position 1 is the oldest. See `_QUARTER_STATUS`.
 **Query ids expire.** `get_facilities` returns a QueryID and a row count, and
 the rows come from `get_qid`. A qid that worked minutes earlier returns nothing
 later, so `fetch` creates the query and pages it immediately.
+
+F4 needs a second ECHO service, and three things about it shaped the rest of
+this adapter:
+
+**The air feed carries nothing about hazardous waste.** `facility.is_rcra_lqg`
+and `facility.is_rcra_tsdf` come from `rcra_rest_services`, which publishes
+RCRAInfo the way `air_rest_services` publishes ICIS-Air. Louisiana returns 23,782
+handler rows there against 13,842 air permits, and most of them have no business
+in F4: 13,558 are very small quantity generators, 2,827 small quantity
+generators and 724 transporters. 754 FRS sites are large-quantity generators or
+TSD facilities, and 272 of those join the air feed on the registry id. The other
+482 are hazardous-waste sites that hold no air permit, so they are loaded as
+their own facility rows on the terms `pipeline/adapters/tri.py` uses for an
+unmatched TRI site; without that, two thirds of the state's generators would
+never reach F4.
+
+**The service ignores query parameters it does not recognise.** `p_st=LA&p_gs=L`
+returns the same 23,782 rows as `p_st=LA` alone, and so does every other spelling
+of a generator-status filter tried against it. A filter passed upstream would
+look like it worked and quietly do nothing, so the LQG and TSDF screen is applied
+here, on rows this adapter has actually read.
+
+**A TSD facility is identified by its permitted units, not by RCRA_UNIVERSE.**
+The universe string labels 25 sites an operating TSDF and 24 a legacy one, while
+the `TSDF` column lists permitted unit types for 103 sites and is a strict
+superset of the first: every universe TSDF has one. The 54 sites it adds are not
+clerical. BASF at Zachary reports its universe as `LQG` alone and its units as
+`Land Disposal (L); Incinerator (I); Storage (S); Treatment (T)`; Benton
+Creosoting Works reports `VSQG` and a land disposal unit. Reading the universe
+string alone would leave a hazardous-waste incinerator and a creosote land
+disposal site out of F4, so the unit list decides the flag and the universe token
+is a fallback for a row that has one without the other.
+
+Legacy TSDFs count. Methodology section 8.2 qualifies F1 with "active" and F4
+with nothing, and the waste in a closed land disposal unit does not leave when
+the permit lapses: Marine Shale Processors at Amelia stopped burning in the 1990s
+and its cells are still there. The count is published in the manifest so a reader
+who disagrees can see how much of F4 rests on it.
+
+A failed RCRA pull fails the whole source rather than loading the air feed alone.
+False in both flags for every facility is the "measured, and there are none
+nearby" reading of a question nobody asked, which is the failure this ticket
+exists to remove.
 """
 
 import csv
@@ -43,7 +86,7 @@ from pipeline.adapters.registry import register
 from pipeline.context import RunContext
 from pipeline.errors import PermanentSourceError, RecordRejected
 from pipeline.geo import Geocode, classify, containing_cell
-from pipeline.metadata import KnownGap, SourceSpec
+from pipeline.metadata import Artifact, KnownGap, SourceSpec
 from pipeline.policy import RateLimit, SourcePolicy
 from pipeline.records import NormalizedRecord
 
@@ -81,6 +124,40 @@ QCOLUMNS: tuple[tuple[int, str], ...] = (
     (81, "AIR_LAST_FEA_DATE"),
     (117, "CALCULATED_ACCURACY_METERS"),
 )
+
+# RCRAInfo, for the two hazardous-waste flags F4 reads. Same shape as the air
+# service: a query id, then pages of rows.
+RCRA_GET_FACILITIES = f"{ECHO}/rcra_rest_services.get_facilities"
+RCRA_GET_QID = f"{ECHO}/rcra_rest_services.get_qid"
+
+# Requested by ColumnID from rcra_rest_services.metadata, as above. RCRA_UNIVERSE
+# and TSDF are what F4 exists to read; the rest is what a site holding no air
+# permit needs in order to become a facility row of its own.
+RCRA_QCOLUMNS: tuple[tuple[int, str], ...] = (
+    (8, "REGISTRY_ID"),
+    (2, "SOURCE_ID"),
+    (1, "RCR_NAME"),
+    (3, "RCR_STREET"),
+    (4, "RCR_CITY"),
+    (5, "RCR_STATE"),
+    (7, "RCR_ZIP"),
+    (14, "FAC_FIPS_CODE"),
+    (22, "RCRA_NAICS"),
+    (23, "FAC_LAT"),
+    (24, "FAC_LONG"),
+    (25, "RCRA_UNIVERSE"),
+    (26, "TSDF"),
+    (92, "CALCULATED_ACCURACY_METERS"),
+)
+
+# The generator token F4 counts. Compared as a whole token rather than searched
+# for, because 'SQG' is a substring of 'VSQG' and a smaller generator is not a
+# large one.
+LQG_TOKEN = "LQG"
+
+# Matched inside a token, because the universe string spells it two ways:
+# 'Operating TSDF' and 'Legacy TSDF'. Both count; see the module docstring.
+TSDF_TOKEN = "TSDF"
 
 # Census ZCTA centroids, for the two-kilometre check in methodology section 6.
 # Pinned to a vintage: a moving gazetteer would silently change which
@@ -134,6 +211,12 @@ class Facility(NormalizedRecord):
     geocode_accuracy_m: float | None
     is_major_source: bool
     has_title_v: bool
+    # The two columns F4 reads, from ECHO's RCRA feed. False means RCRAInfo was
+    # read and holds no large-quantity generator or TSD record for this site, which
+    # is a different statement from the "never asked" these columns carried while
+    # the adapter left them at their schema default.
+    is_rcra_lqg: bool = False
+    is_rcra_tsdf: bool = False
     echo_url: str
     air_source_ids: tuple[str, ...]
     operating_status: str | None
@@ -173,6 +256,108 @@ class EnforcementAction(NormalizedRecord):
         return (self.action_id,)
 
 
+def universe(row: Mapping[str, str]) -> tuple[str, ...]:
+    """RCRA_UNIVERSE as its tokens: 'LQG, Operating TSDF' is two of them."""
+    return tuple(
+        token.strip() for token in (row.get("RCRAUniverse") or "").split(",") if token.strip()
+    )
+
+
+def is_large_quantity_generator(row: Mapping[str, str]) -> bool:
+    return LQG_TOKEN in universe(row)
+
+
+def is_tsd_facility(row: Mapping[str, str]) -> bool:
+    """A site with permitted TSD units, or one the universe string labels a TSDF.
+
+    The unit list leads because it is the wider and the better-populated of the
+    two; see the module docstring. The universe token is still read, so a row
+    that carries one without the other is not lost.
+    """
+    if (row.get("Tsdf") or "").strip():
+        return True
+    return any(TSDF_TOKEN in token for token in universe(row))
+
+
+@dataclass(frozen=True, slots=True)
+class RcraHandler:
+    """What the RCRA feed says about one FRS site, reduced to what F4 needs.
+
+    One site can hold several RCRA handler ids for the same reason it can hold
+    several air permits, and Louisiana has 13 that do: Dow's Plaquemine complex
+    reports `LAD008187080` and `LAR000086074` under registry id 110001244724. The
+    flags are therefore OR-ed across the site's handlers, because a site with any
+    large-quantity generator on it is a large-quantity generator site.
+
+    The address and coordinate fields are only read for a site the air feed does
+    not hold. Where both feeds describe one site, the air feed's account wins, so
+    a facility's row does not change shape depending on which service was read
+    last.
+    """
+
+    registry_id: str
+    handler_ids: tuple[str, ...]
+    is_lqg: bool
+    is_tsdf: bool
+    name: str | None
+    street: str | None
+    city: str | None
+    state: str | None
+    zip5: str | None
+    fips: str | None
+    naics: str | None
+    latitude: float | None
+    longitude: float | None
+    accuracy_m: float | None
+
+    @classmethod
+    def of(cls, registry_id: str, rows: Sequence[Mapping[str, str]]) -> "RcraHandler":
+        def first(key: str) -> str | None:
+            for row in rows:
+                value = (row.get(key) or "").strip()
+                if value:
+                    return value
+            return None
+
+        return cls(
+            registry_id=registry_id,
+            handler_ids=tuple(
+                sorted({sid for row in rows if (sid := (row.get("SourceID") or "").strip())})
+            ),
+            is_lqg=any(is_large_quantity_generator(row) for row in rows),
+            is_tsdf=any(is_tsd_facility(row) for row in rows),
+            name=first("RCRAName"),
+            street=first("RCRAStreet"),
+            city=first("RCRACity"),
+            state=first("RCRAState"),
+            zip5=(first("RCRAZip") or "")[:5] or None,
+            fips=first("FacFIPSCode"),
+            naics=first("RCRANAICS"),
+            latitude=_parse_float(first("FacLat")),
+            longitude=_parse_float(first("FacLong")),
+            accuracy_m=_parse_float(first("CalculatedAccuracyMeters")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RcraJoin:
+    """What the RCRA pull found, and how much of it reached an air facility.
+
+    Acceptance criterion three: an unjoined generator is an F4 contribution that
+    silently did not happen, so the counts are carried out of `fetch` and into the
+    manifest rather than logged and forgotten.
+    """
+
+    screened: int
+    sites: int
+    matched: int
+    unkeyed: int
+
+    @property
+    def unmatched(self) -> int:
+        return self.sites - self.matched
+
+
 @dataclass(frozen=True, slots=True)
 class EchoSite:
     """One FRS site, every air permit ECHO returned for it, and its geocoding verdict.
@@ -189,6 +374,10 @@ class EchoSite:
 
     registry_id: str
     sources: tuple[dict[str, str], ...]
+    # What RCRAInfo says about this site, where it says anything. None for a site
+    # that holds air permits and no hazardous-waste record; `sources` is empty for
+    # a hazardous-waste site that holds no air permit. Both are facilities.
+    rcra: RcraHandler | None = None
     geocode: Geocode = field(default_factory=lambda: Geocode(status="ok", quality="unverified"))
 
     def first(self, key: str) -> str | None:
@@ -201,6 +390,81 @@ class EchoSite:
 
     def any_equals(self, key: str, value: str) -> bool:
         return any((source.get(key) or "").strip() == value for source in self.sources)
+
+    @property
+    def facility_id(self) -> str:
+        """The schema's rule, extended to RCRA: the FRS registry id, or the
+        handler id prefixed `rcra:`.
+
+        Every Louisiana large-quantity generator and TSD site carries an FRS id
+        today, so the prefix is a fallback rather than a path the current extract
+        exercises. It exists because a generator with no registry id is still a
+        generator, and dropping one is an F4 contribution that silently did not
+        happen. TRI does the same with a `tri:` prefix.
+        """
+        if self.registry_id:
+            return self.registry_id
+        if self.rcra is not None and self.rcra.handler_ids:
+            return f"rcra:{self.rcra.handler_ids[0]}"
+        return ""
+
+    @property
+    def has_air_permits(self) -> bool:
+        return bool(self.sources)
+
+    def attribute(self, air_key: str, rcra_field: str) -> str | None:
+        """The air feed's account of an attribute, or RCRA's where there is no air permit."""
+        value = self.first(air_key)
+        if value:
+            return value
+        return getattr(self.rcra, rcra_field) if self.rcra is not None else None
+
+    @property
+    def name(self) -> str | None:
+        return self.attribute("AIRName", "name")
+
+    @property
+    def state(self) -> str | None:
+        return self.attribute("AIRState", "state")
+
+    @property
+    def zip5(self) -> str | None:
+        reported = self.attribute("AIRZip", "zip5")
+        return reported[:5] if reported else None
+
+    @property
+    def county_fips(self) -> str | None:
+        """Both feeds report state plus county; the schema column holds the county."""
+        fips = self.attribute("FacFIPSCode", "fips") or ""
+        return fips[2:5] if len(fips) >= 5 else None
+
+    @property
+    def naics_code(self) -> str | None:
+        """Both feeds report a space-separated list, primary code first."""
+        return (self.attribute("AIRNAICS", "naics") or "").split(" ")[0] or None
+
+    @property
+    def reported_point(self) -> tuple[float | None, float | None]:
+        latitude = _parse_float(self.first("FacLat"))
+        longitude = _parse_float(self.first("FacLong"))
+        if latitude is None and longitude is None and self.rcra is not None:
+            return self.rcra.latitude, self.rcra.longitude
+        return latitude, longitude
+
+    @property
+    def accuracy_m(self) -> float | None:
+        reported = _parse_float(self.first("CalculatedAccuracyMeters"))
+        if reported is None and self.rcra is not None:
+            return self.rcra.accuracy_m
+        return reported
+
+    @property
+    def is_rcra_lqg(self) -> bool:
+        return self.rcra is not None and self.rcra.is_lqg
+
+    @property
+    def is_rcra_tsdf(self) -> bool:
+        return self.rcra is not None and self.rcra.is_tsdf
 
 
 def quarter_start(day: date) -> date:
@@ -290,7 +554,7 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
 
     spec = SourceSpec(
         name="epa_echo",
-        title="EPA Enforcement and Compliance History Online (ECHO/ICIS-Air)",
+        title="EPA Enforcement and Compliance History Online (ECHO: ICIS-Air and RCRAInfo)",
         homepage="https://echo.epa.gov/tools/web-services",
         cadence="refreshed weekly upstream",
         native_geography="point (facility lat/lon, self-reported)",
@@ -349,11 +613,19 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             # an empty state, and retrying the same qid will not help.
             raise PermanentSourceError(f"{GET_QID}: qid {qid} returned no rows")
 
+        # Before the gazetteer, so a hazardous-waste site that holds no air permit
+        # is classified on the same ZIP centroids as every other facility.
+        handlers, screened, unkeyed, rcra_artifacts = await self._rcra_handlers(ctx, state)
+        artifacts.extend(rcra_artifacts)
+
         gazetteer = await ctx.http.get(GAZETTEER_URL)
         artifacts.append(gazetteer.artifact)
         self._zip_centroids = load_zip_centroids(gazetteer.content)
 
-        sites = tuple(self._classify(site, state) for site in self._group_by_site(rows))
+        air_sites = self._group_by_site(rows)
+        merged, matched = self._merge_rcra(air_sites, handlers)
+        join = RcraJoin(screened=screened, sites=len(handlers), matched=matched, unkeyed=unkeyed)
+        sites = tuple(self._classify(site, state) for site in merged)
         flagged: dict[str, int] = {}
         for site in sites:
             status = site.geocode.status
@@ -361,7 +633,10 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         unchecked = sum(1 for site in sites if not site.geocode.zip_checked)
 
         notes = [
-            f"{len(rows)} air permits over {len(sites)} FRS sites",
+            f"{len(rows)} air permits over {len(air_sites)} FRS sites",
+            f"{join.sites} RCRA large-quantity generator or TSD sites over "
+            f"{join.screened} handler rows; {join.matched} joined the air feed, "
+            f"{join.unmatched} loaded on their own facility rows",
             f"ZIP centroids from the {GAZETTEER_YEAR} Census gazetteer "
             f"({len(self._zip_centroids)} ZIP codes)",
         ]
@@ -370,7 +645,8 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
 
         return FetchResult(
             records=sites,
-            known_gaps=self._positional_gaps(flagged, unchecked, len(sites)),
+            known_gaps=self._positional_gaps(flagged, unchecked, len(sites))
+            + self._rcra_gaps(join),
             # ECHO republishes continuously rather than in numbered releases, so
             # the refresh date is the only release identifier it has. Section 12
             # computes recency from this.
@@ -378,6 +654,117 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             artifacts=artifacts,
             notes=notes,
         )
+
+    async def _rcra_handlers(
+        self, ctx: RunContext, state: str
+    ) -> tuple[dict[str, RcraHandler], int, int, list[Artifact]]:
+        """The pilot state's large-quantity generators and TSD facilities, by site.
+
+        Every handler the state holds is paged and screened here rather than
+        filtered upstream, because the service ignores query parameters it does not
+        recognise and would answer a generator-status filter with all 23,782 rows.
+        See the module docstring.
+
+        A failure raises, which fails the whole ECHO pull rather than loading the
+        air feed on its own. Both flags false for every facility is the reading
+        "measured, and there are none nearby" of a question that was never asked,
+        and F4 would be a column of honest-looking zeroes.
+        """
+        columns = ",".join(str(cid) for cid, _ in RCRA_QCOLUMNS)
+
+        opened = await ctx.http.get(RCRA_GET_FACILITIES, params={"output": "JSON", "p_st": state})
+        results = self._results(opened.content, RCRA_GET_FACILITIES)
+        qid = _as_text(results.get("QueryID"))
+        expected = _as_int(results.get("QueryRows"))
+        if not qid:
+            raise PermanentSourceError(f"{RCRA_GET_FACILITIES}: no QueryID in the response")
+        if expected == 0:
+            raise PermanentSourceError(f"{RCRA_GET_FACILITIES}: {state} matched no RCRA handlers")
+
+        artifacts = [opened.artifact]
+        rows: list[dict[str, str]] = []
+        for page in range(1, MAX_PAGES + 1):
+            download = await ctx.http.get(
+                RCRA_GET_QID,
+                params={
+                    "output": "JSON",
+                    "qid": str(qid),
+                    "pageno": str(page),
+                    "responseset": str(PAGE_SIZE),
+                    "qcolumns": columns,
+                },
+            )
+            artifacts.append(download.artifact)
+            batch = _as_rows(self._results(download.content, RCRA_GET_QID).get("Facilities"))
+            rows.extend(batch)
+            if len(batch) < PAGE_SIZE or len(rows) >= expected:
+                break
+
+        if not rows:
+            # As on the air side: a qid returning nothing is an expired query
+            # rather than a state without hazardous waste in it.
+            raise PermanentSourceError(f"{RCRA_GET_QID}: qid {qid} returned no rows")
+
+        handlers, unkeyed = self._group_handlers(rows)
+        return handlers, len(rows), unkeyed, artifacts
+
+    @staticmethod
+    def _group_handlers(rows: Sequence[dict[str, str]]) -> tuple[dict[str, RcraHandler], int]:
+        """One entry per FRS site, keeping only the sites F4 counts.
+
+        Grouped before screening rather than after, so a site whose large-quantity
+        generator is one handler among several is still a large-quantity generator
+        site. The key is what `facility_id` will be, which is how the merge against
+        the air feed and the schema's primary key stay the same question.
+        """
+        grouped: dict[str, list[dict[str, str]]] = {}
+        unkeyed = 0
+        for row in rows:
+            key = (row.get("RegistryID") or "").strip()
+            if not key:
+                handler_id = (row.get("SourceID") or "").strip()
+                if not handler_id:
+                    # Neither identifier: there is nothing to key a facility on and
+                    # nothing to join it by. Counted into the manifest instead.
+                    unkeyed += 1
+                    continue
+                key = f"rcra:{handler_id}"
+            grouped.setdefault(key, []).append(row)
+
+        sites: dict[str, RcraHandler] = {}
+        for key, group in grouped.items():
+            handler = RcraHandler.of("" if key.startswith("rcra:") else key, group)
+            if handler.is_lqg or handler.is_tsdf:
+                sites[key] = handler
+        return sites, unkeyed
+
+    @staticmethod
+    def _merge_rcra(
+        air: Sequence[EchoSite], handlers: Mapping[str, RcraHandler]
+    ) -> tuple[tuple[EchoSite, ...], int]:
+        """Attach the flags to the air sites they belong to, then add what is left.
+
+        Acceptance criteria one and two. A site the air feed already holds gets its
+        flags on its existing row, because the sink upserts a whole facility on its
+        natural key and a second row would overwrite the permit, compliance and
+        enforcement knowledge this adapter just built. A site the air feed does not
+        hold becomes its own facility, so its proximity still reaches F4.
+        """
+        sites: list[EchoSite] = []
+        matched = 0
+        for site in air:
+            handler = handlers.get(site.facility_id) if site.facility_id else None
+            if handler is None:
+                sites.append(site)
+                continue
+            matched += 1
+            sites.append(replace(site, rcra=handler))
+
+        seen = {site.facility_id for site in air if site.facility_id}
+        for key, handler in handlers.items():
+            if key not in seen:
+                sites.append(EchoSite(registry_id=handler.registry_id, sources=(), rcra=handler))
+        return tuple(sites), matched
 
     @staticmethod
     def _results(payload: bytes, url: str) -> dict[str, object]:
@@ -413,23 +800,23 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
     # ---- validate ------------------------------------------------------
 
     def validate(self, record: EchoSite, ctx: RunContext) -> None:
-        if not record.registry_id:
+        if not record.facility_id:
             raise RecordRejected("missing FRS registry id", field="RegistryID")
-        if not record.sources:
-            raise RecordRejected("no air permits", record_id=record.registry_id)
-        if not record.first("AIRName"):
+        if not record.sources and record.rcra is None:
+            raise RecordRejected("no air permits", record_id=record.facility_id)
+        if not record.name:
             raise RecordRejected(
-                "missing facility name", field="AIRName", record_id=record.registry_id
+                "missing facility name", field="AIRName", record_id=record.facility_id
             )
 
-        state = record.first("AIRState")
+        state = record.state
         if state and state.upper() != ctx.pilot_state:
             # The query filtered by state, so this means upstream disagrees with
             # itself. Attributing it to a Louisiana hexagon would be wrong.
             raise RecordRejected(
                 f"reported state {state} is not {ctx.pilot_state}",
                 field="AIRState",
-                record_id=record.registry_id,
+                record_id=record.facility_id,
             )
 
     # ---- normalize -----------------------------------------------------
@@ -437,33 +824,34 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
     def normalize(self, record: EchoSite, ctx: RunContext) -> Iterator[NormalizedRecord]:
         facility = self._facility(record)
         yield facility
-        yield from self._compliance_quarters(record, facility.facility_id, ctx)
-        yield from self._enforcement(record, facility.facility_id)
+        # A hazardous-waste site holding no air permit has no Clean Air Act
+        # compliance history to report, and twelve 'unknown' CAA quarters for it
+        # would assert that somebody looked at it under a statute it is not
+        # permitted under. RCRA's own compliance history is a separate feed and a
+        # separate ticket; see `known_gaps`.
+        if record.has_air_permits:
+            yield from self._compliance_quarters(record, facility.facility_id, ctx)
+            yield from self._enforcement(record, facility.facility_id)
 
     def _facility(self, site: EchoSite) -> Facility:
-        reported_lat = _parse_float(site.first("FacLat"))
-        reported_lon = _parse_float(site.first("FacLong"))
+        reported_lat, reported_lon = site.reported_point
         # A verdict that leaves no storable point takes the geometry with it. A
         # placeholder zero written into the table would put a Louisiana refinery
         # in the Gulf of Guinea; the reported_* pair keeps what upstream said so
         # the quarantine is still auditable.
         latitude = reported_lat if site.geocode.has_point else None
         longitude = reported_lon if site.geocode.has_point else None
-        zip5 = (site.first("AIRZip") or "")[:5] or None
-        fips = site.first("FacFIPSCode") or ""
-        operating = site.first("AIRStatus")
 
         return Facility(
-            facility_id=site.registry_id,
+            facility_id=site.facility_id,
             registry_id=site.registry_id,
-            name=site.first("AIRName") or "",
-            street=site.first("AIRStreet"),
-            city=site.first("AIRCity"),
-            state=site.first("AIRState"),
-            zip5=zip5,
-            # FacFIPSCode is state plus county; the column holds the county part.
-            county_fips=fips[2:5] if len(fips) >= 5 else None,
-            naics_code=(site.first("AIRNAICS") or "").split(" ")[0] or None,
+            name=site.name or "",
+            street=site.attribute("AIRStreet", "street"),
+            city=site.attribute("AIRCity", "city"),
+            state=site.state,
+            zip5=site.zip5,
+            county_fips=site.county_fips,
+            naics_code=site.naics_code,
             latitude=latitude,
             longitude=longitude,
             reported_latitude=reported_lat,
@@ -472,13 +860,20 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             coordinate_status=site.geocode.status,
             geocode_quality=site.geocode.quality,
             geocode_accuracy_m=site.geocode.accuracy_m,
+            # Clean Air Act permitting, from the air feed alone. A hazardous-waste
+            # site holding no air permit is not a major source by default; it is a
+            # site this feed says nothing about, which is what false means here.
             is_major_source=site.any_equals("AIRMajorFlag", "Y"),
             has_title_v=site.any_equals("AIRClassification", "Major Emissions"),
-            echo_url=DFR_URL.format(registry_id=site.registry_id),
+            is_rcra_lqg=site.is_rcra_lqg,
+            is_rcra_tsdf=site.is_rcra_tsdf,
+            # The public report is keyed by FRS id, so a site loaded under a
+            # `rcra:` key has no report to link to rather than a broken link.
+            echo_url=DFR_URL.format(registry_id=site.registry_id) if site.registry_id else "",
             air_source_ids=tuple(
                 sid for s in site.sources if (sid := (s.get("SourceID") or "").strip())
             ),
-            operating_status=operating,
+            operating_status=site.first("AIRStatus"),
         )
 
     def _classify(self, site: EchoSite, state: str) -> EchoSite:
@@ -493,18 +888,18 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         published, and proximity indicators filter on 'ok'; deleting the rows
         would hide the problem and make the count unrecoverable.
         """
-        zip5 = (site.first("AIRZip") or "")[:5]
+        latitude, longitude = site.reported_point
         return replace(
             site,
             geocode=classify(
-                _parse_float(site.first("FacLat")),
-                _parse_float(site.first("FacLong")),
+                latitude,
+                longitude,
                 state=state,
                 # None both when no ZIP was reported and when the pinned
                 # gazetteer does not carry it. Either way the check could not
                 # run, which is not the same as passing it.
-                zip_centroid=self._zip_centroids.get(zip5),
-                accuracy_m=_parse_float(site.first("CalculatedAccuracyMeters")),
+                zip_centroid=self._zip_centroids.get(site.zip5 or ""),
+                accuracy_m=site.accuracy_m,
             ),
         )
 
@@ -540,6 +935,72 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
                         f"as passing it."
                     ),
                     affects=("F1", "F2", "F3", "F4"),
+                )
+            )
+        return tuple(gaps)
+
+    @staticmethod
+    def _rcra_gaps(join: RcraJoin) -> tuple[KnownGap, ...]:
+        """What this pull has to publish about the hazardous-waste join.
+
+        Acceptance criterion three. The unmatched count is the one a reader needs:
+        every site in it is a generator whose proximity reaches F4 only because it
+        was loaded on a row of its own, and the same number is what would silently
+        have gone missing under a join that dropped its misses.
+        """
+        gaps: list[KnownGap] = [
+            KnownGap(
+                scope="attribute",
+                detail=(
+                    f"{join.screened} RCRA handler rows were screened for the two flags F4 "
+                    f"counts, leaving {join.sites} FRS sites that are large-quantity "
+                    f"generators, TSD facilities, or both. {join.matched} joined a facility "
+                    f"the air feed loaded and carry the flags on that row; {join.unmatched} "
+                    f"did not join and are loaded under their own facility rows rather than "
+                    f"dropped, so their proximity still reaches F4. A site in that second "
+                    f"group holds no Clean Air Act permit, so it contributes to F4 and not "
+                    f"to F1, F2 or F3."
+                ),
+                affects=("F4",),
+            ),
+            KnownGap(
+                scope="methodological",
+                detail=(
+                    "A TSD facility is flagged from the permitted unit types RCRA reports "
+                    "for it, not from the RCRA_UNIVERSE string, which names roughly half as "
+                    "many: BASF at Zachary reports its universe as 'LQG' and its units as "
+                    "land disposal, incineration, storage and treatment. Legacy TSDFs are "
+                    "counted alongside operating ones, because methodology section 8.2 "
+                    "qualifies F1 with 'active' and F4 with nothing, and the waste in a "
+                    "closed land disposal unit does not leave when the permit lapses. "
+                    "Counting only operating TSDFs would be a defensible alternative "
+                    "reading and is a methodology revision under section 17."
+                ),
+                affects=("F4",),
+            ),
+            KnownGap(
+                scope="attribute",
+                detail=(
+                    "RCRA's own compliance quarters, violations and enforcement actions are "
+                    "not ingested, only the two flags F4 needs. F2 and F3 therefore describe "
+                    "Clean Air Act behaviour alone, and a facility with a clean air record "
+                    "and a hazardous-waste violation history reads as compliant in both."
+                ),
+                affects=("F2", "F3"),
+            ),
+        ]
+        if join.unkeyed:
+            gaps.append(
+                KnownGap(
+                    scope="attribute",
+                    detail=(
+                        f"{join.unkeyed} RCRA rows carried neither an FRS registry id nor a "
+                        f"handler id. There is nothing to key a facility on and nothing to "
+                        f"join them by, so they are not loaded at all. If any of them is a "
+                        f"generator, its F4 contribution is missing and this count is the "
+                        f"upper bound on how much."
+                    ),
+                    affects=("F4",),
                 )
             )
         return tuple(gaps)
