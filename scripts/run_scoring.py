@@ -16,13 +16,12 @@ The order is section 10's:
                        -> score = PB x PC (step 4)
                        -> confidence (section 12)
 
-**What is missing is missing, not zero.** Three indicators have no source data
-in this database and one has no implementable definition, and every one of them
-is left out rather than filled in. `component.compute` drops an absent
-indicator, re-weights the groups that survive, and records the loss as a
-confidence penalty. A zero would instead say "measured, and there is none",
-which for an unmonitored place is the exact failure this project exists to
-avoid.
+**What is missing is missing, not zero.** Four indicators have no source data
+in this database, and every one of them is left out rather than filled in.
+`component.compute` drops an absent indicator, re-weights the groups that
+survive, and records the loss as a confidence penalty. A zero would instead say
+"measured, and there is none", which for an unmonitored place is the exact
+failure this project exists to avoid.
 
 Run it under the ingestion environment, which carries asyncpg and the
 dasymetric code:
@@ -76,6 +75,7 @@ INTERACTION_RADIUS_M = 10_000.0
 
 # The trailing windows section 8.2 names.
 COMPLIANCE_QUARTERS = 12
+ENFORCEMENT_YEARS = 5
 
 # Indicators this run cannot produce, and why. Named rather than silently
 # absent, because "no row" and "no data" look identical downstream and only one
@@ -87,14 +87,12 @@ UNAVAILABLE: Mapping[str, str] = {
     "E4": "OpenAQ exceeded its partial-failure tolerance and loaded nothing",
 }
 
-# F3 is left out on different grounds from the five above. Section 8.2 defines
-# it as a "distance-decayed count of formal enforcement actions with log-scaled
-# penalties", which does not say whether an action with no penalty contributes
-# its count or nothing at all. The two readings give different scores, and
-# CONTRIBUTING puts that choice in docs/methodology.md rather than in a script.
-UNDEFINED: Mapping[str, str] = {
-    "F3": "section 8.2 does not fix how a penalty-free formal action is counted",
-}
+# F3 used to sit here, left out on the grounds that section 8.2 did not say
+# whether a formal action with no penalty contributed its count or nothing at
+# all. Section 8.2 now says: it contributes one, and the penalty is a log-scaled
+# increment above that floor. CS-214 made that revision in the paper first, which
+# is where CONTRIBUTING puts the choice, and this run implements it below.
+UNDEFINED: Mapping[str, str] = {}
 
 
 # ---- the run ledger ----------------------------------------------------
@@ -247,7 +245,7 @@ def _summed(
 
 # ---- the facility-proximity indicators ---------------------------------
 
-# One pass over the links relation for all three indicators.
+# One pass over the links relation for all four indicators.
 # `hex_facility_links_all` is the same definition of "near" the drill-down uses,
 # so a facility that the panel shows contributing to a hex is a facility that
 # scored it.
@@ -257,10 +255,23 @@ def _summed(
 # a site that is both is still one site. The flags are populated by the ECHO
 # adapter from RCRA (CS-116); before that they were false for every row, which is
 # why this indicator was listed unavailable rather than computed as zero.
+#
+# F3 weights each formal action by `1 + log10(1 + penalty)`, which is section 8.2
+# as revised by CS-214: the count is the floor and the penalty is the increment
+# above it, so an action settled without a monetary assessment contributes one
+# rather than nothing. `COALESCE(penalty_usd, 0)` is what makes an unreported
+# penalty a zero increment rather than a null that would erase the whole action;
+# the bulk air feed reports no penalty figure for any Louisiana facility, so today
+# that is every row and F3 reduces to the decayed count. The window is the
+# trailing five years of section 8.2, taken from the run's own as-of date rather
+# than from `current_date`, for the reason `facilities_near_hex` takes it as a
+# parameter: a run scoring last night's data should ask about that night's five
+# years, not about whenever the query happens to execute.
 FACILITY_INDICATORS = """
 SELECT l.h3::text AS h3,
        sum(l.decay_weight) FILTER (WHERE f.is_major_source OR f.has_title_v) AS f1,
        sum(l.decay_weight * COALESCE(q.bad_quarters, 0))                     AS f2,
+       sum(l.decay_weight * COALESCE(e.action_weight, 0))                    AS f3,
        sum(l.decay_weight) FILTER (WHERE f.is_rcra_lqg OR f.is_rcra_tsdf)     AS f4
   FROM hex_facility_links_all($1) l
   JOIN facility f ON f.facility_id = l.facility_id
@@ -274,24 +285,45 @@ SELECT l.h3::text AS h3,
        WHERE recency <= $2 AND status <> 'in_compliance'
        GROUP BY facility_id
   ) q ON q.facility_id = f.facility_id
+  LEFT JOIN (
+      SELECT facility_id,
+             sum(1.0 + log(10.0, 1.0 + COALESCE(penalty_usd, 0)))::float8 AS action_weight
+        FROM enforcement_action
+       WHERE is_formal
+         AND settled_on IS NOT NULL
+         AND settled_on >= ($3::date - make_interval(years => $4))::date
+       GROUP BY facility_id
+  ) e ON e.facility_id = f.facility_id
  GROUP BY l.h3
 """
 
 
-async def facility_indicators(conn: asyncpg.Connection) -> dict[str, dict[str, float | None]]:
-    rows = await conn.fetch(FACILITY_INDICATORS, INTERACTION_RADIUS_M, COMPLIANCE_QUARTERS)
+async def facility_indicators(
+    conn: asyncpg.Connection, *, as_of: date
+) -> dict[str, dict[str, float | None]]:
+    rows = await conn.fetch(
+        FACILITY_INDICATORS,
+        INTERACTION_RADIUS_M,
+        COMPLIANCE_QUARTERS,
+        as_of,
+        ENFORCEMENT_YEARS,
+    )
     f1: dict[str, float | None] = {}
     f2: dict[str, float | None] = {}
+    f3: dict[str, float | None] = {}
     f4: dict[str, float | None] = {}
     for row in rows:
         # A null sum means no facility within the radius matched the filter, which
         # for a proximity count is an observed zero rather than an absence: the
         # facilities were looked for and there are none. An absence here would be a
         # hex the links relation says nothing about, and those get no row at all.
+        # F3 reads the same way: nearby facilities with no formal action in the
+        # window is a measured absence of enforcement, not an unasked question.
         f1[row["h3"]] = float(row["f1"]) if row["f1"] is not None else 0.0
         f2[row["h3"]] = float(row["f2"]) if row["f2"] is not None else 0.0
+        f3[row["h3"]] = float(row["f3"]) if row["f3"] is not None else 0.0
         f4[row["h3"]] = float(row["f4"]) if row["f4"] is not None else 0.0
-    return {"F1": f1, "F2": f2, "F4": f4}
+    return {"F1": f1, "F2": f2, "F3": f3, "F4": f4}
 
 
 # ---- writing the three tables ------------------------------------------
@@ -364,6 +396,11 @@ async def main() -> int:
 
 
 async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
+    # One as-of date for the whole run. Section 12's recency term and section
+    # 8.2's trailing enforcement window are both measured from it, and a run that
+    # asked the clock twice could straddle midnight and date them differently.
+    as_of = datetime.now(UTC).date()
+
     missing = sorted({**UNAVAILABLE, **UNDEFINED})
     print(f"methodology {METHODOLOGY_VERSION}; {len(missing)} indicators unavailable: {', '.join(missing)}")
     for indicator, reason in sorted({**UNAVAILABLE, **UNDEFINED}.items()):
@@ -388,7 +425,7 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
 
     values: dict[str, dict[str, float | None]] = {}
     values.update(await acs_indicators(conn, crosswalk))
-    values.update(await facility_indicators(conn))
+    values.update(await facility_indicators(conn, as_of=as_of))
     present = sorted(values)
     print(f"{len(present)} indicators computed: {', '.join(present)}")
 
@@ -418,9 +455,7 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
         )
         for h3 in scored
     ]
-    confidence = confidence_for_run(
-        evidence, vintages=vintages, as_of=datetime.now(UTC).date()
-    )
+    confidence = confidence_for_run(evidence, vintages=vintages, as_of=as_of)
 
     run = burden_score(
         eligibility=eligibility,

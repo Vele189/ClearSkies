@@ -375,8 +375,15 @@ def test_a_different_methodology_version_is_a_different_run() -> None:
         "population": population({"a": 5.0, "b": 6.0}),
     }
 
+    # Derived from the declared version rather than written as a literal: a
+    # literal stops testing anything the day the paper reaches it, which is how
+    # this test started passing the current version to both sides.
+    major, minor, patch = (int(part) for part in METHODOLOGY_VERSION.split("."))
+    later = f"{major}.{minor + 1}.{patch}"
+    assert later != METHODOLOGY_VERSION
+
     current = burden_score(**args)  # type: ignore[arg-type]
-    future = burden_score(**args, methodology_version="0.2.0")  # type: ignore[arg-type]
+    future = burden_score(**args, methodology_version=later)  # type: ignore[arg-type]
 
     assert [row.score for row in current.hexes] == [row.score for row in future.hexes]
     assert current.digest() != future.digest()

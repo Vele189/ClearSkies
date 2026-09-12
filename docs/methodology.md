@@ -1,9 +1,9 @@
 # ClearSkies Methodology
 
-**Version:** 0.1.4 (draft, pre-implementation)
+**Version:** 0.2.0 (draft, pre-implementation)
 **Status:** Phase 0 deliverable. Written before any scoring code exists, by design.
 **Pilot geography:** Louisiana
-**Last revised:** 2026-09-11
+**Last revised:** 2026-09-12
 
 ---
 
@@ -157,10 +157,26 @@ Inverse-square decay is a modelling assumption, not a dispersion model. It ignor
 |---|---|---|---|---|
 | F1 | Major source proximity | Distance-decayed count of active Clean Air Act major-source and Title V permitted facilities | ECHO | Point |
 | F2 | Non-compliance burden | Distance-decayed count of facility-quarters in non-compliance over the trailing 12 quarters | ECHO | Point |
-| F3 | Enforcement burden | Distance-decayed count of formal enforcement actions over the trailing 5 years, with log-scaled penalties | ECHO | Point |
+| F3 | Enforcement burden | Distance-decayed count of formal enforcement actions over the trailing 5 years, each action scaled by its log penalty above a floor of one, so an action with no penalty contributes one | ECHO | Point |
 | F4 | Hazardous waste proximity | Distance-decayed count of RCRA large-quantity generators and treatment, storage, and disposal facilities | ECHO | Point |
 
 F1 through F4 use the same inverse-square decay and 10 km cutoff as E3, without toxicity weighting.
+
+**F3 formula, and what a penalty-free action contributes.** For hex `h`, over facilities `f` and over the formal actions `a` at each facility settled within the trailing five years:
+
+```
+F3(h) = Σ_f  [ Σ_a  ( 1 + log10(1 + p_a) ) ]  /  max(d_{h,f}, 250 m)²
+```
+
+where `p_a` is the assessed penalty in dollars, taken as zero when none was assessed.
+
+**A formal enforcement action with no penalty contributes its count, which is one.** The definition above is a count of actions that penalties scale, not a sum of penalties. The earlier wording left this open, because `log10(1 + 0)` is zero and a reader taking F3 to be a sum of log-scaled penalties would have had a penalty-free action contribute nothing at all. It contributes one.
+
+The reason is what the indicator is for. A formal action is the regulator's finding that a facility broke the law, and it is that finding, not the cheque, that F3 is meant to register. Compliance orders, consent agreements, and administrative actions closed without a monetary assessment are formal actions on the public record, and reading them as no action would erase a real regulatory event because of how its remedy was structured. The `1 +` makes the count the floor and the penalty the increment above it: an action with no penalty contributes one, a $10,000 penalty contributes five, and a $1,000,000 penalty contributes seven. The logarithm is there so that a single large settlement cannot swamp a neighbourhood's worth of smaller ones, which is the reason §8.2 called for log scaling in the first place.
+
+This choice is the one that leans harder on the confounder named below, and that cost is taken deliberately. Counting every formal action equally means F3 tracks regulatory attention more closely than a penalty-weighted reading would, because the decision to open an action is an inspector's and the decision to assess a penalty is a further filter on top of it. The alternative is worse in a way that is specific rather than theoretical: EPA's bulk air feed does not publish a penalty figure for any of the 3,017 formal actions loaded for Louisiana, so under the sum-of-penalties reading F3 would be exactly zero for every scored hex and the indicator would carry no information whatever. An indicator that is structurally zero is not a conservative choice, it is an absent one wearing a number. The 0.5 group weight, and §16, are where the confounder is accounted for.
+
+Two limits on what F3 currently measures, both recorded by the ECHO adapter as known gaps rather than buried here. The bulk feed reports a five-year count of formal actions and the date of the most recent one, not a record per action, so each facility contributes at most one action row and F3 today separates "has had a formal action" from "has not" rather than counting several. And because no penalty figure arrives with that feed, the `log10` term is presently zero for every row and F3 reduces to the decayed count. Both resolve without a methodology change if a per-action feed with penalties is loaded; the formula above is already the one that would then apply.
 
 **Why this group is weighted 0.5.** Two reasons, and the second is the important one.
 
@@ -423,6 +439,100 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 ---
 
 ## 18. Changelog
+
+### v0.2.0 — 2026-09-12 — F3 fixed: a penalty-free formal action counts as one
+
+§8.2 defined F3 as a "distance-decayed count of formal enforcement actions over
+the trailing 5 years, with log-scaled penalties" and did not say what a formal
+action carrying no penalty contributes. Read as a count that penalties scale, it
+contributes one. Read as a sum of log-scaled penalties, it contributes nothing,
+because `log10(1 + 0)` is zero. The two readings give different scores, so the
+scoring run listed F3 as undefined rather than choosing between them in code.
+
+**§8.2 now fixes the reading: a formal action with no penalty contributes one.**
+The formula is written out there, `1 + log10(1 + p)` per action, so the count is
+the floor and the penalty is an increment above it.
+
+The justification is independent of the result, as §17.2 requires. A formal
+enforcement action is the regulator's finding that a facility broke the law, and
+that finding is what F3 exists to register. Compliance orders and administrative
+actions closed without a monetary assessment are real actions on the public
+record, and a reading that scored them as no action at all would erase a
+regulatory event because of how its remedy was structured.
+
+**This is the reading that leans harder on the confounder §8.2 already names,
+and the cost is taken knowingly.** Counting every formal action equally tracks
+regulatory attention more closely than a penalty-weighted reading would, because
+opening an action is an inspector's decision and assessing a penalty is a
+further filter on top of it. Two things decide it anyway. The group weight of
+0.5 exists for exactly this bias and §16 keeps it recorded as unresolved. And
+the alternative is not a more conservative indicator but an empty one: EPA's
+bulk air feed publishes no penalty figure for any of the 3,017 formal actions
+loaded for Louisiana, so under the sum-of-penalties reading F3 would be
+identically zero across every scored hex and carry no information at all.
+
+**F3 is computed in the scoring run**, on the same inverse-square decay and
+10 km cutoff as F1, F2 and F4, in the same single pass over
+`hex_facility_links_all`. A hex with nearby facilities and no formal action
+among them scores an observed zero, on the same grounds as the other three
+proximity counts: the actions were looked for and there are none. A hex the
+links relation says nothing about still gets no row. The run stops listing F3 as
+undefined, and no indicator is listed on that ground any longer: the four that
+remain absent are absent for want of source data, not for want of a definition.
+
+**Environmental Effects now carries three indicators that vary.** F1, F2 and F3
+all take a range of values over the scored grid. F4 is computed and present, but
+every value is zero, because the RCRA generator and disposal flags the ECHO
+adapter populates are false for all 13,198 loaded facilities in the current
+database. That is an ingestion state and not a methodology question, and it
+resolves when the adapter is re-run; the group definition here is unchanged.
+
+**Two limits on what F3 measures today**, both already recorded as ECHO adapter
+known gaps and neither a reason to withhold the indicator. The bulk feed reports
+a five-year count and the date of the latest action rather than one record per
+action, so each facility contributes at most one action row and F3 currently
+separates "has had a formal action" from "has not". And with no penalty figure
+in the feed, the log term is zero for every row, so F3 reduces to the decayed
+count. A per-action feed with penalties would change neither the formula nor
+this document.
+
+**Effect on the scores.** F3 moves almost every scored hex. Measured against a
+counterfactual run identical except that F3 is withheld, so that the difference
+is attributable to this indicator alone and not to F4 having arrived in the same
+period:
+
+| | Scored hexes |
+|---|---|
+| Cells scored in both runs | 19,006 |
+| Percentile changed | 18,969 |
+| Decile changed | 13,225 |
+| Mean absolute percentile shift | 10.3 |
+| Largest percentile shift | 38.3 |
+
+The reach is expected. 855 facilities carry a formal action inside the trailing
+five-year window, and at a 10 km interaction radius their catchments cover most
+of the populated grid, so F3 is positive for 9,850 of the 19,006 scored cells,
+more than F1 or F2.
+
+**Effect on the validation set: none, and the reason matters.** Reported per
+§17.6, which requires the §13 protocol to be re-run before scores are published
+under a new version. The protocol was re-run against both runs and **the two
+reports are identical**. The gate fails in both, and all twenty registered sites
+report `not_applicable` in both, because §12 assigns every scored cell the
+insufficient confidence band and bars those cells from validation statistics.
+All four Exposures indicators are still absent, and no addition to Environmental
+Effects lifts a hex out of that band while they are.
+
+So a movement that changes the decile of 13,225 hexes is invisible to the
+validation set. **The validation set cannot presently distinguish this revision
+from its alternative**, which is stated here rather than left for a reader to
+discover, and is why the argument above stands on what F3 is for rather than on
+a result. §17.2 asks for exactly that independence. The corollary is that this
+revision is not validated by the §13 protocol yet and must be re-run once the
+Exposures indicators load.
+
+**The version moves by a minor rather than a patch** because §17.1 sets that
+floor for a change to an indicator definition, and this is one.
 
 ### v0.1.4 — 2026-09-11 — disparity analysis specified
 

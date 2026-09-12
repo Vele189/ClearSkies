@@ -16,4 +16,4 @@ makes.
 
 # Kept equal to `api/app/methodology.py`, which is in turn checked against the
 # changelog in docs/methodology.md section 18.
-METHODOLOGY_VERSION = "0.1.4"
+METHODOLOGY_VERSION = "0.2.0"
