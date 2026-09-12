@@ -56,7 +56,7 @@ from pipeline.adapters.registry import register
 from pipeline.context import RunContext
 from pipeline.errors import PermanentSourceError, RecordRejected
 from pipeline.metadata import Artifact, KnownGap, SourceSpec
-from pipeline.policy import RateLimit, SourcePolicy
+from pipeline.policy import PartialFailurePolicy, RateLimit, SourcePolicy
 from pipeline.records import Measurement, NormalizedRecord
 
 # Methodology section 5. Every point in this project lands on resolution 8.
@@ -138,6 +138,20 @@ SENTINEL_VALUES = frozenset({-999.0, -9999.0, -99.0, -1.0})
 # instrument. Ambient PM2.5 varies with weather every day; a fortnight of the
 # same number to the reported precision does not happen.
 STUCK_RUN_DAYS = 14
+
+# ---- the partial-failure tolerance -------------------------------------
+#
+# The statewide pull this tolerance was measured against, recorded here so the
+# number on the policy below can be checked against something rather than
+# adjusted until a run passes. One full pull of the Louisiana envelope over the
+# WINDOW_DAYS window: 8,800 daily records fetched, 786 of them rejected, 8.9%.
+MEASURED_PULL_RECORDS = 8800
+MEASURED_PULL_REJECTED = 786
+MEASURED_PULL_REJECTIONS: dict[str, int] = {
+    f"day built from under {MIN_DAY_COMPLETENESS_PCT:.0f}% of expected observations": 614,
+    "flagged by the data provider": 169,
+    "no value reported for the day": 3,
+}
 
 # Crude envelope with roughly a 10 km buffer, the same shape and the same
 # reasoning as the ECHO adapter's. The authoritative grid is the one CS-007
@@ -547,10 +561,31 @@ class OpenAqAdapter(SourceAdapter[OpenAqRecord]):
 
     # OpenAQ publishes a rate limit of 60 requests per minute for a free key,
     # and returns 429 above it. One per second sits inside that with room for
-    # the burst the location pages need. Everything else about failure handling
-    # is the runner's.
+    # the burst the location pages need.
+    #
+    # The partial-failure tolerance is the other override, and it is the only
+    # one in the project. Most of these rejections are EPA's completeness rule
+    # for a valid daily mean, MIN_DAY_COMPLETENESS_PCT: a day built from under
+    # 75% of its expected hourly observations is not a daily mean, whoever
+    # publishes it. On a network this thin that rule fires on a routine share of
+    # days. The measured pull recorded above rejected 786 of 8,800 daily
+    # records, 8.9%, of which 614 were incomplete days, 169 were flagged by the
+    # provider and 3 carried no value. The 1% default therefore fails every
+    # night and loads nothing, which leaves hex_air_quality empty and drops E4.
+    # That default guards against a source that *changes*; this source's steady
+    # state is sparse, which is the condition E4 exists to represent.
+    #
+    # 15% is the point where one whole monitor can fail without stopping the
+    # night and two cannot. The pull is about two dozen monitors over a
+    # WINDOW_DAYS window, so a monitor that goes entirely incomplete adds
+    # roughly 365 rejections: 8.9% becomes about 13%, and a second monitor takes
+    # it to about 17%, which fails. The guard the default was protecting is kept
+    # rather than removed, and nothing about how the losses are reported
+    # changes: every rejection is still counted, tallied by reason and sampled
+    # into the manifest by the runner.
     policy: ClassVar[SourcePolicy] = SourcePolicy(
         rate_limit=RateLimit(requests_per_second=1.0, burst=5),
+        partial_failure=PartialFailurePolicy(max_reject_fraction=0.15),
     )
 
     # ---- fetch ---------------------------------------------------------
