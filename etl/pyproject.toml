@@ -14,6 +14,13 @@ dependencies = [
     # parse.
     "pmtiles>=3.4",
     "mapbox-vector-tile>=2.1",
+    # CS-114, the RSEI toxicity weights. EPA publishes them only as an xlsx
+    # workbook, and openpyxl is the reference reader for that format. The same
+    # reasoning as pmtiles above: a hand-rolled reader of somebody else's
+    # published format is a parser this project would then own, and the parts
+    # that would break are exactly the ones that look skippable, shared strings
+    # and cell types among them.
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -42,9 +49,12 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.12"
 strict = true
 warn_unreachable = true
-# h3 ships no stubs; its cell functions are dynamic at the boundary.
+# h3 ships no stubs; its cell functions are dynamic at the boundary. openpyxl
+# ships none either, and a worksheet cell is `Any` at the boundary whether or not
+# it does: the RSEI adapter narrows every value it reads to str or float itself,
+# because what Excel put in a cell is a runtime fact rather than a typed one.
 [[tool.mypy.overrides]]
-module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*"]
+module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*", "openpyxl.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

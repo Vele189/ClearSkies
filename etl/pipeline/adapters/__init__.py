@@ -9,6 +9,10 @@ five real sources next to the reference implementation:
     openaq        measured PM2.5                                 (E4)
     census_acs    income, poverty, education, language, age      (S1-S2, P1-P5)
 
+and the sixth, which is a table of multipliers rather than a geography:
+
+    epa_rsei      inhalation toxicity weight per TRI chemical     (E3, with epa_tri)
+
 Each is one module here plus one line in this file.
 """
 
@@ -19,6 +23,7 @@ from pipeline.adapters.echo import EpaEchoAdapter
 from pipeline.adapters.fake import FakeAirAdapter
 from pipeline.adapters.openaq import OpenAqAdapter
 from pipeline.adapters.registry import REGISTRY, get, names, register, specs
+from pipeline.adapters.rsei import EpaRseiAdapter
 from pipeline.adapters.tri import EpaTriAdapter
 
 __all__ = [
@@ -26,6 +31,7 @@ __all__ = [
     "AirToxScreenAdapter",
     "CensusAcsAdapter",
     "EpaEchoAdapter",
+    "EpaRseiAdapter",
     "EpaTriAdapter",
     "FakeAirAdapter",
     "FetchResult",

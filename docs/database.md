@@ -435,6 +435,41 @@ A `CHECK` constraint ties `failed` to zero loaded records. Publishing a row
 count for data that is not in the database would put a number on the provenance
 page that nothing backs.
 
+### Toxicity-weighted releases (`0022`)
+
+Not a table. One view, `facility_release_toxicity`, holding the inner sum of the
+E3 formula in methodology section 8.1 per facility and reporting year:
+
+| Column | Meaning |
+|---|---|
+| `toxicity_weighted_lb` | `sum(w_c * m_{f,c})`, what E3 decays by distance |
+| `air_lb` | Reported on-site air poundage, weighted or not |
+| `weighted_air_lb`, `unweighted_air_lb` | That poundage split by whether RSEI weighted the chemical |
+| `weighted_air_lb_share` | The first as a share of `air_lb`; NULL only when the facility reported no poundage at all |
+| `chemicals`, `weighted_chemicals`, `unweighted_chemicals` | The same split by chemical rather than by pound |
+| `rsei_edition`, `rsei_editions` | Which RSEI edition scaled the total, and a tripwire for two of them being mixed |
+
+`0005` created `tri_release` and `chemical_toxicity_weight` and deliberately put
+no foreign key between them, because TRI reports chemicals RSEI has no weight
+for and a release with no weight is still a fact worth holding. This view is the
+other half of that decision: a `LEFT JOIN` and a plain `sum` mean an unweighted
+chemical contributes nothing to the weighted total rather than contributing a
+zero, which is section 11's missing-data rule applied to a multiplier.
+
+The coverage columns exist because that exclusion is otherwise invisible. A
+facility releasing a million pounds of an unweighted chemical and a facility
+releasing nothing both arrive at the scoring step with the same weighted total.
+For Louisiana's 2024 releases the state-wide weighted share is 99.81%, and the
+per-facility figure is the one worth reading: two of the 373 facilities are at
+zero and six are below half. Those are the rows where a low E3 means "not
+assessed" rather than "not much".
+
+It is a view rather than a table for the same reason `0014`'s neighbour query is
+a function. Computing it in two places is how a drill-down panel comes to show a
+number the score did not use, and materialising it would mean a fact that goes
+stale the moment either half is reloaded. It is also what keeps a new RSEI
+edition a data load rather than a schema change.
+
 ---
 
 ## 5. Troubleshooting
