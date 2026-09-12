@@ -11,6 +11,7 @@
     python -m pipeline provenance       where every number came from, and when
     python -m pipeline tiles            build the map's PMTiles archive
     python -m pipeline tiles-hosting    ask the published URL what a browser asks
+    python -m pipeline disparity        the section 13.6 finding, against a scored run
 
 The nightly job in .github/workflows/etl.yml calls this. Exit status 1 means the
 run produced no usable data, which is the signal the job should fail on; a
@@ -26,6 +27,13 @@ decides which sources are due before spending a minute on them, a ledger that
 remembers the night, and a promotion that only happens if the gate passed. That
 last one is what "a failed run leaves the previous dataset intact" means at the
 level of the whole run rather than one source.
+
+`disparity` is CS-213, and it is the one command here whose exit status must
+never depend on what it measured. Section 13.6 makes the disparity finding a
+reported result rather than a validation target, so a weak coefficient exits 0
+exactly as a strong one does. Status 1 means the analysis had nothing to run
+against, which is a missing scoring run rather than a weak finding, and status 2
+means there was no database to read.
 """
 
 import argparse
@@ -40,7 +48,14 @@ from pathlib import Path
 
 import httpx
 
+from pipeline import db
 from pipeline.adapters import census_acs, fake, get, names, openaq, specs
+from pipeline.analysis import (
+    DEFAULT_LEVEL,
+    DEFAULT_RESAMPLES,
+    DEFAULT_SEED,
+    run_disparity,
+)
 from pipeline.context import make_context
 from pipeline.http import build_client
 from pipeline.ledger import NightlyRun, RunLedger, carried, finish, outcome_from
@@ -423,6 +438,71 @@ async def _tiles_hosting(url: str, origin: str) -> int:
     return 0 if report.ok else 1
 
 
+async def _disparity(
+    *,
+    run_id: int | None,
+    out: Path | None,
+    as_json: bool,
+    resamples: int,
+    seed: int,
+    level: float,
+) -> int:
+    """CS-213: the section 13.6 finding, computed against a scored run.
+
+    Defaults to the run marked current, which is the run the API and the tiles
+    serve, so the published finding describes the data a reader is looking at
+    rather than whichever run happened to finish last.
+
+    This command reports and never judges. It prints the page framing first and
+    numbers second, because `DisparityReport.markdown` orders it that way, and
+    the independence argument travels in the report itself rather than being
+    written out here: there is one place to correct if that argument is ever
+    wrong, and it is not the command line.
+
+    The exit status says whether the analysis ran, never what it found. Anything
+    that made the coefficient itself decide the status would turn the headline
+    finding into a gate, which section 13.6 forbids in so many words.
+    """
+    try:
+        async with db.connection() as conn:
+            report = await run_disparity(
+                conn,
+                now=datetime.now(UTC),
+                run_id=run_id,
+                resamples=resamples,
+                seed=seed,
+                level=level,
+            )
+    except db.DatabaseUnavailable as exc:
+        print(f"disparity analysis needs a database: {exc}", file=sys.stderr)
+        return 2
+
+    page = report.markdown()
+    if as_json:
+        print(report.model_dump_json(indent=2))
+    else:
+        # `markdown` already ends in a newline; print would add a second one.
+        print(page, end="")
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(page, encoding="utf-8")
+        print(f"{out}: written", file=sys.stderr)
+
+    # `not_computable` is the state CS-204 leaves this in until it writes
+    # hex_score. It is worth a non-zero status so a human running the command
+    # blind can tell "nothing to analyse" from "analysed and found little",
+    # which the two reports otherwise resemble at a glance.
+    return 0 if report.status == "computed" else 1
+
+
+def _probability(text: str) -> float:
+    value = float(text)
+    if not 0.0 < value < 1.0:
+        raise argparse.ArgumentTypeError("a confidence level is strictly between 0 and 1")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pipeline", description=__doc__)
     parser.add_argument("--log-level", default="info")
@@ -560,6 +640,43 @@ def main(argv: list[str] | None = None) -> int:
     history.add_argument("--store", type=Path, default=DEFAULT_STORE)
     history.add_argument("--check", default=None, help="restrict to one check id")
 
+    disparity = sub.add_parser(
+        "disparity",
+        help="the section 13.6 finding: score percentile against racial composition",
+    )
+    disparity.add_argument(
+        "--run",
+        dest="run_id",
+        type=int,
+        default=None,
+        help="analyse this run rather than the one marked current",
+    )
+    disparity.add_argument("--json", action="store_true", help="print the report as JSON")
+    disparity.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="also write the markdown page here, e.g. docs/validation/disparity.md",
+    )
+    disparity.add_argument(
+        "--resamples",
+        type=int,
+        default=DEFAULT_RESAMPLES,
+        help="parish bootstrap resamples; lower is faster and gives a coarser interval",
+    )
+    disparity.add_argument(
+        "--seed",
+        type=int,
+        default=DEFAULT_SEED,
+        help="bootstrap seed; fixed by default so two runs over the same rows agree",
+    )
+    disparity.add_argument(
+        "--level",
+        type=_probability,
+        default=DEFAULT_LEVEL,
+        help="confidence level for every published interval",
+    )
+
     args = parser.parse_args(argv)
     logging.basicConfig(level=args.log_level.upper(), format="%(levelname)s %(name)s: %(message)s")
 
@@ -574,6 +691,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "tiles-hosting":
         return asyncio.run(_tiles_hosting(args.url, args.origin))
+
+    if args.command == "disparity":
+        return asyncio.run(
+            _disparity(
+                run_id=args.run_id,
+                out=args.out,
+                as_json=args.json,
+                resamples=args.resamples,
+                seed=args.seed,
+                level=args.level,
+            )
+        )
 
     if args.command == "runs":
         return _runs(args.state, args.limit)

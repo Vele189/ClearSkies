@@ -16,13 +16,17 @@ there is no threshold the finding must meet.
 
 The entry point is `run_disparity`, which takes a connection rather than opening
 one. That follows `pipeline.dasymetric.postgis`, and for the same reason: this
-package depends on no database driver, and the ETL has no Postgres door of its
-own yet. Until the Postgres sink lands there is no `python -m pipeline` command
-here, because a command that cannot connect to anything is worse than none.
+package depends on no database driver, and a connection passed in is a
+connection a test can fake. `pipeline/db.py` is what opens one in production.
 
 `analyse` is the half with no I/O at all. It takes rows and returns the report,
 which is what the tests exercise and what any caller with its own connection can
 reach after `load_rows`.
+
+`python -m pipeline disparity` is the command that supplies the connection. It
+lives in `__main__.py` rather than here for the reason every other command does:
+this package stays importable without a driver, and the composition root is the
+one place allowed to know which driver there is.
 """
 
 from pipeline.analysis.disparity import (
@@ -44,8 +48,18 @@ from pipeline.analysis.disparity import (
     load_rows,
     run_disparity,
 )
+from pipeline.analysis.statistics import (
+    DEFAULT_LEVEL,
+    DEFAULT_RESAMPLES,
+    DEFAULT_SEED,
+    NotComputable,
+)
 
 __all__ = [
+    "DEFAULT_LEVEL",
+    "DEFAULT_RESAMPLES",
+    "DEFAULT_SEED",
+    "NotComputable",
     "FRAMING",
     "INDEPENDENCE",
     "TOP_DECILE",

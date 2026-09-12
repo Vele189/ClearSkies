@@ -21,6 +21,11 @@ dependencies = [
     # that would break are exactly the ones that look skippable, shared strings
     # and cell types among them.
     "openpyxl>=3.1",
+    # The ingestion package's own Postgres door, `pipeline/db.py`. The API pins
+    # the same driver for the same reason: one driver across both halves means
+    # one set of type coercions to reason about when a row read by the API and a
+    # row written by a pipeline job disagree.
+    "asyncpg>=0.30",
 ]
 
 [project.optional-dependencies]
@@ -53,8 +58,10 @@ warn_unreachable = true
 # ships none either, and a worksheet cell is `Any` at the boundary whether or not
 # it does: the RSEI adapter narrows every value it reads to str or float itself,
 # because what Excel put in a cell is a runtime fact rather than a typed one.
+# asyncpg ships no stubs either, which is why the analysis package describes the
+# slice of a connection it needs as a Protocol rather than importing the driver.
 [[tool.mypy.overrides]]
-module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*", "openpyxl.*"]
+module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*", "openpyxl.*", "asyncpg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

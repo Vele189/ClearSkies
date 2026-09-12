@@ -349,7 +349,7 @@ The correlation between a hex's score percentile and its Black population share,
 
 **Reproducibility.** The bootstrap runs from a fixed seed, so the same rows and the same methodology version produce the same interval, matching the guarantee §9 makes for the scores themselves.
 
-Implemented in `etl/pipeline/analysis/`, which is the only code in the project that reads the three racial composition columns and computes no score of any kind.
+Implemented in `etl/pipeline/analysis/`, which is the only code in the project that reads the three racial composition columns and computes no score of any kind. It is run by `make disparity`, which reads a scored run out of the database, prints the finding as a page with the independence argument above the numbers, and writes that page to a file with `OUT=`. The exit status of that command reports whether the analysis had a scored run to read and never what the analysis found, because a command that failed on a weak coefficient would be the gate this section forbids.
 
 ### 13.7 Failure protocol
 

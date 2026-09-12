@@ -248,6 +248,19 @@ robustness-harness: $(SCORING_VENV) ## Run the 13.5 checks over the synthetic fi
 	$(SCORING_VENV)/bin/python scripts/run_robustness.py \
 	  --values $(SCORING)/tests/fixtures/synthetic_values.json --out /dev/null
 
+# The section 13.6 disparity finding. This one reads the database rather than a
+# JSON export of a run, because the racial composition columns live only there:
+# section 14 keeps them out of every file a score is computed from, so there is
+# no export that carries both halves of the correlation.
+#
+# It never gates, and unlike `robustness` there is no REQUIRE_PASS to make it.
+# The exit status says whether the analysis ran and never what it found, which
+# is section 13.6's rule rather than a convenience.
+.PHONY: disparity
+disparity: $(ETL_VENV) ## Report the section 13.6 finding: make disparity [RUN=42] [OUT=page.md]
+	cd $(ETL) && .venv/bin/python -m pipeline disparity \
+	  $(if $(RUN),--run $(RUN),) $(if $(OUT),--out $(abspath $(OUT)),)
+
 # ---- Red team (CS-304) -------------------------------------------------
 #
 # Runs the adversarial set against the real model and writes the report. A

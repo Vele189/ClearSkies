@@ -1672,7 +1672,8 @@ be computed carefully and framed correctly.
   sample size published beside it as the independence-assuming comparison.
   Nothing can be computed until CS-204 writes `hex_score`, and the analysis
   reports that as a `not_computable` reason naming the ticket rather than
-  returning an empty result.
+  returning an empty result. The command that supplies the connection is now
+  wired: `make disparity` reads the run marked current, or `RUN=` names another.
 - Framed as a reported result, not a validation target. **Done**, and enforced:
   the report carries no verdict, no threshold and no pass field, and a test
   asserts a flat dataset produces a reported near-zero coefficient rather than
@@ -1685,7 +1686,10 @@ be computed carefully and framed correctly.
 - Feeds the architecture write-up and the public site. **Not done**, and blocked
   on the same thing: CS-409 and CS-207 have something to render only once there
   is a run to render. The top-decile contrast exists for exactly that purpose,
-  because a correlation coefficient is not a sentence a reader can act on.
+  because a correlation coefficient is not a sentence a reader can act on. What
+  those two consume is settled either way: `make disparity OUT=...` writes the
+  page, and `--json` emits the same report with `framing` and `independence` on
+  it, so neither consumer has to restate the argument in its own words.
 
 Implemented in `etl/pipeline/analysis/`, deliberately not under `scoring/`.
 Section 14's rule is that racial composition enters no query that computes a
@@ -1693,10 +1697,14 @@ score, and this is the only code in the project that reads those three columns;
 a package boundary is one a reviewer sees in a diff.
 
 `run_disparity` takes a connection rather than opening one, following
-`pipeline.dasymetric.postgis`. The ETL package depends on no database driver and
-has no Postgres door of its own until the sink in `pipeline/sinks.py` lands, so
-there is no `python -m pipeline` command for this yet. Wiring one now would ship
-a command that cannot connect to anything.
+`pipeline.dasymetric.postgis`, so the analysis stays importable and testable
+without a driver. `pipeline/db.py` is what opens one, and `python -m pipeline
+disparity` (`make disparity`) is the command that hands it over.
+
+That command reports and never gates. Its exit status is 0 whatever the
+coefficient turns out to be, 1 when there is no scored run to read, and 2 when
+there is no database; a status that moved with the number would make the
+headline finding a gate, which is the one thing section 13.6 rules out.
 
 ---
 
