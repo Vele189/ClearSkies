@@ -27,6 +27,9 @@ from pipeline.adapters.openaq import (
     INTERPOLATION_RADIUS_KM,
     LOCATIONS_URL,
     MAX_PM25_UGM3,
+    MEASURED_PULL_RECORDS,
+    MEASURED_PULL_REJECTED,
+    MEASURED_PULL_REJECTIONS,
     MIN_VALID_DAYS,
     PILOT_ENVELOPE,
     PM25,
@@ -62,9 +65,10 @@ TEST_ENVELOPE = (30.10, 30.90, -91.80, -90.80)
 
 KEY = "test-key-not-a-real-one"
 
-# The fixture is deliberately full of unusable readings, which no real OpenAQ
-# pull is. The shipped tolerance would rightly refuse to load it;
-# `test_the_shipped_policy_stays_strict` guards the real one.
+# The fixture is deliberately full of unusable readings, at a rate no real
+# OpenAQ pull reaches. The shipped tolerance would rightly refuse to load it;
+# the tests under "the shipped configuration" guard the real one against the
+# pull it was measured on.
 TEST_POLICY = SourcePolicy(
     rate_limit=OpenAqAdapter.policy.rate_limit,
     partial_failure=PartialFailurePolicy(max_reject_fraction=0.5, min_records=1),
@@ -298,14 +302,15 @@ async def openaq_context(
     snapshots: SnapshotStore | None = None,
     clock: FakeClock | None = None,
     key: str = KEY,
+    policy: SourcePolicy = TEST_POLICY,
 ) -> AsyncIterator[RunContext]:
-    async with build_client(TEST_POLICY, transport=transport or openaq_transport()) as client:
+    async with build_client(policy, transport=transport or openaq_transport()) as client:
         yield make_context(
             http=make_fetcher(
-                client, source="openaq", policy=TEST_POLICY, snapshots=snapshots, clock=clock
+                client, source="openaq", policy=policy, snapshots=snapshots, clock=clock
             ),
             sink=sink,
-            policy=TEST_POLICY,
+            policy=policy,
             source="openaq",
             credentials={"openaq_api_key": key},
         )
@@ -529,6 +534,30 @@ async def test_every_documented_fault_is_counted_as_a_rejection(
         "stuck sensor",
     ):
         assert any(expected in reason for reason in reasons), (expected, sorted(reasons))
+
+
+async def test_the_tolerance_changes_the_verdict_and_nothing_about_the_losses(
+    loaded: tuple[PullMetadata, InMemorySink],
+) -> None:
+    """A looser tolerance must not make the rejections less visible.
+
+    The runner counts, tallies and samples before it consults the tolerance, so
+    the same pull reports the same losses whether it loads or fails.
+    """
+    lenient, _ = loaded
+    strict = await run(
+        InMemorySink(),
+        policy=SourcePolicy(
+            rate_limit=OpenAqAdapter.policy.rate_limit,
+            partial_failure=PartialFailurePolicy(max_reject_fraction=0.0),
+        ),
+    )
+
+    assert lenient.status == "partial"
+    assert strict.status == "failed"
+    assert strict.counts.rejected == lenient.counts.rejected
+    assert strict.rejection_reasons == lenient.rejection_reasons
+    assert [r.record_id for r in strict.rejections] == [r.record_id for r in lenient.rejections]
 
 
 async def test_a_monitor_outside_the_pilot_state_is_rejected(
@@ -790,16 +819,81 @@ async def test_a_second_pull_updates_rather_than_duplicates(sink: InMemorySink) 
 # ---- the shipped configuration -----------------------------------------
 
 
-def test_the_adapter_declares_a_rate_limit_and_nothing_else_about_failure() -> None:
+def test_the_adapter_declares_a_rate_limit_and_a_tolerance_and_nothing_else() -> None:
     policy = OpenAqAdapter.policy
 
     assert policy.rate_limit.requests_per_second == 1.0
     assert policy.retry == SourcePolicy().retry
-    assert policy.partial_failure == SourcePolicy().partial_failure
+    assert policy.request_timeout_s == SourcePolicy().request_timeout_s
 
 
-def test_the_shipped_policy_stays_strict() -> None:
-    assert OpenAqAdapter.policy.partial_failure.max_reject_fraction == 0.01
+def test_the_measured_pull_is_recorded_in_full() -> None:
+    """The tolerance is checked against these numbers, so they must add up."""
+    assert sum(MEASURED_PULL_REJECTIONS.values()) == MEASURED_PULL_REJECTED
+    assert MEASURED_PULL_REJECTED / MEASURED_PULL_RECORDS == pytest.approx(0.089, abs=0.001)
+
+    # Every reason in the measured pull is one the documented screen produces,
+    # spelled the way `reading_fault` spells it.
+    assert set(MEASURED_PULL_REJECTIONS) <= set(_documented_reading_faults())
+
+
+def test_the_measured_statewide_pull_loads_rather_than_failing_the_night() -> None:
+    assert _measured_verdict(MEASURED_PULL_REJECTED) == "partial"
+
+
+def test_the_tolerance_carries_one_failed_monitor_and_no_more() -> None:
+    """15% is a measured position, not a round-up: one monitor of headroom.
+
+    About two dozen monitors over a WINDOW_DAYS window, so a monitor that goes
+    entirely incomplete adds roughly WINDOW_DAYS rejections to the steady state.
+    """
+    assert _measured_verdict(MEASURED_PULL_REJECTED + WINDOW_DAYS) == "partial"
+    assert _measured_verdict(MEASURED_PULL_REJECTED + 2 * WINDOW_DAYS) == "failed"
+
+
+def test_a_pull_that_rejects_far_above_the_steady_state_still_fails() -> None:
+    """The guard the 1% default was protecting is kept, not removed."""
+    assert _measured_verdict(MEASURED_PULL_REJECTED * 2) == "failed"
+    assert _measured_verdict(MEASURED_PULL_RECORDS // 2) == "failed"
+
+
+def _measured_verdict(rejected: int) -> str:
+    """The shipped tolerance's verdict on the measured pull with `rejected` lost."""
+    return OpenAqAdapter.policy.partial_failure.verdict(
+        accepted=MEASURED_PULL_RECORDS - rejected, rejected=rejected
+    )
+
+
+def _documented_reading_faults() -> set[str]:
+    """Every reason the measured pull saw, spelled by `reading_fault` itself."""
+
+    def daily(
+        *,
+        value: float | None = 8.0,
+        completeness_pct: float = 100.0,
+        flagged_upstream: bool = False,
+    ) -> DailyReading:
+        return DailyReading(
+            measured_on=WINDOW_END,
+            value=value,
+            unit="µg/m³",
+            parameter=PM25,
+            observation_count=24,
+            completeness_pct=completeness_pct,
+            flagged_upstream=flagged_upstream,
+            in_stuck_run=False,
+        )
+
+    reasons = set()
+    for reading in (
+        daily(value=None),
+        daily(flagged_upstream=True),
+        daily(completeness_pct=50.0),
+    ):
+        fault = reading_fault(reading, (WINDOW_START, WINDOW_END))
+        assert fault is not None
+        reasons.add(fault[0])
+    return reasons
 
 
 def test_the_shipped_envelope_covers_the_pilot_state(small_envelope: None) -> None:
