@@ -67,7 +67,11 @@ from pipeline.adapters.echo import (
     GAZETTEER_YEAR,
     GET_FACILITIES,
     GET_QID,
+    RCRA_GET_FACILITIES,
+    RCRA_GET_QID,
     Facility,
+    is_large_quantity_generator,
+    is_tsd_facility,
     load_zip_centroids,
 )
 from pipeline.adapters.registry import register
@@ -121,6 +125,16 @@ COL_STACK = "5.2 - stack air"
 ECHO_REGISTRY_COLUMN = "8"
 ECHO_PAGE_SIZE = 5000
 ECHO_MAX_PAGES = 20
+
+# The ECHO adapter loads a facility row for a hazardous-waste site too, whether or
+# not it holds an air permit (CS-116), so "a facility ECHO already holds" is the
+# union of the two feeds. Asking the air feed alone would have this adapter write a
+# second row over one of those, and the sink upserts a whole facility on its
+# natural key: the hazardous-waste flags F4 reads would be replaced by this
+# adapter's defaults, and which of the two nightly pulls ran last would decide
+# whether F4 saw the site. Columns 25 and 26 are RCRA_UNIVERSE and TSDF, which is
+# all the screen needs.
+RCRA_SCREEN_COLUMNS = "8,25,26"
 
 
 class TriRelease(NormalizedRecord):
@@ -187,9 +201,10 @@ class TriSite:
     pieces, so `normalize` sums them.
 
     `owns_facility_row` is the join result. It is False when the site's FRS id
-    matches a facility ECHO already loads, in which case this adapter writes
-    releases only and leaves the facility row to the adapter that knows about
-    permits, compliance and enforcement.
+    matches a facility ECHO already loads, from either its air feed or its
+    hazardous-waste feed, in which case this adapter writes releases only and
+    leaves the facility row to the adapter that knows about permits, compliance,
+    enforcement and the RCRA flags.
     """
 
     facility_id: str
@@ -321,6 +336,10 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
         echo_ids, echo_artifacts = await self._echo_registry_ids(ctx, state)
         artifacts.extend(echo_artifacts)
 
+        rcra_ids, rcra_artifacts = await self._rcra_registry_ids(ctx, state)
+        artifacts.extend(rcra_artifacts)
+        echo_ids |= rcra_ids
+
         gazetteer = await ctx.http.get(GAZETTEER_URL)
         artifacts.append(gazetteer.artifact)
         self._zip_centroids = load_zip_centroids(gazetteer.content)
@@ -419,6 +438,57 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
             # An empty page one is an expired query id rather than a state with no
             # air facilities, and every release would be reported unmatched.
             raise PermanentSourceError(f"{GET_QID}: qid {qid} returned no registry ids")
+        return ids, artifacts
+
+    async def _rcra_registry_ids(self, ctx: RunContext, state: str) -> tuple[set[str], list[Any]]:
+        """The FRS ids of the hazardous-waste sites the ECHO adapter loads.
+
+        Screened here on the same rule that adapter uses, rather than trusted to a
+        query parameter: the RCRA service ignores parameters it does not recognise
+        and answers a generator-status filter with every handler in the state.
+        """
+        artifacts = []
+        opened = await ctx.http.get(RCRA_GET_FACILITIES, params={"output": "JSON", "p_st": state})
+        artifacts.append(opened.artifact)
+        try:
+            results = json.loads(opened.content)["Results"]
+            qid = str(results["QueryID"]).strip()
+        except (ValueError, KeyError, TypeError):
+            raise PermanentSourceError(
+                f"{RCRA_GET_FACILITIES}: no QueryID in the response"
+            ) from None
+        if not qid:
+            raise PermanentSourceError(f"{RCRA_GET_FACILITIES}: no QueryID in the response")
+
+        ids: set[str] = set()
+        for page in range(1, ECHO_MAX_PAGES + 1):
+            download = await ctx.http.get(
+                RCRA_GET_QID,
+                params={
+                    "output": "JSON",
+                    "qid": qid,
+                    "pageno": str(page),
+                    "responseset": str(ECHO_PAGE_SIZE),
+                    "qcolumns": RCRA_SCREEN_COLUMNS,
+                },
+            )
+            artifacts.append(download.artifact)
+            document = json.loads(download.content)
+            batch = document.get("Results", {}).get("Facilities") or []
+            for row in batch:
+                if not isinstance(row, dict):
+                    continue
+                if not (rid := (row.get("RegistryID") or "").strip()):
+                    continue
+                if is_large_quantity_generator(row) or is_tsd_facility(row):
+                    ids.add(rid)
+            if len(batch) < ECHO_PAGE_SIZE:
+                break
+
+        # Unlike the air query, an empty result is a legitimate answer: a state
+        # need not hold a single large-quantity generator or TSD facility. The
+        # expired-qid case is caught on the air side, which runs first against the
+        # same service.
         return ids, artifacts
 
     @staticmethod
@@ -662,7 +732,8 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
                     scope="attribute",
                     detail=(
                         f"{len(unmatched)} of {len(sites)} TRI sites did not join an ECHO "
-                        f"facility on the FRS registry id. They are loaded under their own "
+                        f"facility on the FRS registry id, in either the air feed or the "
+                        f"hazardous-waste feed. They are loaded under their own "
                         f"facility rows rather than dropped, so their releases still reach "
                         f"E3. Most are not absent from ECHO but carry a different registry "
                         f"id there: International Paper's Mansfield Mill reports FRS "

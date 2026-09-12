@@ -22,7 +22,14 @@ from pathlib import Path
 import httpx
 import pytest
 
-from pipeline.adapters.echo import GAZETTEER_URL, GET_FACILITIES, GET_QID, Facility
+from pipeline.adapters.echo import (
+    GAZETTEER_URL,
+    GET_FACILITIES,
+    GET_QID,
+    RCRA_GET_FACILITIES,
+    RCRA_GET_QID,
+    Facility,
+)
 from pipeline.adapters.tri import (
     BASIC_FILE,
     GRAMS_PER_POUND,
@@ -60,6 +67,17 @@ ECHO_REGISTRY_IDS = (
     "110070051640",  # Koch Methanol St. James
 )
 
+# What ECHO's hazardous-waste feed holds in these tests, as (registry id,
+# RCRA_UNIVERSE). The ECHO adapter loads a facility row for a large-quantity
+# generator or TSD site whether or not it holds an air permit (CS-116), so this
+# adapter must not write a second row over one. Neither id files to TRI in the
+# fixture, so the default leaves every other test's counts alone; the one test that
+# needs an overlap passes its own.
+RCRA_HANDLERS: tuple[tuple[str, str], ...] = (
+    ("110099999999", "LQG"),
+    ("110072089073", "VSQG"),
+)
+
 VALERO = "110000448659"
 DENKA = "110067396669"
 WESTLAKE = "110043973509"
@@ -91,6 +109,7 @@ def tri_transport(
     releases: str | None = None,
     directory: str | None = None,
     registry_ids: tuple[str, ...] = ECHO_REGISTRY_IDS,
+    rcra_handlers: tuple[tuple[str, str], ...] = RCRA_HANDLERS,
     years: tuple[int, ...] = (FIXTURE_YEAR,),
     fail: set[str] | None = None,
 ) -> httpx.MockTransport:
@@ -117,6 +136,20 @@ def tri_transport(
             page = request.url.params.get("pageno", "1")
             rows = [{"RegistryID": rid} for rid in registry_ids] if page == "1" else []
             return httpx.Response(200, text=json.dumps({"Results": {"Facilities": rows}}))
+        if url == RCRA_GET_FACILITIES:
+            opened = {"Results": {"QueryID": "778", "QueryRows": len(rcra_handlers)}}
+            return httpx.Response(200, text=json.dumps(opened))
+        if url == RCRA_GET_QID:
+            page = request.url.params.get("pageno", "1")
+            handlers = (
+                [
+                    {"RegistryID": rid, "RCRAUniverse": universe, "Tsdf": None}
+                    for rid, universe in rcra_handlers
+                ]
+                if page == "1"
+                else []
+            )
+            return httpx.Response(200, text=json.dumps({"Results": {"Facilities": handlers}}))
         if url == GAZETTEER_URL:
             return httpx.Response(
                 200,
@@ -442,6 +475,37 @@ async def test_the_unmatched_count_reaches_the_manifest(sink: InMemorySink) -> N
     assert f"{len(ECHO_REGISTRY_IDS)} sites joined an ECHO facility" in " ".join(result.notes)
 
 
+async def test_a_hazardous_waste_site_echo_loads_keeps_its_facility_row_there(
+    sink: InMemorySink,
+) -> None:
+    """The join is against both ECHO feeds, not just the air one (CS-116).
+
+    The ECHO adapter loads a facility row for a large-quantity generator or TSD
+    site whether or not it holds an air permit. A second row from here would be
+    upserted over it on the same natural key, and the two hazardous-waste flags F4
+    reads would be replaced by this adapter's defaults.
+    """
+    result = await run(sink, transport=tri_transport(rcra_handlers=((INTERNATIONAL_PAPER, "LQG"),)))
+
+    assert INTERNATIONAL_PAPER not in facilities(sink)
+    # The releases are this adapter's either way; only the facility row moves.
+    assert (INTERNATIONAL_PAPER, FORMALDEHYDE) in releases(sink)
+    assert result.status != "failed"
+
+
+async def test_a_small_generator_does_not_take_a_facility_row_away(
+    sink: InMemorySink,
+) -> None:
+    """F4 counts large-quantity generators and TSD facilities, and so does the join.
+
+    A site ECHO holds only as a very small quantity generator gets no facility row
+    from the ECHO adapter, so this one still owns it.
+    """
+    await run(sink, transport=tri_transport(rcra_handlers=((INTERNATIONAL_PAPER, "VSQG"),)))
+
+    assert INTERNATIONAL_PAPER in facilities(sink)
+
+
 async def test_a_site_with_no_frs_id_anywhere_is_keyed_on_its_tri_id(
     sink: InMemorySink,
 ) -> None:
@@ -531,6 +595,7 @@ async def test_the_manifest_records_every_artifact_with_a_checksum(sink: InMemor
     assert BASIC_FILE in urls
     assert TRI_FACILITY in urls
     assert GET_QID in urls
+    assert RCRA_GET_QID in urls
     assert GAZETTEER_URL in urls
 
 
