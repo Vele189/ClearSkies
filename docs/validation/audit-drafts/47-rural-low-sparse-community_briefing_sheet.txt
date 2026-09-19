@@ -1,0 +1,41 @@
+community_briefing_sheet
+This briefing sheet gives an overview of environmental data for your area in Concordia Parish. It is based on available public data and not a finding of wrongdoing by any operators.
+The area has a burden score of 44.6 out of 100, which places it in the 55th percentile statewide. This score reflects modelled exposure to pollutants, the presence of nearby permitted sources, and a vulnerable population size of 540 residents, out of which 41.2% are Black, and 49.6% live below 200% of the poverty line.
+record
+88444602edfffff
+hex
+The burden score is 44.6, in the 55th percentile statewide.
+The area has a modelled air toxics cancer risk of 47.5 per million, which is at the 55th percentile for modelled risks in the state. Particulate matter (PM2.5) levels are 8.4 ug/m3, placing this factor in the 40th percentile.
+record
+88444602edfffff
+hex
+Modelled air toxics cancer risk is 47.5 per million, in the 55th percentile.
+There is a major permitted source nearby, the ANR Pipeline Co's Patterson Compressor Station, approximately 1.5 km away. This facility is regulated as a major source under the Clean Air Act.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is a major source under the Clean Air Act, located 1.5 km away.
+Public participation in environmental decisions is encouraged by law. This can include attending hearings or commenting on new permit applications.
+statute
+42 U.S.C. § 7661a(b)
+usc-42-chap85
+Public participation in environmental decisions is encouraged by law.
+Environmental Data Overview for Concordia Parish
+Concordia Parish
+The burden score for your area in Concordia Parish suggests moderate environmental concerns. While the score represents modelled air pollution exposure, population vulnerability, and factors like air toxics cancer risk, it is not a health diagnosis nor an indication of wrongdoing by local facilities or operators.
+Attend public hearings on environmental issues.
+Comment on pending permits for local facilities.
+Request information about local facilities from environmental agencies.
+Contact the EPA's External Civil Rights Compliance Office if there are civil rights concerns regarding environmental policies.
+record
+88444602edfffff
+hex
+The burden score is 44.6, in the 55th percentile statewide.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is a major source under the Clean Air Act, located 1.5 km away.
+statute
+42 U.S.C. § 7661a(b)
+usc-42-chap85
+Public participation in environmental decisions is encouraged by law.

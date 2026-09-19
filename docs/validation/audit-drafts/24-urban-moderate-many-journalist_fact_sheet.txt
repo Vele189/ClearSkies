@@ -1,0 +1,117 @@
+journalist_fact_sheet
+This fact sheet presents key environmental and demographic figures for a hexagon in Orleans Parish, using data supplied by recognized sources. The information includes modelled exposure, permitted sources, and demographic profiles. It is important to note that these figures represent state-wide percentiles and modelled data rather than direct measurements.
+The burden score for the hexagon is 84.0 out of 100, placing it in the 95.3 percentile statewide, with moderate confidence in the model (0.7). This score reflects modelled environmental exposure and does not imply any misconduct by operators located in or around the area.
+record
+884446017dfffff
+hex
+The burden score for the hexagon is 84.0 out of 100, in the 95.3 percentile statewide.
+record
+884446017dfffff
+hex
+Score confidence is moderate, at 0.7.
+Environmental indicators include a modelled air toxics cancer risk of 67.7 per million, which places the hexagon in the 95.3 percentile for this indicator, and a PM2.5 annual mean of 9.4 ug/m3, placing it in the 80.3 percentile.
+record
+884446017dfffff
+hex
+Modelled air toxics cancer risk is 67.7 per million, in the 95.3 percentile.
+record
+884446017dfffff
+hex
+PM2.5 annual mean is 9.4 ug/m3, in the 80.3 percentile.
+The demographic data shows a population of 6,340 with 71.5% identified as Black, 45.9% living below twice the poverty line, 6.4% under the age of five, and 15.1% over the age of 64. These demographic factors are recorded and displayed but do not influence the burden score.
+record
+884446017dfffff
+hex
+The population is 6,340 with 71.5% Black.
+record
+884446017dfffff
+hex
+45.9% of the population lives below twice the poverty line.
+record
+884446017dfffff
+hex
+6.4% of the population is under the age of five, and 15.1% is over the age of 64.
+In the area, there are 17 contributing facilities, including major sources regulated under the Clean Air Act. These facilities are located within a proximity range of 1.5 km to 22.3 km from the center of the hexagon.
+record
+884446017dfffff
+hex
+There are 17 contributing facilities, including major sources regulated under the Clean Air Act.
+Environmental and Demographic Overview of Orleans Parish Hexagon
+Burden score
+84.0
+
+record
+884446017dfffff
+hex
+The burden score for the hexagon is 84.0 out of 100.
+Statewide percentile
+95.3
+
+record
+884446017dfffff
+hex
+The burden score places it in the 95.3 percentile statewide.
+Confidence level
+0.7
+(moderate)
+record
+884446017dfffff
+hex
+Score confidence is moderate, at 0.7.
+Air toxics cancer risk
+67.7
+per million
+record
+884446017dfffff
+hex
+Modelled air toxics cancer risk is 67.7 per million.
+PM2.5 annual mean
+9.4
+ug/m3
+record
+884446017dfffff
+hex
+PM2.5 annual mean is 9.4 ug/m3.
+Population
+6340
+
+record
+884446017dfffff
+hex
+The population is 6,340.
+Percentage of population identified as Black
+71.5%
+
+record
+884446017dfffff
+hex
+71.5% of the population is identified as Black.
+Percentage of population below poverty line
+45.9%
+
+record
+884446017dfffff
+hex
+45.9% of the population lives below twice the poverty line.
+Percentage of population under age 5
+6.4%
+
+record
+884446017dfffff
+hex
+6.4% of the population is under the age of five.
+Percentage of population over age 64
+15.1%
+
+record
+884446017dfffff
+hex
+15.1% of the population is over the age of 64.
+The figures are based on a model that estimates exposure and potential impacts, not actual measurements taken at specific locations.
+Statewide percentiles provide a relative ranking within Louisiana, which might differ from national comparisons.
+Demographic data are presented for context but do not influence the calculated burden score.
+The burden score is not an indicator of legal compliance or a finding of wrongdoing by any facility or operator.
+record
+884446017dfffff
+hex
+The burden score for the hexagon is 84.0 out of 100, in the 95.3 percentile statewide.

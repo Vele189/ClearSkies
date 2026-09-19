@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment
+.env
+.env.local
+*.local
+
+# Data artifacts (never commit source snapshots or tiles)
+data/
+*.pmtiles
+*.parquet
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Quality gate output (CS-108). The report is regenerated every run; the
+# durable copy is the quality_check_result table, not a file in the repo.
+quality-runs/
+
+# The nightly run ledger (CS-109). Carried between Actions runs by the cache,
+# never committed; the durable home is the pipeline_run table.
+pipeline-state/
+
+# Cached source documents for the statute corpus build. Reproducible from
+# `make corpus-build`; several megabytes of statute text that does not belong
+# in git.
+assistant/.cache/
+
+# The fifty drafts the CS-308 audit produced are committed on purpose: the gate
+# requires a manual review and a review needs something to read. Nothing here
+# is ignored; this note exists so nobody adds it.

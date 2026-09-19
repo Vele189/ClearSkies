@@ -1,0 +1,45 @@
+community_briefing_sheet
+This community briefing sheet is for the residents of Ascension Parish. It provides information about the environmental data specific to your area and offers suggestions on what actions you can take.
+The burden score for your area is 88.7 out of 100, putting it in the 97.1 percentile compared to all other locations in Louisiana. This score represents modelled exposure to pollution, the presence of nearby permitted sources, and the vulnerability of the local population.
+record
+88444600edfffff
+hex
+The burden score for this hexagon is 88.7, which places it in the 97.1 percentile in Louisiana.
+The air quality indicators show a high level of modelled air toxics cancer risk at 68.5 per million people, which is also in the 97.1 percentile. The PM2.5 annual mean, indicating fine particle matter in the air, is 9.4 μg/m3, landing it in the 82.1 percentile. The monitored NO2 level is 11.4 ppb, at the 48.0 percentile.
+record
+88444600edfffff
+hex
+The modelled air toxics cancer risk is 68.5 per million, PM2.5 annual mean is 9.4 μg/m3, and NO2 level is 11.4 ppb.
+Your community has a population of 3,120 people. Of those, 44.6% are Black, 33.9% live below 200% of the federal poverty level, 6.4% are children under 5 years of age, and 15.1% are over 64 years old.
+record
+88444600edfffff
+hex
+The population demographics include 44.6% Black, 33.9% below 200% poverty level, 6.4% under age five, and 15.1% over age 64.
+There are 11 major sources of pollution nearby, including facilities like the Acadia Parish Sanitary Landfill and the Sterlington Plant, which operate within approximately 15 kilometers of your location.
+record
+110013921435
+echo
+The Acadia Parish Sanitary Landfill is a major source of pollution within 1.5 km.
+record
+110000450477
+echo
+The Sterlington Plant is a major source of pollution within 2.8 km.
+High Environmental Burden in Ascension Parish
+Ascension Parish
+The environmental scores indicate high exposure risk based on state data, considering pollution and community vulnerability. The data helps identify areas of concern but does not implicate any specific companies or determine health impacts.
+Attend community meetings to discuss air quality with local officials.
+Request public records on local industrial emissions.
+Engage with the EPA and state agencies about your environmental concerns.
+Consider filing a Title VI complaint with the EPA if you believe there is discrimination in environmental policy.
+record
+88444600edfffff
+hex
+The burden score for this hexagon is 88.7, which places it in the 97.1 percentile in Louisiana.
+record
+110013921435
+echo
+The Acadia Parish Sanitary Landfill is a major source of pollution within 1.5 km.
+record
+110000450477
+echo
+The Sterlington Plant is a major source of pollution within 2.8 km.

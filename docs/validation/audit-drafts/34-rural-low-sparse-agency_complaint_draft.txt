@@ -1,0 +1,46 @@
+agency_complaint_draft
+This administrative complaint is submitted to the U.S. EPA External Civil Rights Compliance Office by concerned parties about the potential discriminatory impact on the population within H3 cell 884446021dfffff in Concordia Parish.
+The cumulative burden score for this hexagon is 44.6 out of 100, placing it in the 55th percentile statewide in Louisiana. This score reflects modelled exposure to environmental hazards, nearby permitted sources, and a vulnerable population, and is not an indication of wrongdoing by any operator.
+record
+884446021dfffff
+hex
+The cumulative burden score for this hexagon is 44.6 out of 100, in the 55th percentile statewide.
+The community in this area shows demographic characteristics that suggest vulnerability, with a population that is 41.2% Black and 49.6% living below 200% of the poverty line.
+record
+884446021dfffff
+hex
+The area has a population that is 41.2% Black and 49.6% living below 200% of the poverty line.
+There is one contributing facility within 1.5 km of this location, AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR UTILITY SERVICES, noted as a CAA major source.
+record
+110014466407
+echo
+There is one contributing facility, AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR UTILITY SERVICES, within 1.5 km.
+Under 40 C.F.R. § 7.35(b), the regulations prohibit the use of criteria or methods of administering programs receiving federal assistance that result in discrimination because of race, color, national origin, or sex. These regulations aim to prevent any adverse effects that impair the accomplishment of program objectives with respect to disadvantaged groups.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40
+The regulation prohibits the use of criteria in administering federally assisted programs that result in discrimination because of race, color, national origin, or sex.
+The complainants request that the U.S. EPA External Civil Rights Compliance Office open an investigation into whether the environmental burdens in this hexagon area, paired with the demographic indicators, reflect any violation of EPA's nondiscrimination regulations under Title VI.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40
+The regulation prohibits the use of criteria in administering federally assisted programs that result in discrimination because of race, color, national origin, or sex.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibition against exclusion from participation in, denial of benefits of, and discrimination under federally assisted programs on ground of race, color, or national origin.
+The complainants request the EPA External Civil Rights Compliance Office to open an investigation into the potential discriminatory impact of environmental burdens in the area.
+record
+884446021dfffff
+hex
+The cumulative burden score for this hexagon is 44.6 out of 100, in the 55th percentile statewide.
+record
+110014466407
+echo
+There is one contributing facility, AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR UTILITY SERVICES, within 1.5 km.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40
+The regulation prohibits the use of criteria in administering federally assisted programs that result in discrimination because of race, color, national origin, or sex.

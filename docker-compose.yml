@@ -1,0 +1,28 @@
+# Local development only. Railway builds infra/postgres/Dockerfile directly.
+services:
+  db:
+    build:
+      context: ./infra/postgres
+      args:
+        # Override only to test an unreleased ref, e.g. refs/heads/main.
+        H3_PG_REF: ${H3_PG_REF:-refs/tags/v4.2.3}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-clearskies}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clearskies}
+      POSTGRES_DB: ${POSTGRES_DB:-clearskies}
+    ports:
+      # Override POSTGRES_PORT if 5432 is already taken on your machine.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 matters: during initdb the entrypoint runs a temporary
+      # server on the local socket only, so a socket check reports ready while
+      # the init scripts are still running.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-clearskies} -d ${POSTGRES_DB:-clearskies}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

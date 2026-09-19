@@ -1,0 +1,49 @@
+agency_complaint_draft
+This complaint is being filed with the U.S. EPA External Civil Rights Compliance Office, alleging that certain environmental burdens may have a discriminatory impact on the community within the hexagon identified as 884446005dfffff in Iberville Parish, Louisiana.
+The burden score for this area is 62.7 out of 100, ranking it in the 76.9th percentile statewide, indicating significant exposure to environmental stressors. The confidence in this data is categorized as low, at 0.4, which suggests the need for further investigation and verification.
+record
+884446005dfffff
+hex
+The burden score is 62.7 out of 100, ranking in the 76.9th percentile statewide.
+The demographic data indicates a population of 890, with 55.4% identifying as Black and 46.8% living below 200% of the poverty line; 6.4% of the population are under the age of 5, and 15.1% are over the age of 64. These demographics point towards a vulnerable population that may be disproportionately affected by environmental burdens.
+record
+884446005dfffff
+hex
+The population is 890 with 55.4% Black and 46.8% living below 200% of the poverty line.
+Two contributing facilities in proximity to this hexagon include ALMA PLANTATION LLC - ALMA FACILITY, located 1.5 km away, and ALON REFINING KROTZ SPRINGS INC, located 2.8 km away. Both are classified as CAA major sources, which likely contribute to the environmental burden experienced by this community.
+record
+110001225816
+echo
+ALMA PLANTATION LLC - ALMA FACILITY is 1.5 km away, classified as a CAA major source.
+record
+110041023807
+echo
+ALON REFINING KROTZ SPRINGS INC is 2.8 km away, classified as a CAA major source.
+Under 42 U.S.C. § 2000d, no person in the United States shall, on the ground of race, color, or national origin, be excluded from participation in, be denied the benefits of, or be subjected to discrimination under any program or activity receiving Federal financial assistance.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination on the ground of race, color, or national origin under federally assisted programs.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination on the ground of race, color, or national origin under federally assisted programs.
+The complainant seeks an investigation into potential discriminatory impacts of environmental burdens on the identified community and a compliance review of federal assistance programs to ensure nondiscrimination.
+record
+884446005dfffff
+hex
+The burden score is 62.7 out of 100, ranking in the 76.9th percentile statewide.
+record
+110001225816
+echo
+ALMA PLANTATION LLC - ALMA FACILITY is 1.5 km away, classified as a CAA major source.
+record
+110041023807
+echo
+ALON REFINING KROTZ SPRINGS INC is 2.8 km away, classified as a CAA major source.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination on the ground of race, color, or national origin under federally assisted programs.

@@ -1,0 +1,39 @@
+name: Scoring looks wrong
+description: A hexagon's score does not match what you know about the place
+labels: [scoring, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A score that disagrees with local knowledge is worth reporting. It is
+        usually one of three things: a data problem, a scoring problem, or the
+        score working as designed in a way that is not obvious.
+
+        The drill-down panel distinguishes them. It shows which of the fifteen
+        indicators were used, which were dropped, and how confident the score is.
+  - type: input
+    id: hex
+    attributes:
+      label: H3 index
+      placeholder: 88444600ddfffff
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and why
+      description: What you know about this place that the score does not appear to reflect.
+    validations:
+      required: true
+  - type: textarea
+    id: panel
+    attributes:
+      label: What the panel shows
+      description: The score, its percentile, the confidence value, and any indicators marked unavailable.
+  - type: checkboxes
+    id: understood
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have read the caveats in the panel footer, including that percentiles are Louisiana percentiles and a low score is not a clean bill of health.
+        - label: I checked whether indicators were dropped for this hexagon, which the panel reports.

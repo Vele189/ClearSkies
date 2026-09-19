@@ -1,0 +1,71 @@
+agency_complaint_draft
+This is an administrative complaint to the U.S. EPA External Civil Rights Compliance Office. The complainants are concerned residents in the West Baton Rouge Parish, Louisiana, particularly within the hexagon identified as H3 cell 884446009dfffff, regarding environmental and public health issues.
+The area in question has a burden score of 70.2 out of 100, placing it in the 85.6th percentile statewide. This score indicates significant modelled exposure to environmental hazards, including high levels of air toxics and PM2.5. The confidence level for this data is high, at 0.8.
+record
+884446009dfffff
+hex
+The burden score is 70.2 out of 100, placing it in the 85.6th percentile statewide with a high confidence level of 0.8.
+The population within this area is predominantly Black (49.3%), with 37.7% living below 200% of the poverty line. Vulnerable age groups, including children under 5 years (6.4%) and seniors over 64 years (15.1%), are also notably represented in this community.
+record
+884446009dfffff
+hex
+The population is 49.3% Black, with 37.7% of people living below 200% of the poverty line.
+There are significant local environmental indicators impacting this community. Modelled air toxics cancer risk is 62.8 per million, placing it at the 85.6th percentile for this indicator. Additionally, the PM2.5 annual mean concentration is 9.1 ug/m3, which is in the 70.6th percentile. These metrics are significant and suggest a potential public health concern.
+record
+884446009dfffff
+hex
+Modelled air toxics cancer risk is 62.8 per million, placing it in the 85.6th percentile.
+record
+884446009dfffff
+hex
+PM2.5 annual mean is 9.1 ug/m3, which is in the 70.6th percentile.
+Within a short distance from this community lie two major sources of air pollution: the ANR Pipeline Co - Eunice Compressor Station and the ANR Pipeline Co - Jena Compressor Station. Both facilities are classified as CAA major sources, indicating significant contributions to air emissions in the vicinity.
+record
+110033673889
+echo
+ANR PIPELINE CO - EUNICE COMPRESSOR STATION is 1.5 km away and is a CAA major source.
+record
+110042083438
+echo
+ANR PIPELINE CO - JENA COMPRESSOR STATION is 2.8 km away and is a CAA major source.
+Under Title VI of the Civil Rights Act of 1964, no person in the United States shall, on the ground of race, color, or national origin, be excluded from participation in, be denied the benefits of, or be subjected to discrimination under any program or activity receiving Federal financial assistance.
+statute
+42 U.S.C. § 2000d
+usc-42
+No person in the United States shall be subjected to discrimination under any program or activity receiving Federal financial assistance on the ground of race, color, or national origin.
+EPA's regulations further prohibit methods of administration which have the effect of subjecting individuals to discrimination because of race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+A recipient shall not use criteria or methods of administering its program or activity which have the effect of subjecting individuals to discrimination because of their race, color, national origin, or sex.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42
+No person in the United States shall be subjected to discrimination under any program or activity receiving Federal financial assistance on the ground of race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+A recipient shall not use criteria or methods of administering its program or activity which have the effect of subjecting individuals to discrimination because of their race, color, national origin, or sex.
+The complainants request that the EPA conduct a compliance review and open an investigation into the environmental and public health impacts on the community identified, focusing on potential Title VI violations related to racial and socioeconomic disparities.
+record
+884446009dfffff
+hex
+The burden score is 70.2 out of 100, placing it in the 85.6th percentile statewide with a high confidence level of 0.8.
+record
+110033673889
+echo
+ANR PIPELINE CO - EUNICE COMPRESSOR STATION is 1.5 km away and is a CAA major source.
+record
+110042083438
+echo
+ANR PIPELINE CO - JENA COMPRESSOR STATION is 2.8 km away and is a CAA major source.
+statute
+42 U.S.C. § 2000d
+usc-42
+No person in the United States shall be subjected to discrimination under any program or activity receiving Federal financial assistance on the ground of race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+A recipient shall not use criteria or methods of administering its program or activity which have the effect of subjecting individuals to discrimination because of their race, color, national origin, or sex.

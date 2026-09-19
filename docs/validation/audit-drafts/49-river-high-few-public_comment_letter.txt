@@ -1,0 +1,24 @@
+public_comment_letter
+I am writing to provide a public comment regarding the permit action for facilities affecting the area in hexagon 884446030dfffff in West Baton Rouge Parish. This comment specifically addresses the potential environmental and public health impacts associated with the permitted sources in the area.
+The hexagon with the index 884446030dfffff has a burden score of 70.2 out of 100, placing it in the 85.6 percentile statewide, indicating significant environmental concerns in the area. The modelled air toxics cancer risk is 62.8 per million, which is also in the 85.6 percentile, highlighting notable health risks from air toxics. Additionally, the PM2.5 annual mean measures at 9.1 ug/m3, within the 70.6 percentile, further illustrating air quality issues in the region. The demographics reveal that 49.3% of the population is Black, and 37.7% are below twice the poverty line, indicating a vulnerable community.
+record
+884446030dfffff
+hex
+The hexagon has a burden score of 70.2 and is in the 85.6 percentile statewide.
+The law mandates that emissions standards for major sources of hazardous air pollutants must be established by the Administrator of the Environmental Protection Agency under 42 U.S.C. § 7412(d)(1). It is essential that these standards are rigorously applied to ensure the protection of public health and the environment.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for major sources of hazardous air pollutants.
+In light of this information, I request the agency to conduct a thorough analysis of the potential cumulative environmental and health impacts from existing sources within this hexagon. Furthermore, I urge the agency to consider holding a public hearing to address community concerns and ensure that the standards are being applied effectively to protect this at-risk population.
+Louisiana Department of Environmental Quality
+Public Comment on Permit Action for Sources in West Baton Rouge Parish
+Conduct a thorough analysis of environmental and health impacts and consider holding a public hearing to address community concerns.
+record
+884446030dfffff
+hex
+The hexagon has a burden score of 70.2 and is in the 85.6 percentile statewide.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for major sources of hazardous air pollutants.

@@ -1,0 +1,62 @@
+agency_complaint_draft
+This complaint is submitted to request an investigation into potential discrimination and environmental burden in the Orleans Parish, specifically within the hexagon identified by H3 index 884446031dfffff. The complaint focuses on the substantial environmental and health impacts borne by the local population.
+The identified hexagon has an overall environmental burden score of 84.0, placing it in the 95.3 percentile for the state of Louisiana. This high score indicates significant modelled exposure to environmental hazards, nearby permitted sources of pollution, and the presence of a vulnerable population.
+record
+884446031dfffff
+hex
+The hexagon has an environmental burden score of 84.0, in the 95.3 statewide percentile.
+The population within this hexagon is predominantly Black, with 71.5% of the population identifying as such. Additionally, 45.9% of the population is living at or below 200% of the poverty line, indicating a high level of economic vulnerability.
+record
+884446031dfffff
+hex
+The population is 71.5% Black and 45.9% are living at or below 200% of the poverty line.
+There are multiple contributing facilities within proximity to this area that are identified as major sources under the Clean Air Act. This includes facilities such as AIR LIQUIDE LARGE INDUSTRIES US LP and AIR PRODUCTS & CHEMICALS INC, located 1.5 km and 2.8 km away, respectively.
+record
+110014466407
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP is a CAA major source located 1.5 km away.
+record
+110000449113
+echo
+AIR PRODUCTS & CHEMICALS INC is a CAA major source located 2.8 km away.
+Under 40 C.F.R. § 7.35(a), recipients of EPA assistance are prohibited from actions that deny benefits or subject individuals to discrimination based on race. The significant environmental burden borne by a predominantly Black and economically vulnerable community raises concerns under this provision.
+statute
+40 C.F.R. § 7.35(a)
+epa-title-vi-2025
+Prohibits discrimination based on race for EPA-assisted programs.
+Additionally, 42 U.S.C. § 2000d prohibits exclusion from participation in, denial of benefits of, and discrimination under federally assisted programs on grounds of race, color, or national origin. Given the demographic composition of the affected area, this statutory protection is relevant and merits thorough investigation.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits race, color, and national origin discrimination in federally assisted programs.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+40 C.F.R. § 7.35(a)
+epa-title-vi-2025
+Prohibits discrimination based on race for EPA-assisted programs.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits race, color, and national origin discrimination in federally assisted programs.
+The complainant requests the U.S. EPA External Civil Rights Compliance Office to open an investigation into these matters and conduct a compliance review to ensure corrective actions are implemented where necessary.
+record
+884446031dfffff
+hex
+The hexagon has an environmental burden score of 84.0, in the 95.3 statewide percentile.
+record
+110014466407
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP is a CAA major source located 1.5 km away.
+record
+110000449113
+echo
+AIR PRODUCTS & CHEMICALS INC is a CAA major source located 2.8 km away.
+statute
+40 C.F.R. § 7.35(a)
+epa-title-vi-2025
+Prohibits discrimination based on race for EPA-assisted programs.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits race, color, and national origin discrimination in federally assisted programs.

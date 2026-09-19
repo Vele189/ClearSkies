@@ -1,0 +1,65 @@
+public_comment_letter
+I am writing to provide comments on the pending permit action concerning major source facilities within the Calcasieu Parish, as identified in the specified hexagon area (H3 cell: 88444600cdfffff).
+The area, as indicated by the methodology, has a burden score of 66.9 out of 100, placing it in the 79.1 percentile statewide in Louisiana. This score reflects modelled exposure to air toxics and indicates a significant presence of nearby sources affecting the vulnerable population in this parish.
+record
+88444600cdfffff
+hex
+The burden score for this hexagon is 66.9 out of 100, placing it in the 79.1 percentile statewide.
+According to the data, there are five contributing facilities situated within a radius of less than 7 km from the center of the hexagon, all being classified as major sources under the Clean Air Act. These facilities include ALMA PLANTATION LLC, ALON REFINING KROTZ SPRINGS INC, AM AGRIGEN INDUSTRIES LLC, AMERICAN PANTHER LLC, and AMERICAN SUGAR REFINING INC.
+record
+110001225816
+echo
+ALMA PLANTATION LLC - ALMA FACILITY is a major source facility located 1.5 km away.
+record
+110041023807
+echo
+ALON REFINING KROTZ SPRINGS INC is a major source facility located 2.8 km away.
+record
+110070132594
+echo
+AM AGRIGEN INDUSTRIES LLC - AMAI AMMONIA & UREA PLANT is a major source facility located 4.1 km away.
+record
+110022399108
+echo
+AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY is a major source facility located 5.4 km away.
+record
+110009575762
+echo
+AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY is a major source facility located 6.7 km away.
+The Clean Air Act mandates the establishment of emission standards for major sources of hazardous air pollutants. Under 42 U.S.C. § 7412(d)(1), the Administrator is required to set emission standards for these categories of sources.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall establish emission standards for each category or subcategory of major sources of hazardous air pollutants.
+I request that the agency carefully evaluate the potential emission levels from these facilities and ensure compliance with national ambient air quality standards. Additionally, I ask the agency to consider holding a public hearing to further engage with the community and assess the need for additional conditions on the permit to protect public health.
+Environmental Protection Agency
+Permit Action for Major Source Facilities in Calcasieu Parish
+I request the agency to hold a public hearing and impose necessary conditions on the permit to safeguard public health.
+record
+88444600cdfffff
+hex
+The burden score for this hexagon is 66.9 out of 100, placing it in the 79.1 percentile statewide.
+record
+110001225816
+echo
+ALMA PLANTATION LLC - ALMA FACILITY is a major source facility located 1.5 km away.
+record
+110041023807
+echo
+ALON REFINING KROTZ SPRINGS INC is a major source facility located 2.8 km away.
+record
+110070132594
+echo
+AM AGRIGEN INDUSTRIES LLC - AMAI AMMONIA & UREA PLANT is a major source facility located 4.1 km away.
+record
+110022399108
+echo
+AMERICAN PANTHER LLC - FT HENRY GAS SEPARATION FACILITY is a major source facility located 5.4 km away.
+record
+110009575762
+echo
+AMERICAN SUGAR REFINING INC - CHALMETTE CANE SUGAR REFINERY is a major source facility located 6.7 km away.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall establish emission standards for each category or subcategory of major sources of hazardous air pollutants.

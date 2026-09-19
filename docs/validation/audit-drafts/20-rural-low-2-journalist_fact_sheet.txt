@@ -1,0 +1,98 @@
+journalist_fact_sheet
+This fact sheet provides an overview of the environmental and demographic indicators for the hexagon located in Pointe Coupee Parish, identified by the H3 cell 884446013dfffff. Please be aware that the scores and figures presented are modelled estimates and not direct measurements.
+One contributing facility within this hexagon includes ANR Pipeline Co - Jena Compressor Station, which is designated as a CAA major source, located 1.5 km from the centroid of the hexagon.
+record
+110042083438
+echo
+ANR Pipeline Co - Jena Compressor Station is a CAA major source within 1.5 km of the hexagon.
+The burden score for this hexagon is 49.1 out of 100, corresponding to the 61.2 percentile statewide for Louisiana, with a confidence level classified as low (0.4).
+record
+884446013dfffff
+hex
+The burden score for this hexagon is 49.1, with a statewide percentile of 61.2.
+The population demographics within this hexagon indicate a total population of 620, with 38.9% identifying as Black, 43.1% living below 200% of the federal poverty line, 6.4% under the age of 5, and 15.1% over the age of 64.
+record
+884446013dfffff
+hex
+The hexagon has a population of 620, with 38.9% Black, 43.1% below 200% poverty, 6.4% under 5 years, and 15.1% over 64 years.
+The modelled air toxics cancer risk is 50.6 per million, which places this hexagon in the 61.2 percentile for this indicator, while the annual mean for PM2.5 is 8.5 ug/m3, placing it in the 46.2 percentile.
+record
+884446013dfffff
+hex
+The modelled air toxics cancer risk is 50.6 per million (percentile 61.2), and the PM2.5 annual mean is 8.5 ug/m3 (percentile 46.2).
+Environmental and Demographic Overview of Hexagon in Pointe Coupee
+Burden Score
+49.1
+
+record
+884446013dfffff
+hex
+The burden score for this hexagon is 49.1.
+Statewide Percentile
+61.2
+
+record
+884446013dfffff
+hex
+The statewide percentile for the burden score is 61.2.
+Modelled Air Toxics Cancer Risk
+50.6
+per million
+record
+884446013dfffff
+hex
+The modelled air toxics cancer risk is 50.6 per million.
+PM2.5 Annual Mean
+8.5
+ug/m3
+record
+884446013dfffff
+hex
+The PM2.5 annual mean is 8.5 ug/m3.
+Population
+620
+
+record
+884446013dfffff
+hex
+The population of the hexagon is 620.
+Black Population Percentage
+38.9%
+
+record
+884446013dfffff
+hex
+38.9% of the population identifies as Black.
+Population Below 200% Poverty
+43.1%
+
+record
+884446013dfffff
+hex
+43.1% of the population lives below 200% of the poverty line.
+Percentage Under Age 5
+6.4%
+
+record
+884446013dfffff
+hex
+6.4% of the population is under 5 years old.
+Percentage Over Age 64
+15.1%
+
+record
+884446013dfffff
+hex
+15.1% of the population is over 64 years old.
+The burden score represents modelled estimates of potential exposure and not actual measured values at specific locations.
+The percentiles referenced in this fact sheet are based on statewide comparisons within Louisiana and not on a national scale.
+Demographic data does not influence the burden score and is provided separately.
+The confidence level in the presented burden score is low, indicating potential variability in precision.
+record
+110042083438
+echo
+ANR Pipeline Co - Jena Compressor Station is a CAA major source within 1.5 km of the hexagon.
+record
+884446013dfffff
+hex
+The burden score for this hexagon is 49.1, with a statewide percentile of 61.2.

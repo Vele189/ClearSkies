@@ -1,0 +1,61 @@
+agency_complaint_draft
+The present complaint is submitted to the U.S. EPA External Civil Rights Compliance Office regarding the cumulative environmental burden experienced in the hexagonal area identified as H3 cell 88444601ddfffff, located in East Baton Rouge Parish.
+The environmental burden score for this hexagon is 74.9 out of 100, placing it in the 88th statewide percentile, indicating a significant cumulative burden on the community within the hexagon. The burden score reflects modelled exposure to pollutants and the presence of nearby permitted sources in conjunction with a vulnerable population.
+record
+88444601ddfffff
+hex
+The environmental burden score is 74.9 out of 100, in the 88th percentile statewide.
+The population in this hexagon is recorded as predominantly Black, with 62.1% identifying as Black. Additionally, 41.2% of the population lives below twice the poverty level, and 15.1% are over the age of 64. These demographics highlight the vulnerability of the community to environmental burdens.
+record
+88444601ddfffff
+hex
+The population is 62.1% Black, with 41.2% below 200% of the poverty level.
+Provisions under the Title VI of the Civil Rights Act, specifically 42 U.S.C. § 2000d, and EPA's implementing regulations at 40 C.F.R. § 7.35(b), prohibit the use of criteria or methods of administration that have the effect of subjecting individuals to discrimination due to their race, color, or national origin. This includes the discriminatory impact of environmental policies that result in disproportionate burdens on racial minorities.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination under any program receiving federal assistance based on race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits methods that have the effect of subjecting individuals to discrimination based on race, color, national origin, or sex.
+Currently, there are six facilities contributing to this burden as they are located within an 8 km radius of the hexagon and are categorized under the CAA major source program. These facilities include ARCOSA MARINE PRODUCTS INC - PLANT 1048, AA SULFURIC CORP - SULFURIC ACID PLANT, and others.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is a contributing facility within 1.5 km under the CAA major source program.
+record
+110071723608
+echo
+AA SULFURIC CORP - SULFURIC ACID PLANT is a contributing facility within 2.8 km under the CAA major source program.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination under any program receiving federal assistance based on race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits methods that have the effect of subjecting individuals to discrimination based on race, color, national origin, or sex.
+We seek the opening of an investigation to assess the potential discriminatory impact of the cumulative environmental burdens on the community and to ensure compliance with Title VI regulations.
+record
+88444601ddfffff
+hex
+The environmental burden score is 74.9 out of 100, in the 88th percentile statewide.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination under any program receiving federal assistance based on race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits methods that have the effect of subjecting individuals to discrimination based on race, color, national origin, or sex.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is a contributing facility within 1.5 km under the CAA major source program.
+record
+110071723608
+echo
+AA SULFURIC CORP - SULFURIC ACID PLANT is a contributing facility within 2.8 km under the CAA major source program.

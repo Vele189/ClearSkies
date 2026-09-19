@@ -1,0 +1,173 @@
+journalist_fact_sheet
+This fact sheet provides environmental and demographic data for the hexagon with H3 cell index 88444600fdfffff, located in Calcasieu Parish, as analyzed in methodology version 0.1.4.
+The burden score for this hexagon is 81.4 out of 100, placing it in the 94.2 percentile statewide, with a confidence level of 0.7, indicating moderate confidence in the data. This score is based on modelled exposure, nearby permitted sources, and a vulnerable population.
+record
+88444600fdfffff
+hex
+The burden score for this hexagon is 81.4 out of 100, in the 94.2 percentile statewide.
+Modelled air toxics cancer risk is at 67.1 per million, putting it in the 94.2 percentile statewide. PM2.5 annual mean is recorded at 9.4 ug/m3, ranking it in the 79.2 percentile statewide.
+record
+88444600fdfffff
+hex
+Modelled air toxics cancer risk is at 67.1 per million, 94.2 percentile statewide.
+record
+88444600fdfffff
+hex
+PM2.5 annual mean is 9.4 ug/m3, 79.2 percentile statewide.
+Demographically, the population within this hexagon is 2,410 people, with 31.5% identifying as Black or African American. Approximately 38.7% of the population lives below 200% of the poverty line. Children under 5 years old and seniors over 64 years old make up 6.4% and 15.1% of the population, respectively.
+record
+88444600fdfffff
+hex
+The population is 2,410, with 31.5% Black or African American.
+record
+88444600fdfffff
+hex
+38.7% of the population lives below 200% of the poverty line.
+record
+88444600fdfffff
+hex
+6.4% of the population is under 5 years old, and 15.1% is over 64 years old.
+There are eight contributing facilities within and around the hexagon, all operating as major sources under the Clean Air Act.
+record
+110070832687
+echo
+ANR Pipeline Co - Mermentau Compressor Station is a major source 1.5 km away.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is 2.8 km away as a major source.
+record
+110040943012
+echo
+Arcosa LW Br LLC - Arcosa Lightweight is 4.1 km away as a major source.
+record
+110000602483
+echo
+Arcosa Marine Products Inc - Plant 1038 is 5.4 km away as a major source.
+record
+110071498770
+echo
+Arcosa Marine Products Inc - Plant 1048 is 6.7 km away as a major source.
+record
+110071723608
+echo
+AA Sulfuric Corp - Sulfuric Acid Plant is 8.0 km away as a major source.
+record
+110007294329
+echo
+Acadian Contractors Inc is 9.3 km away as a major source.
+record
+110043291354
+echo
+Acadian Gas Pipeline System - Cheneyville Compressor Station is 10.6 km away as a major source.
+Environmental and Demographic Data for Calcasieu Parish Hexagon
+Burden score
+81.4
+of 100
+record
+88444600fdfffff
+hex
+The burden score for this hexagon is 81.4 out of 100.
+Statewide percentile
+94.2
+
+record
+88444600fdfffff
+hex
+The hexagon is in the 94.2 percentile statewide.
+Confidence level
+0.7
+
+record
+88444600fdfffff
+hex
+The confidence level is 0.7, indicating moderate confidence.
+Modelled air toxics cancer risk
+67.1
+per million
+record
+88444600fdfffff
+hex
+Modelled air toxics cancer risk is at 67.1 per million.
+PM2.5 annual mean
+9.4
+ug/m3
+record
+88444600fdfffff
+hex
+PM2.5 annual mean is 9.4 ug/m3.
+Population
+2410
+
+record
+88444600fdfffff
+hex
+The population is 2,410.
+Black or African American percentage
+31.5
+%
+record
+88444600fdfffff
+hex
+31.5% of the population is Black or African American.
+Poverty below 200%
+38.7
+%
+record
+88444600fdfffff
+hex
+38.7% of the population lives below 200% of the poverty line.
+Children under 5
+6.4
+%
+record
+88444600fdfffff
+hex
+6.4% of the population is under 5 years old.
+Seniors over 64
+15.1
+%
+record
+88444600fdfffff
+hex
+15.1% of the population is over 64 years old.
+The score indicates modelled exposure and is not a direct measurement of any specific address or location within the hexagon.
+Percentiles are specific to Louisiana and may not reflect a national context.
+Demographic data such as race, age, and income, are recorded but do not influence the environmental burden score.
+The confidence level is moderate, suggesting that while the data is reliable, it may not capture all variables consistently.
+record
+88444600fdfffff
+hex
+The burden score for this hexagon is 81.4 out of 100, in the 94.2 percentile statewide.
+record
+110070832687
+echo
+ANR Pipeline Co - Mermentau Compressor Station is a major source 1.5 km away.
+record
+110017724186
+echo
+ANR Pipeline Co - Patterson Compressor Station is 2.8 km away as a major source.
+record
+110040943012
+echo
+Arcosa LW Br LLC - Arcosa Lightweight is 4.1 km away as a major source.
+record
+110000602483
+echo
+Arcosa Marine Products Inc - Plant 1038 is 5.4 km away as a major source.
+record
+110071498770
+echo
+Arcosa Marine Products Inc - Plant 1048 is 6.7 km away as a major source.
+record
+110071723608
+echo
+AA Sulfuric Corp - Sulfuric Acid Plant is 8.0 km away as a major source.
+record
+110007294329
+echo
+Acadian Contractors Inc is 9.3 km away as a major source.
+record
+110043291354
+echo
+Acadian Gas Pipeline System - Cheneyville Compressor Station is 10.6 km away as a major source.
