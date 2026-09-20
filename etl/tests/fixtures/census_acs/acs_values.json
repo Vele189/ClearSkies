@@ -1,0 +1,41 @@
+{
+ "_note": [
+  "Every ACS data query now requires an API key, so unlike the geometry fixtures",
+  "beside this one these values could not be recorded from the live service. The",
+  "response *shape* is the documented one and the variable ids are real, read from",
+  "the keyless groups endpoint on 2026-09-11; the numbers are synthetic.",
+  "",
+  "'fill' is used for every declared variable a tract does not override, so each",
+  "override below is a case a test asserts on rather than scenery. A fill margin of",
+  "12 on an estimate of 100 is a coefficient of variation of 0.073, comfortably",
+  "under the 0.30 threshold, so the only high-variation estimate in the fixture is",
+  "the one put there on purpose."
+ ],
+ "fill": ["100", "12"],
+ "tracts": {
+  "22033000100": {
+   "_case": "a controlled estimate: -555555555 in the margin column means the Bureau fixed the estimate to an independent population total, so its sampling error is zero rather than unknown",
+   "B01003_001": ["1200", "-555555555"]
+  },
+  "22033000200": {
+   "_case": "an observed zero: no household in this tract is linguistically isolated, which is a finding and not an absence",
+   "C16002_004": ["0", "13"]
+  },
+  "22033000300": {
+   "_case": "a jam value: -666666666 means the survey could not compute the quantity, so the estimate is absent and must not become a zero",
+   "B15003_002": ["-666666666", "-555555555"]
+  },
+  "22033000400": {
+   "_case": "a high coefficient of variation: 90 / 1.645 / 40 is 1.37, far above 0.30. It is loaded anyway and lowers c_spatial",
+   "C17002_002": ["40", "90"]
+  },
+  "22075050100": {
+   "_case": "a blank cell, and a tract whose population really is zero. Plaquemines tract 501 is 977 square kilometres of land and 1,364 of water",
+   "B23025_005": ["", ""],
+   "B01003_001": ["0", "12"]
+  },
+  "22071000100": {
+   "_case": "present in the release with no TIGER geometry, so it has no polygon to reach a hex through and is rejected and counted"
+  }
+ }
+}

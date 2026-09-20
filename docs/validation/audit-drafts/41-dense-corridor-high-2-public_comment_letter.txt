@@ -1,0 +1,41 @@
+public_comment_letter
+I am writing to comment on the pending permit application for facilities in Ascension Parish, particularly those affecting the area designated by H3 cell index 884446028dfffff. This region has a significant burden score of 88.7 out of 100, placing it in the 97.1st percentile statewide, indicating high exposure to environmental pollutants.
+record
+884446028dfffff
+hex
+The burden score is 88.7 out of 100, placing it in the 97.1st percentile statewide.
+The area has a modelled air toxics cancer risk of 68.5 per million, which is also in the 97.1st percentile, according to AirToxScreen data from 2020. It also has a PM2.5 annual mean of 9.4 ug/m3, falling into the 82.1st percentile. Additionally, the monitored NO2 level is 11.4 ppb, which is in the 48.0th percentile.
+record
+884446028dfffff
+hex
+The modelled air toxics cancer risk is 68.5 per million, in the 97.1st percentile.
+record
+884446028dfffff
+hex
+The PM2.5 annual mean is 9.4 ug/m3, in the 82.1st percentile.
+record
+884446028dfffff
+hex
+The monitored NO2 level is 11.4 ppb, in the 48.0th percentile.
+Demographically, the area hosts a population of 3,120 people, with 44.6% identified as Black and 33.9% living below 200% of the poverty line. The percentage of children under five is 6.4%, and 15.1% of the population is over the age of 64.
+record
+884446028dfffff
+hex
+The population is 3,120, with 44.6% Black and 33.9% living below 200% of the poverty line.
+According to the Clean Air Act, the Administrator is required to establish emissions standards for each category of major sources of hazardous air pollutants [42 U.S.C. § 7412(d)(1)].
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall establish emissions standards for each category of major sources of hazardous air pollutants.
+I urge the agency to hold a public hearing to address community concerns and to require additional analysis of the cumulative impact of these multiple sources on vulnerable populations in this area before any permit is issued.
+Environmental Protection Agency, Region 6
+Comment on Pending Permit Applications in Ascension Parish
+Hold a public hearing and require additional analysis of the cumulative impact on vulnerable populations.
+record
+884446028dfffff
+hex
+The burden score is 88.7 out of 100, placing it in the 97.1st percentile statewide.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall establish emissions standards for each category of major sources of hazardous air pollutants.

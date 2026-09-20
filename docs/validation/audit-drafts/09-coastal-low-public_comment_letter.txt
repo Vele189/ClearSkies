@@ -1,0 +1,56 @@
+public_comment_letter
+I am writing to express concern regarding the renewal or issuance of permits for facilities contributing to air pollution within the hexagon located in Plaquemines Parish, Louisiana. The facilities in question are ARCOSA MARINE PRODUCTS INC - PLANT, AA SULFURIC CORP - SULFURIC ACID PLANT, and ACADIAN CONTRACTORS INC, all operating under the CAA major source program within a 5 km radius.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is 1.5 km away and is a CAA major source.
+record
+110071723608
+echo
+AA SULFURIC CORP - SULFURIC ACID PLANT is 2.8 km away and is a CAA major source.
+record
+110007294329
+echo
+ACADIAN CONTRACTORS INC is 4.1 km away and is a CAA major source.
+Current data shows the region has a modelled air toxics cancer risk of 54.1 per million, placing it in the 68.3 percentile statewide and an annual PM2.5 mean concentration of 8.7 ug/m3, which is above the 50th percentile. These indicators suggest significant air quality concerns that warrant thorough review and analysis before renewing or issuing new permits.
+record
+884446008dfffff
+hex
+Modelled air toxics cancer risk is 54.1 per million, percentile 68.3.
+record
+884446008dfffff
+hex
+PM2.5 annual mean is 8.7 ug/m3, percentile 53.3.
+Under 42 U.S.C. § 7412(d)(1), the Administrator is mandated to establish emission standards for major sources of hazardous air pollutants. It is important to ensure these standards are enforced rigorously during permit reviews.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for each category or subcategory of major sources.
+I respectfully request the agency to require additional analysis of the air quality impacts from these facilities and hold a public hearing to gather community input before any further action is taken on this permit application. Given the potential health risks indicated by the burden score and the local demographics, it's crucial that the community's voice is an integral part of the decision-making process.
+record
+884446008dfffff
+hex
+The hexagon has a burden score of 55.8, within the 68.3 percentile statewide.
+Louisiana Department of Environmental Quality
+Public Comment on Permit Renewals/Issuance for Facilities in Plaquemines Parish
+I request the agency to conduct additional analysis of air quality impacts and hold a public hearing regarding the permit actions for the cited facilities.
+record
+110071498770
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1048 is 1.5 km away and is a CAA major source.
+record
+110071723608
+echo
+AA SULFURIC CORP - SULFURIC ACID PLANT is 2.8 km away and is a CAA major source.
+record
+110007294329
+echo
+ACADIAN CONTRACTORS INC is 4.1 km away and is a CAA major source.
+record
+884446008dfffff
+hex
+Modelled air toxics cancer risk is 54.1 per million, percentile 68.3.
+statute
+42 U.S.C. § 7412(d)(1)
+usc-42-chap85
+The Administrator shall promulgate regulations establishing emission standards for each category or subcategory of major sources.

@@ -1,0 +1,36 @@
+name: Data source problem
+description: A source has moved, changed format, gone stale, or is wrong
+labels: [data, etl]
+body:
+  - type: dropdown
+    id: source
+    attributes:
+      label: Which source
+      options:
+        - EPA ECHO / ICIS
+        - EPA TRI
+        - EPA AirToxScreen
+        - OpenAQ
+        - US Census ACS
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem
+      options:
+        - Upstream URL moved or was withdrawn
+        - Format or schema changed
+        - Data is stale
+        - Values look wrong
+        - Facility coordinates are wrong
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: Details
+      description: Include the URL the adapter used, from docs/provenance.md, and what you observed.
+    validations:
+      required: true

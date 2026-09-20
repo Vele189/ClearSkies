@@ -1,0 +1,36 @@
+name: Bug report
+description: Something in the app, API or pipeline does not work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: input
+    id: hex
+    attributes:
+      label: H3 index
+      description: If this concerns a specific hexagon, its index. GET /hex/{h3} returns the same payload the map panel renders.
+      placeholder: 88444600ddfffff
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Map or frontend
+        - API
+        - ETL or data pipeline
+        - Database or extensions
+        - Drafting assistant
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Commands, URLs, or steps. Include output from `make check` if it is relevant.
+      render: shell

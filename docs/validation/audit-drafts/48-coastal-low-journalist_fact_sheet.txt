@@ -1,0 +1,99 @@
+journalist_fact_sheet
+This fact sheet provides an overview of environmental and demographic data for the specified hexagon located in Plaquemines Parish, Louisiana. The figures presented are based on modelled exposure data, nearby permitted sources, and demographic characteristics as recorded by the methodology version 0.1.4.
+The hexagon has a burden score of 55.8 out of 100, placing it in the 68.3rd statewide percentile. The confidence level of this score is considered low at 0.5.
+record
+88444602fdfffff
+hex
+The hexagon has a burden score of 55.8, with a statewide percentile of 68.3.
+Modelled air toxics cancer risk is 54.1 per million, ranking in the 68.3rd percentile statewide, according to AirToxScreen data. The PM2.5 annual mean is measured at 8.7 micrograms per cubic meter, placing it in the 53.3rd percentile.
+record
+88444602fdfffff
+hex
+Modelled air toxics cancer risk is 54.1 per million in the 68.3rd percentile.
+record
+88444602fdfffff
+hex
+The PM2.5 annual mean is 8.7 ug/m3 in the 53.3rd percentile.
+Demographics of the population in this hexagon indicate 22.7% identify as Black, 35.4% live below 200% of the poverty line, 6.4% are under 5 years of age, and 15.1% are over 64 years old, out of a total population of 1,120.
+record
+88444602fdfffff
+hex
+22.7% of the population identify as Black, and 35.4% are below 200% of the poverty line.
+record
+88444602fdfffff
+hex
+6.4% are under 5 years of age, and 15.1% are over 64 years old.
+Nearby contributing facilities include ANDINO ENERGY ENTERPRISES LLC - ST JAMES, 1.5 kilometers away, within the CAA major source program.
+record
+110064309412
+echo
+ANDINO ENERGY ENTERPRISES LLC - ST JAMES is 1.5 km away and part of the CAA major source program.
+Environmental and Demographic Overview for Plaquemines Parish Hexagon
+Burden score
+55.8
+
+record
+88444602fdfffff
+hex
+The hexagon has a burden score of 55.8.
+Statewide percentile
+68.3
+
+record
+88444602fdfffff
+hex
+The hexagon is in the 68.3rd statewide percentile.
+Confidence level
+0.5
+
+record
+88444602fdfffff
+hex
+The confidence level of the burden score is 0.5.
+Population
+1120
+
+record
+88444602fdfffff
+hex
+The total population is 1120.
+Black population percentage
+22.7%
+
+record
+88444602fdfffff
+hex
+22.7% of the population identify as Black.
+Poverty under 200% of line percentage
+35.4%
+
+record
+88444602fdfffff
+hex
+35.4% of the population live below 200% of the poverty line.
+Air toxics cancer risk
+54.1
+per million
+record
+88444602fdfffff
+hex
+Modelled air toxics cancer risk is 54.1 per million.
+PM2.5 annual mean
+8.7
+ug/m3
+record
+88444602fdfffff
+hex
+The PM2.5 annual mean is 8.7 ug/m3.
+The burden score indicates modelled exposure risk and is not a direct measure of current or individual exposure levels. The scores are relative within the state of Louisiana and should not be compared to national figures.
+Confidence in the burden score is low, suggesting that further validation and corroboration may be needed for policy decision-making.
+Demographic data are recorded as factual population characteristics and do not reflect influences on environmental conditions.
+Modelled air toxics cancer risk and PM2.5 levels are based on historical data and modelling rather than direct measurement, impacting their immediate applicability.
+record
+88444602fdfffff
+hex
+The hexagon has a burden score of 55.8, with a statewide percentile of 68.3.
+record
+110064309412
+echo
+ANDINO ENERGY ENTERPRISES LLC - ST JAMES is 1.5 km away and part of the CAA major source program.

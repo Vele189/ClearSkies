@@ -1,0 +1,63 @@
+agency_complaint_draft
+This document serves as an administrative complaint to address the cumulative environmental burden recorded for the area covered by H3 cell 88444602ddfffff, located in Pointe Coupee Parish, Louisiana.
+The hexagon scores a burden score of 49.1 out of 100, placing it in the 61.2 percentile statewide in terms of environmental burden. This score indicates moderate modelled exposure to environmental hazards, nearby permitted sources, and a vulnerable population.
+record
+88444602ddfffff
+hex
+The hexagon has a burden score of 49.1 and is in the 61.2 percentile statewide.
+The environmental indicators contributing to this score include a modelled air toxics cancer risk of 50.6 per million, placing it also in the 61.2 percentile statewide, and a PM2.5 annual mean of 8.5 ug/m3, which is in the 46.2 percentile statewide.
+record
+88444602ddfffff
+hex
+Modelled air toxics cancer risk is 50.6 per million with a percentile of 61.2.
+record
+88444602ddfffff
+hex
+PM2.5 annual mean is 8.5 ug/m3 with a percentile of 46.2.
+The demographic data for this hexagon indicates a total population of 620 individuals, with 38.9% identified as Black and 43.1% living below 200% of the poverty line. The population further comprises 6.4% under the age of 5 and 15.1% over the age of 64.
+record
+88444602ddfffff
+hex
+Population is 620 with 38.9% Black and 43.1% below 200% of the poverty line.
+The ANR PIPELINE CO - MERMENTAU COMPRESSOR STATION, identified as a CAA major source facility, is located 1.5 kilometers from the center of this hexagon.
+record
+110070832687
+echo
+The ANR PIPELINE CO - MERMENTAU COMPRESSOR STATION is 1.5 km from the hexagon and is a CAA major source facility.
+Under 42 U.S.C. § 2000d, no person in the United States shall be subjected to discrimination under any program or activity receiving Federal financial assistance on the ground of race, color, or national origin. This includes actions that result in disparate impacts on minority or low-income populations.
+statute
+42 U.S.C. § 2000d
+usc-42
+Prohibits discrimination in federally assisted programs on the basis of race, color, or national origin.
+As outlined in 40 C.F.R. § 7.35(b), recipients of federal funds must not use criteria or methods of administration that result in discrimination because of race, color, national origin, or sex.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits use of discriminatory criteria or methods of administration in federally assisted programs.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42
+Prohibits discrimination in federally assisted programs on the basis of race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits use of discriminatory criteria or methods of administration in federally assisted programs.
+The complainant requests that the U.S. EPA External Civil Rights Compliance Office conduct an investigation into the potential disparate impact on the African-American and low-income residents within the hexagon.
+record
+88444602ddfffff
+hex
+The hexagon has a burden score of 49.1 and is in the 61.2 percentile statewide.
+record
+110070832687
+echo
+The ANR PIPELINE CO - MERMENTAU COMPRESSOR STATION is 1.5 km from the hexagon and is a CAA major source facility.
+statute
+42 U.S.C. § 2000d
+usc-42
+Prohibits discrimination in federally assisted programs on the basis of race, color, or national origin.
+statute
+40 C.F.R. § 7.35(b)
+ecfr-2025-title40-vol1
+Prohibits use of discriminatory criteria or methods of administration in federally assisted programs.

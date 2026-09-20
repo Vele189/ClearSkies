@@ -1,0 +1,49 @@
+agency_complaint_draft
+This administrative complaint is submitted to request that the U.S. EPA External Civil Rights Compliance Office open an investigation into potential discriminatory effects associated with the concentration of permitted sources in a specific area within Calcasieu Parish, Louisiana.
+The area identified by the H3 cell index 884446029dfffff has a burden score of 81.4 out of 100, placing it in the 94.2 percentile statewide, indicating significant environmental burden relative to other areas in Louisiana.
+record
+884446029dfffff
+hex
+The hexagon has a burden score of 81.4, in the 94.2 percentile statewide.
+The demographic data for this area reveals a potentially vulnerable population, with 31.5% identified as Black and 38.7% of individuals living below 200% of the poverty line.
+record
+884446029dfffff
+hex
+31.5% of the population is Black and 38.7% living below 200% of the poverty line.
+The area is impacted by emissions from eight facilities within a radius of 10.6 kilometers, all major CAA sources, which may contribute to the area's high environmental burden. Among these are the ACADIAN GAS PIPELINE SYSTEM, the AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY, and others, all of which are significant contributors to environmental pollution in the area.
+record
+110071722861
+echo
+ACADIAN GAS PIPELINE SYSTEM is a CAA major source within this area.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is a CAA major source within this area.
+Under 42 U.S.C. § 2000d, no person in the United States shall, on the ground of race, color, or national origin, be excluded from participation in, be denied the benefits of, or be subjected to discrimination under any program or activity receiving Federal financial assistance.
+statute
+42 U.S.C. § 2000d
+usc-42-title-42-chap21-subchapV
+No person in the United States shall be subjected to discrimination under any program receiving Federal financial assistance.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+42 U.S.C. § 2000d
+usc-42-title-42-chap21-subchapV
+No person in the United States shall be subjected to discrimination under any program receiving Federal financial assistance.
+The complainant requests the U.S. EPA External Civil Rights Compliance Office to conduct a compliance review and investigate any potential discriminatory effects in the administration of pollution controls that may disproportionately impact the identified demographic in the specified area.
+record
+884446029dfffff
+hex
+The hexagon has a burden score of 81.4, in the 94.2 percentile statewide.
+record
+110071722861
+echo
+ACADIAN GAS PIPELINE SYSTEM is a CAA major source within this area.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is a CAA major source within this area.
+statute
+42 U.S.C. § 2000d
+usc-42-title-42-chap21-subchapV
+No person in the United States shall be subjected to discrimination under any program receiving Federal financial assistance.

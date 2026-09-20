@@ -1,0 +1,90 @@
+journalist_fact_sheet
+This fact sheet provides information on environmental indicators and demographics for the hexagon located in Ouachita Parish, Louisiana. The methodology used for scoring is version 0.1.4. It is important to note that the score and other metrics are based on modelled data and are not findings of wrongdoing.
+Two facilities contributing to the emissions score in this hexagon are ARCOSA LW BR LLC - ARCOSA LIGHTWEIGHT and ARCOSA MARINE PRODUCTS INC - PLANT 1038, both classified under the CAA major source category.
+record
+110040943012
+echo
+ARCOSA LW BR LLC - ARCOSA LIGHTWEIGHT is located 1.5 km from the hexagon and is permitted under the CAA major source program.
+record
+110000602483
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1038 is located 2.8 km from the hexagon and is permitted under the CAA major source program.
+The burden score for this hexagon is 51.4 out of 100, which is in the 63.8 statewide percentile, indicating a higher burden compared to 63.8% of hexagons in Louisiana.
+record
+88444600bdfffff
+hex
+The burden score for the hexagon is 51.4 out of 100, with a state percentile rank of 63.8.
+Demographic information for the population within this hexagon includes a total population of 1980, with 58.6% identifying as Black, 47.3% of individuals living below 200% of the poverty level, 6.4% under the age of 5, and 15.1% aged 65 and older.
+record
+88444600bdfffff
+hex
+The total population within the hexagon is 1980, with 58.6% identifying as Black and 47.3% living below 200% of the poverty level.
+Environmental indicators show a modelled air toxics cancer risk at 51.9 per million, falling into the 63.8 percentile for this indicator, and a PM2.5 annual mean of 8.6 ug/m3.
+record
+88444600bdfffff
+hex
+Modelled air toxics cancer risk is 51.9 per million, in the 63.8 percentile.
+record
+88444600bdfffff
+hex
+PM2.5 annual mean concentration is 8.6 ug/m3, with a percentile of 48.8.
+Environmental and Demographic Overview of Hexagon in Ouachita Parish, LA
+Burden Score
+51.4
+
+record
+88444600bdfffff
+hex
+The burden score for the hexagon is 51.4 out of 100.
+Statewide Percentile
+63.8
+
+record
+88444600bdfffff
+hex
+The hexagon is in the 63.8 percentile statewide.
+Modelled Air Toxics Cancer Risk
+51.9
+per million
+record
+88444600bdfffff
+hex
+Modelled air toxics cancer risk is 51.9 per million.
+PM2.5 Annual Mean
+8.6
+ug/m3
+record
+88444600bdfffff
+hex
+PM2.5 annual mean concentration is 8.6 ug/m3.
+Black Population Percentage
+58.6
+%
+record
+88444600bdfffff
+hex
+58.6% of the population in the hexagon identifies as Black.
+Poverty Level (below 200%)
+47.3
+%
+record
+88444600bdfffff
+hex
+47.3% of people live below 200% of the poverty level.
+The burden score and environmental indicators are modelled estimates and may not reflect actual conditions at specific locations.
+Percentile rankings are relative to other hexagons within the state of Louisiana and may not be representative of national conditions.
+Confidence in the burden score is low (0.4), indicating variability or uncertainty in the estimates.
+Demographic data is factual and used as context but does not influence the environmental score.
+The absence of NO2 monitoring data means it was excluded from environmental group indicators.
+record
+110040943012
+echo
+ARCOSA LW BR LLC - ARCOSA LIGHTWEIGHT is located 1.5 km from the hexagon and is permitted under the CAA major source program.
+record
+110000602483
+echo
+ARCOSA MARINE PRODUCTS INC - PLANT 1038 is located 2.8 km from the hexagon and is permitted under the CAA major source program.
+record
+88444600bdfffff
+hex
+The burden score for the hexagon is 51.4 out of 100, with a state percentile rank of 63.8.

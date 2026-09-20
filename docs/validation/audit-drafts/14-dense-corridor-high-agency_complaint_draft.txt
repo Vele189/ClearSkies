@@ -1,0 +1,79 @@
+agency_complaint_draft
+This document serves as an administrative complaint submitted to the U.S. EPA External Civil Rights Compliance Office. The complaint addresses concerns related to the environmental and demographic burdens experienced by residents within the hexagon identified as 88444600ddfffff, located in St. James Parish, Louisiana.
+The hexagon's burden score is 91.2 out of 100, placing it in the 98.5th percentile statewide, indicating significantly high modelled exposure to environmental burdens. The confidence level of this assessment is high at 0.9. These high burden levels are driven by multiple environmental indicators and the presence of numerous permitted sources nearby.
+record
+88444600ddfffff
+hex
+The hexagon's burden score is 91.2 out of 100, placing it in the 98.5th percentile statewide.
+The modelled air toxics cancer risk for the area is 69.2 per million, which is in the 98.5th percentile according to AirToxScreen data. Additionally, PM2.5 annual mean levels are 9.5 ug/m3, placing them in the 83.5th percentile, and monitored NO2 levels are 11.4 ppb, at the 48.0th percentile.
+record
+88444600ddfffff
+hex
+The modelled air toxics cancer risk is 69.2 per million, in the 98.5th percentile.
+record
+88444600ddfffff
+hex
+PM2.5 annual mean is 9.5 ug/m3, in the 83.5th percentile.
+record
+88444600ddfffff
+hex
+Monitored NO2 levels are 11.4 ppb, at the 48.0th percentile.
+Demographic data for the hexagon indicate a population of 1,840 people, with 78.2% identifying as Black and 51.3% living below 200% of the poverty level. Certain vulnerable groups are also present, including 6.4% of the population under the age of 5 and 15.1% over the age of 64, which are relevant to understanding the full impact of environmental burdens on these communities.
+record
+88444600ddfffff
+hex
+Demographic data indicates a population of 1,840, with 78.2% identifying as Black and 51.3% living below 200% of the poverty level.
+record
+88444600ddfffff
+hex
+6.4% of the population is under the age of 5 and 15.1% is over the age of 64.
+The presence of 14 nearby permitted facilities significantly contributes to the environmental burden experienced in this area. Some of these facilities include the AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY and AIR PRODUCTS & CHEMICALS INC - NEW ORLEANS FACILITY, among others, all of which participate in the CAA major source program, indicating significant potential air emissions.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is 1.5 km away, part of the CAA major source program.
+record
+110000449113
+echo
+AIR PRODUCTS & CHEMICALS INC - NEW ORLEANS FACILITY is 4.1 km away, part of the CAA major source program.
+Under 40 C.F.R. § 7.35(b), recipients of EPA assistance are prohibited from using criteria or methods of administration that subject individuals to discrimination because of race, color, national origin, or sex, or that defeat or substantially impair the program objectives.
+statute
+40 C.F.R. § 7.35(b)
+epa-title-vi
+Recipients of EPA assistance are prohibited from using methods that discriminate based on race, color, national origin, or sex.
+Furthermore, 42 U.S.C. § 2000d prohibits denying individuals the benefits of, or subjecting them to discrimination under, any program receiving federal financial assistance on the basis of race, color, or national origin.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination in programs receiving federal assistance based on race, color, or national origin.
+administrative_complaint
+U.S. EPA External Civil Rights Compliance Office
+statute
+40 C.F.R. § 7.35(b)
+epa-title-vi
+Recipients of EPA assistance are prohibited from using methods that discriminate based on race, color, national origin, or sex.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination in programs receiving federal assistance based on race, color, or national origin.
+We request the U.S. EPA External Civil Rights Compliance Office to open an investigation into these environmental and demographic burdens, conduct a compliance review, and require corrective actions if necessary.
+record
+88444600ddfffff
+hex
+The hexagon's burden score is 91.2 out of 100, placing it in the 98.5th percentile statewide.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is 1.5 km away, part of the CAA major source program.
+record
+110000449113
+echo
+AIR PRODUCTS & CHEMICALS INC - NEW ORLEANS FACILITY is 4.1 km away, part of the CAA major source program.
+statute
+40 C.F.R. § 7.35(b)
+epa-title-vi
+Recipients of EPA assistance are prohibited from using methods that discriminate based on race, color, national origin, or sex.
+statute
+42 U.S.C. § 2000d
+usc-42-chap21
+Prohibits discrimination in programs receiving federal assistance based on race, color, or national origin.

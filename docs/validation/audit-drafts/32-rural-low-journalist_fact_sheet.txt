@@ -1,0 +1,101 @@
+journalist_fact_sheet
+This fact sheet provides an overview of environmental and demographic data for the hexagon located in Iberville Parish, identified by H3 cell index 88444601fdfffff.
+The burden score for the hexagon is 62.7 out of 100, placing it in the 76.9 percentile statewide. This score, which has a confidence level of 0.4 indicating low confidence, describes modelled exposure, nearby permitted sources, and a vulnerable population. It is not a finding of wrongdoing by any operator.
+record
+88444601fdfffff
+hex
+The hexagon has a burden score of 62.7, placing it in the 76.9 statewide percentile, with a confidence level of 0.4.
+Key environmental indicators include a modelled air toxics cancer risk of 58.5 per million, placing it in the 76.9 percentile, and a PM2.5 annual mean of 8.9 µg/m3, in the 61.9 percentile. These figures are derived from the AirToxScreen data, which is based on 2020 data.
+record
+88444601fdfffff
+hex
+Modelled air toxics cancer risk is 58.5 per million and PM2.5 annual mean is 8.9 µg/m3.
+The hexagon has a population of 890, with 55.4% identifying as Black. Approximately 46.8% of the population lives below 200% of the poverty line. These demographics are recorded facts and do not input into the burden score.
+record
+88444601fdfffff
+hex
+The hexagon has a population of 890, with 55.4% Black and 46.8% under 200% of the poverty line.
+Within the hexagon, there are two contributing facilities: AM Agrigen Industries LLC - AMAI Ammonia & Urea Plant, located 1.5 km away, and American Panther LLC - Ft Henry Gas Separation Facility, located 2.8 km away. Both facilities are classified as major sources under the Clean Air Act.
+record
+110070132594
+echo
+AM Agrigen Industries LLC - AMAI Ammonia & Urea Plant is located 1.5 km away and classified as a major CAA source.
+record
+110022399108
+echo
+American Panther LLC - Ft Henry Gas Separation Facility is located 2.8 km away and classified as a major CAA source.
+Environmental and Demographic Overview of Iberville Parish Hexagon
+Burden score
+62.7
+
+record
+88444601fdfffff
+hex
+The hexagon has a burden score of 62.7.
+Statewide percentile
+76.9
+
+record
+88444601fdfffff
+hex
+The hexagon is in the 76.9 statewide percentile.
+Confidence level
+0.4
+
+record
+88444601fdfffff
+hex
+The burden score's confidence level is 0.4.
+Population
+890
+
+record
+88444601fdfffff
+hex
+The hexagon has a population of 890.
+Black population percentage
+55.4%
+
+record
+88444601fdfffff
+hex
+55.4% of the population is Black.
+Poverty below 200% percentage
+46.8%
+
+record
+88444601fdfffff
+hex
+46.8% of the population lives below 200% of the poverty line.
+Modelled air toxics cancer risk
+58.5
+per million
+record
+88444601fdfffff
+hex
+Modelled air toxics cancer risk is 58.5 per million.
+PM2.5 annual mean
+8.9
+µg/m3
+record
+88444601fdfffff
+hex
+PM2.5 annual mean is 8.9 µg/m3.
+The burden score describes modelled exposure and is not a direct measurement of actual conditions in any specific location.
+Percentiles are calculated on a statewide basis within Louisiana and do not reflect national rankings.
+The confidence level for the burden score is 0.4, indicating low confidence in the precision of this score.
+Demographics are recorded facts for the population and do not contribute to the burden calculation.
+The data vintage for the environmental indicators varies, with AirToxScreen data being from 2020.
+The provided score is not indicative of any legal or regulatory violation by facilities within the hexagon.
+record
+88444601fdfffff
+hex
+The hexagon has a burden score of 62.7, placing it in the 76.9 statewide percentile, with a confidence level of 0.4.
+record
+110070132594
+echo
+AM Agrigen Industries LLC - AMAI Ammonia & Urea Plant is located 1.5 km away and classified as a major CAA source.
+record
+110022399108
+echo
+American Panther LLC - Ft Henry Gas Separation Facility is located 2.8 km away and classified as a major CAA source.

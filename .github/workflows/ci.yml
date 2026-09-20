@@ -1,0 +1,229 @@
+name: CI
+
+on:
+  push:
+    branches: [master, project-setup]
+  pull_request:
+
+jobs:
+  preregistration:
+    name: Validation set pre-registered
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the check reads commit ordering
+      - run: ./scripts/check_preregistration.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install h3 pyyaml
+      - name: Validation set is internally consistent
+        run: python scripts/check_validation_set.py
+      - name: Anchors match the external evidence
+        run: python scripts/verify_anchors.py
+      # CS-206. Proves the section 13 gate still parses the frozen fixture and
+      # applies its criteria, without a database, on the same terms as
+      # `pipeline run fake`. The scores are invented and the fixture is built to
+      # fail, so this asserts the gate runs and never that it passed. A real
+      # validation run is `make validate SCORES=...` against an actual run.
+      - name: The section 13 gate runs end to end
+        run: python scripts/run_validation.py
+          --scores scoring/tests/fixtures/synthetic_scores.json --out /dev/null
+      # CS-212, on the same terms. Section 13.5 asks whether the score is an
+      # artifact of its own construction, which is answerable only by building
+      # the score three other ways, so this proves those four paths still run
+      # over one set of values. The values are invented and the fixture is built
+      # to fail both gating checks, so again this asserts that the checks run.
+      # A real robustness run is `make robustness VALUES=...`.
+      - name: The section 13.5 robustness checks run end to end
+        run: python scripts/run_robustness.py
+          --values scoring/tests/fixtures/synthetic_values.json --out /dev/null
+
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy app tests
+      - run: python -m pytest -q
+      # Railpack installs nothing from a bare pyproject.toml, so the deploy
+      # reads api/requirements.txt. Catch the two lists drifting here rather
+      # than in a health check that has already failed.
+      - name: requirements.txt matches pyproject.toml
+        working-directory: .
+        run: python scripts/check_requirements_sync.py
+
+  etl:
+    name: Ingestion
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: etl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy pipeline tests
+      - run: python -m pytest -q
+      # The reference adapter runs against a fixture, so this proves the four
+      # stages still fit together without depending on an upstream being up.
+      - run: python -m pipeline run fake
+      # And the CS-108 gate runs over it, so a change that breaks the checks is
+      # caught on the pull request rather than at 07:00 the next morning. No
+      # --require here: on a pull request the point is that the gate still runs,
+      # not that every source was pulled.
+      - run: python -m pipeline check fake --no-store
+      # CS-109. The planner decides what a scheduled night would pull; running it
+      # here on an empty state directory proves it still resolves the graph and
+      # reads the cadences. It pulls nothing and writes nothing.
+      - run: python -m pipeline plan
+      # CS-207. Builds the map's archive from a fixture of real Louisiana cells
+      # with invented scores, so the tile step is exercised end to end without a
+      # database, on the same terms as `run fake`. The map renders nothing at all
+      # for a source-layer it cannot find, so a broken build is otherwise silent.
+      - name: The tile build runs end to end
+        run: python -m pipeline tiles
+          --scores tests/fixtures/tile_scores.json --out /tmp/ci-tiles.pmtiles
+
+  scoring:
+    name: Scoring
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scoring
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy burden tests
+      - run: python -m pytest -q
+
+  assistant:
+    name: Statute corpus
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assistant
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy corpus tests
+      - run: python -m pytest -q
+      # Appendix B.4 rule 4. An authority may be in the corpus only if the
+      # methodology says it is, and the paper may not promise one that nothing
+      # ingests. Both directions, and no network needed for either.
+      - name: The manifest matches Appendix B
+        run: python -m corpus check
+
+  web:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  database:
+    name: Database image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and verify extensions load
+        run: |
+          docker compose up -d --build db
+          # Wait for init scripts to finish, not just for the socket to open.
+          for _ in $(seq 1 90); do
+            docker compose exec -T db psql -h 127.0.0.1 -U clearskies -d clearskies \
+              -tAc "SELECT 1 FROM clearskies_extensions LIMIT 1" >/dev/null 2>&1 && break
+            sleep 2
+          done
+          docker compose exec -T db psql -U clearskies -d clearskies \
+            -v ON_ERROR_STOP=1 -c "SELECT * FROM clearskies_extensions"
+          docker compose exec -T db psql -U clearskies -d clearskies \
+            -v ON_ERROR_STOP=1 -tAc \
+            "SELECT count(*) FROM clearskies_extensions" | grep -qx 4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e "./api[dev]"
+
+      # The schema is only version-controlled if the files in api/migrations
+      # actually build it. This applies them to a database that has never seen
+      # them, unwinds the whole set, and applies it again, which is the shape
+      # of a reviewer checking out the branch.
+      - name: Migrations build the schema from empty
+        working-directory: api
+        run: |
+          python -m app.migrate up
+          python -m app.migrate verify
+
+      - name: Applying twice changes nothing
+        working-directory: api
+        run: python -m app.migrate up | grep -qx "0 applied"
+
+      # The spatial tests need PostGIS to answer, so they skip in the `api` job
+      # and run here, where a migrated database is already up. They seed inside a
+      # transaction and roll it back, so the down-migration step below still sees
+      # the schema it expects.
+      - name: The neighbour query behaves against real PostGIS
+        working-directory: api
+        env:
+          CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
+        run: python -m pytest tests/test_facility_hex_sql.py -q
+
+      # CS-209. The drill-down is a join across five tables and a geography
+      # function, so the only place it can be checked is a database that has
+      # them. Same bargain as above: seeded in a transaction, rolled back.
+      - name: The hex drill-down assembles against a real database
+        working-directory: api
+        env:
+          CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
+        run: python -m pytest tests/test_hex_detail_sql.py -q
+
+      - name: Down migrations unwind the whole set
+        working-directory: api
+        run: |
+          python -m app.migrate down --to 0000
+          python -m app.migrate up
+          python -m app.migrate verify

@@ -1,0 +1,52 @@
+[project]
+name = "clearskies-assistant"
+version = "0.1.0"
+description = "ClearSkies drafting assistant: the statute corpus, curated and versioned"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+    "httpx>=0.27",
+    "asyncpg>=0.30",
+]
+
+[project.optional-dependencies]
+# Embedding is the one step that calls a paid API. It is an extra so that
+# `manifest`, `check` and `build` — everything CI runs — need neither the SDK
+# nor a key.
+embed = [
+    "openai>=1.50",
+]
+dev = [
+    "openai>=1.50",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["corpus"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+# asyncpg ships no stubs; its Pool/Connection surface is dynamic.
+[[tool.mypy.overrides]]
+module = ["asyncpg.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

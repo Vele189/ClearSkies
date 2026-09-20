@@ -1,0 +1,42 @@
+community_briefing_sheet
+This briefing sheet provides information for people living in Pointe Coupee Parish about environmental concerns in their area. It is based on the latest environmental data and legal statutes.
+The burden score for your area is 49.1 out of 100, which places it in the 61.2 percentile statewide. This score reflects potential exposure to environmental hazards, the number of nearby permitted sources, and the vulnerability of the local population.
+record
+884446006dfffff
+hex
+The burden score is 49.1 out of 100, and the statewide percentile is 61.2.
+The modelled cancer risk from air toxics in your area is 50.6 per million, which is in the 61.2 percentile according to AirToxScreen data from 2020. The PM2.5 annual mean level is 8.5 micrograms per cubic meter, placing it in the 46.2 percentile.
+record
+884446006dfffff
+hex
+The modelled air toxics cancer risk is 50.6 per million, percentile 61.2.
+record
+884446006dfffff
+hex
+The PM2.5 annual mean is 8.5 ug/m3, percentile 46.2.
+The local population is 620 people, with 38.9% identifying as Black, 43.1% living below 200% of the poverty line, 6.4% under the age of 5, and 15.1% over the age of 64.
+record
+884446006dfffff
+hex
+The population data: 38.9% Black, 43.1% below 200% poverty, 6.4% under 5 years, 15.1% over 64 years.
+There is one major permitted source near you: AGRILECTRIC POWER PARTNERS LTD, located 1.5 km away, which is a major source under the Clean Air Act program.
+record
+110023046700
+echo
+AGRILECTRIC POWER PARTNERS LTD is a major CAA source, 1.5 km away.
+Environmental Concerns in Pointe Coupee Parish
+Pointe Coupee Parish
+The environmental score for your area is above average in Louisiana, which indicates potential environmental concerns. However, it does not imply that any specific wrongdoing has occurred or that any specific health issues are present within the community.
+Attend public meetings about environmental issues in your area.
+Contact local environmental agencies to express concerns or ask questions.
+Request records from agencies about environmental data and permits near you.
+Submit comments on pending permits or environmental impact assessments in your area.
+Consider filing a Title VI complaint with the EPA if you believe there is an environmental justice issue.
+record
+884446006dfffff
+hex
+The burden score is 49.1 out of 100, and the statewide percentile is 61.2.
+record
+110023046700
+echo
+AGRILECTRIC POWER PARTNERS LTD is a major CAA source, 1.5 km away.

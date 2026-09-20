@@ -1,0 +1,119 @@
+journalist_fact_sheet
+This fact sheet provides key environmental and demographic data for a specific hexagon located in Concordia Parish, Louisiana. The data reflects modelled exposure to air pollutants, nearby industrial operations, and demographic information based on methodology version 0.1.4.
+The burden score for this hexagon is 44.6 out of 100, placing it in the 55th percentile statewide. This score represents modelled exposure to environmental hazards, the presence of nearby permitted sources, and the demographics of the population. It does not constitute a finding of wrongdoing by any operator.
+record
+884446007dfffff
+hex
+The burden score for this hexagon is 44.6 out of 100, placing it in the 55th percentile statewide.
+Environmental indicators reveal a modelled air toxics cancer risk of 47.5 per million, which is in the 55th percentile, while the PM2.5 annual mean concentration stands at 8.4 micrograms per cubic meter, in the 40th percentile.
+record
+884446007dfffff
+hex
+The modelled air toxics cancer risk is 47.5 per million, in the 55th percentile.
+record
+884446007dfffff
+hex
+The PM2.5 annual mean is 8.4 micrograms per cubic meter, in the 40th percentile.
+The population in the hexagon is approximately 540 people, with demographic characteristics that include 41.2% identifying as Black, 49.6% living below 200% of the poverty line, 6.4% under the age of 5, and 15.1% over the age of 64.
+record
+884446007dfffff
+hex
+The population in the hexagon is 540.
+record
+884446007dfffff
+hex
+41.2% of the population identifies as Black.
+record
+884446007dfffff
+hex
+49.6% of the population lives below 200% of the poverty line.
+record
+884446007dfffff
+hex
+6.4% of the population is under the age of 5.
+record
+884446007dfffff
+hex
+15.1% of the population is over the age of 64.
+One contributing facility, AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY, is located 1.5 km from the hexagon and is classified as a CAA major source.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is located 1.5 km from the hexagon and is classified as a CAA major source.
+Environmental and Demographic Overview for Concordia Parish Hexagon
+Burden score
+44.6
+
+record
+884446007dfffff
+hex
+The burden score for this hexagon is 44.6 out of 100.
+Statewide percentile
+55.0
+
+record
+884446007dfffff
+hex
+This hexagon is in the 55th percentile statewide.
+Air toxics cancer risk
+47.5
+per million
+record
+884446007dfffff
+hex
+The modelled air toxics cancer risk is 47.5 per million.
+PM2.5 annual mean
+8.4
+ug/m3
+record
+884446007dfffff
+hex
+The PM2.5 annual mean is 8.4 micrograms per cubic meter.
+Population
+540
+
+record
+884446007dfffff
+hex
+The population in the hexagon is 540.
+Black population percentage
+41.2%
+
+record
+884446007dfffff
+hex
+41.2% of the population identifies as Black.
+Poverty below 200% line
+49.6%
+
+record
+884446007dfffff
+hex
+49.6% of the population lives below 200% of the poverty line.
+Population under 5 years old
+6.4%
+
+record
+884446007dfffff
+hex
+6.4% of the population is under the age of 5.
+Population over 64 years old
+15.1%
+
+record
+884446007dfffff
+hex
+15.1% of the population is over the age of 64.
+Percentiles are based on statewide comparisons within Louisiana and do not reflect national rankings.
+Confidence in the burden score is low due to a confidence value of 0.4, suggesting variability in the data.
+Demographic data does not influence the burden score and should be viewed separately from environmental exposure.
+The score reflects modelled exposure to environmental hazards and should not be interpreted as a direct measurement.
+The presence of the AIR LIQUIDE facility is noted without any implication of wrongdoing or regulatory non-compliance.
+record
+884446007dfffff
+hex
+The burden score for this hexagon is 44.6 out of 100, placing it in the 55th percentile statewide.
+record
+110021175011
+echo
+AIR LIQUIDE LARGE INDUSTRIES US LP - GEISMAR FACILITY is located 1.5 km from the hexagon and is classified as a CAA major source.
