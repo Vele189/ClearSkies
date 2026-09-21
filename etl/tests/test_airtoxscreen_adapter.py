@@ -35,6 +35,7 @@ from pipeline.policy import PartialFailurePolicy, SourcePolicy
 from pipeline.records import Measurement
 from pipeline.runner import run_adapter
 from pipeline.sinks import InMemorySink
+from pipeline.tract_vintage import RELATIONSHIP_URL
 from tests.conftest import FIXED_NOW, make_context, make_fetcher
 
 SOURCE = "airtoxscreen"
@@ -233,13 +234,32 @@ def respiratory_rows() -> list[Sequence[object]]:
     return rows
 
 
+#: The Census relationship file, as three columns of the real one. Identity by
+#: default: every 2010 tract maps to the 2020 tract with the same GEOID, which is
+#: what happens to most tracts across a decade and keeps these tests about the
+#: adapter rather than about the crossing. `test_a_split_tract_...` supplies a
+#: real split instead.
+def relationship_file(pairs: dict[str, list[tuple[str, int]]] | None = None) -> bytes:
+    mapping = pairs or {geoid: [(geoid, 1_000_000)] for geoid in GOOD_TRACTS}
+    lines = ["OID_TRACT_20|GEOID_TRACT_20|GEOID_TRACT_10|AREALAND_PART"]
+    for new, parts in sorted(mapping.items()):
+        for old, area in parts:
+            lines.append(f"oid|{new}|{old}|{area}")
+    return "\n".join(lines).encode()
+
+
 def transport(
-    *, cancer: bytes | None = None, respiratory: bytes | None = None, fail: set[str] | None = None
+    *,
+    cancer: bytes | None = None,
+    respiratory: bytes | None = None,
+    fail: set[str] | None = None,
+    relationship: bytes | None = None,
 ) -> httpx.MockTransport:
     down = fail or set()
     bodies = {
         CANCER_URL: cancer if cancer is not None else workbook(cancer_rows()),
         RESPIRATORY_URL: respiratory if respiratory is not None else workbook(respiratory_rows()),
+        RELATIONSHIP_URL: relationship if relationship is not None else relationship_file(),
     }
 
     def handler(request: httpx.Request) -> httpx.Response:

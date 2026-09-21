@@ -33,12 +33,18 @@ error, so they are filtered in `fetch` and counted. They are skipped rather than
 rejected: they are a different grain, not bad records, and counting 3,277 of them
 as losses would exhaust the partial-failure tolerance every night.
 
-**The tracts are 2010 vintage.** All 1,128 Louisiana tracts in the file appear in
-the 2010 tract set and 273 of them do not exist in the 2020 one, whose blocks
-section 7 builds the crosswalk from. The join is therefore across census
-vintages, and `Coverage.unmatched_sources` counts what fails to cross rather than
-letting a quarter of the state vanish quietly. Reconciling the two needs a Census
-tract relationship file and belongs with the geography loader, not here.
+**The tracts are 2010 vintage, and are crossed to 2020 before anything sees
+them.** All 1,128 Louisiana tracts in the file appear in the 2010 tract set and
+273 of them do not exist in the 2020 one, whose blocks section 7 builds the
+crosswalk from. `pipeline.tract_vintage` re-keys the values onto 2020 tracts
+using the Census relationship file, so `tract_exposure` satisfies its foreign key
+and the existing crosswalk carries E1 and E2 to hexagons unchanged. The crossing
+is weighted by shared land area rather than by population, which is an
+approximation that module documents and that every use of E1 and E2 inherits.
+
+The screening below runs on the rows EPA published, before the crossing, because
+the published-total identity is a check on the *file* and cannot be applied to a
+tract that EPA never published.
 """
 
 import io
@@ -58,6 +64,11 @@ from pipeline.interpolate import Coverage, Crosswalk, HexValue, population_weigh
 from pipeline.metadata import KnownGap, SourceSpec
 from pipeline.policy import PartialFailurePolicy, RateLimit, SourcePolicy
 from pipeline.records import Measurement, NormalizedRecord
+from pipeline.tract_vintage import (
+    RELATIONSHIP_URL,
+    rekey_intensive,
+    relationship_from_text,
+)
 
 # The release, and the emissions year it models. Both are 2019: AirToxScreen
 # names itself after the National Emissions Inventory year it runs on, and this
@@ -440,7 +451,22 @@ class AirToxScreenAdapter(SourceAdapter[AirToxRecord]):
         respiratory_download = await ctx.http.get(RESPIRATORY_URL)
         respiratory = parse_file(respiratory_download.content, RESPIRATORY_URL, state)
 
-        tracts = tuple(
+        # Cross the vintage before anything else sees these values. The file is
+        # on 2010 tracts and every other table in this database is on 2020 ones,
+        # so re-keying here means `tract_exposure` satisfies its foreign key and
+        # the 2020 crosswalk carries E1 and E2 to hexagons unchanged. The
+        # approximation this makes is documented in `pipeline.tract_vintage`.
+        relationship_download = await ctx.http.get(RELATIONSHIP_URL)
+        relationship = relationship_from_text(
+            relationship_download.text(), state_fips=STATE_FIPS[state]
+        )
+        # Screen on the file's own rows before crossing vintages. The published
+        # total is rounded to one significant figure and equals the pollutant sum
+        # for every tract in the national file, which is what makes it a check on
+        # the file still having the shape this adapter believes it has. That
+        # check can only be applied to a row EPA actually published, so it runs
+        # here and a 2020 tract inherits only values that passed it.
+        as_published = tuple(
             self._tract_row(
                 geoid,
                 cancer.readings.get(geoid),
@@ -449,13 +475,42 @@ class AirToxScreenAdapter(SourceAdapter[AirToxRecord]):
             )
             for geoid in sorted(set(cancer.readings) | set(respiratory.readings))
         )
+        unusable = tuple(row for row in as_published if row.rejection is not None)
+        usable = {row.geoid for row in as_published if row.rejection is None}
+
+        cancer_2020 = rekey_intensive(
+            {g: r.reading.total for g, r in cancer.readings.items() if g in usable},
+            relationship,
+        )
+        respiratory_2020 = rekey_intensive(
+            {g: r.reading.total for g, r in respiratory.readings.items() if g in usable},
+            relationship,
+        )
+
+        tracts = tuple(
+            self._tract_row(
+                geoid,
+                _crossed(geoid, cancer_2020.values.get(geoid)),
+                _crossed(geoid, respiratory_2020.values.get(geoid)),
+                STATE_FIPS[state],
+            )
+            for geoid in sorted(set(cancer_2020.values) | set(respiratory_2020.values))
+        )
 
         notes = [
-            f"{len(tracts)} {state} tracts on {TRACT_VINTAGE} census geography; "
-            f"{cancer.rollups} rollup rows and {cancer.other_states} out-of-state tracts skipped",
+            f"{len(tracts)} {state} tracts, re-keyed from {TRACT_VINTAGE} onto 2020 census "
+            f"geography; {cancer.rollups} rollup rows and {cancer.other_states} out-of-state "
+            f"tracts skipped",
+            f"cancer risk: {cancer_2020.summary()}",
+            f"respiratory hazard: {respiratory_2020.summary()}",
             "E1 and E2 are the sum of the per-pollutant columns, not the published total, "
             "which is rounded to one significant figure",
         ]
+        if unusable:
+            notes.append(
+                f"{len(unusable)} published tracts failed screening and were excluded before "
+                f"the vintage crossing, so no 2020 tract inherits a value from them"
+            )
         if len(cancer.readings) != len(respiratory.readings):
             notes.append(
                 f"the two files disagree on coverage: {len(cancer.readings)} tracts carry a "
@@ -466,7 +521,14 @@ class AirToxScreenAdapter(SourceAdapter[AirToxRecord]):
         mapped = self._map_to_hexes([row for row in tracts if row.rejection is None])
 
         return FetchResult(
-            records=tracts + mapped.cells,
+            # The rows EPA published that failed screening are emitted alongside
+            # the crossed ones, still carrying their rejection. They never reach
+            # `normalize`, so no 2010 geoid reaches the database; what they do
+            # reach is `validate`, which is what keeps a loss counted one record
+            # at a time and inside the partial-failure tolerance. Dropping them
+            # here instead would make a file that had changed shape look like a
+            # clean night that simply loaded less.
+            records=unusable + tracts + mapped.cells,
             # The release, which is also the emissions inventory year. Section 12
             # ages the value from here, so a 2019 assessment downloaded tonight is
             # seven years old tonight.
@@ -672,6 +734,22 @@ class AirToxScreenAdapter(SourceAdapter[AirToxRecord]):
 def _measure(reading: Reading | None) -> Measurement:
     """The pollutant sum, or an absence. Never a zero standing in for silence."""
     return Measurement.of(reading.total) if reading is not None else Measurement.absent()
+
+
+def _crossed(geoid: str, value: float | None) -> SheetReading | None:
+    """One re-keyed value as the shape `_tract_row` expects.
+
+    `published` is dropped rather than carried: it was EPA's rounded total for a
+    2010 tract and describes no 2020 one, and `_screen` has already applied the
+    identity it exists to check, to the rows the file actually published.
+    `population` likewise — the 2010 count is not this tract's, and section 7
+    takes population from the crosswalk rather than from here.
+    """
+    if value is None:
+        return None
+    return SheetReading(
+        county=geoid[2:5], population=None, reading=Reading(total=value, published=None)
+    )
 
 
 def _screen(row: TractRow, expected_fips: str) -> tuple[str, str] | None:
