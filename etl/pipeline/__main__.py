@@ -34,9 +34,12 @@ import json
 import logging
 import os
 import sys
-from collections.abc import Mapping
+import time
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -55,7 +58,7 @@ from pipeline.quality import (
 )
 from pipeline.runner import run_adapter
 from pipeline.schedule import RunPlan, apply_outcomes, plan_run
-from pipeline.sinks import InMemorySink
+from pipeline.sinks import InMemorySink, Sink
 from pipeline.snapshots import InMemorySnapshotStore
 from pipeline.tiles.build import (
     DEFAULT_MAX_ZOOM,
@@ -107,7 +110,7 @@ async def _run(
     *,
     dry_run: bool,
     pilot_state: str,
-    sink: InMemorySink | None = None,
+    sink: Sink | None = None,
 ) -> PullMetadata:
     adapter = get(name)()
     # The reference adapter has no server behind it; everything else goes to the
@@ -126,6 +129,203 @@ async def _run(
             credentials=_credentials(),
         )
         return await run_adapter(adapter, ctx)
+
+
+class _LazyConnection:
+    """Connects on first use and reconnects if the server hung up.
+
+    `PostgresSink` stages in memory and touches the database only in `commit`,
+    which for a slow source is a long time after the run began: the block layer
+    spends about half an hour downloading before it writes a row. A connection
+    opened up front sits idle through all of it and Neon closes it, so the
+    commit that everything was staged for fails with `connection is closed`
+    after the whole fetch has already been paid for.
+
+    So the connection is opened when it is first needed and checked before each
+    use. It satisfies `sinks_postgres.Connection` and `dasymetric.postgis.
+    Connection` between them; nothing here knows which.
+    """
+
+    def __init__(self, dsn: str) -> None:
+        self._dsn = dsn
+        self._connection: Any = None
+
+    async def _live(self) -> Any:
+        import asyncpg  # noqa: PLC0415
+
+        if self._connection is None or self._connection.is_closed():
+            self._connection = await asyncpg.connect(self._dsn)
+        return self._connection
+
+    async def fetchval(self, query: str, *args: Any) -> Any:
+        return await (await self._live()).fetchval(query, *args)
+
+    async def fetch(self, query: str, *args: Any) -> Any:
+        return await (await self._live()).fetch(query, *args)
+
+    async def fetchrow(self, query: str, *args: Any) -> Any:
+        return await (await self._live()).fetchrow(query, *args)
+
+    async def execute(self, query: str, *args: Any) -> Any:
+        return await (await self._live()).execute(query, *args)
+
+    async def executemany(self, query: str, args: Any) -> Any:
+        return await (await self._live()).executemany(query, args)
+
+    def transaction(self) -> Any:
+        @asynccontextmanager
+        async def opened() -> AsyncIterator[Any]:
+            connection = await self._live()
+            async with connection.transaction():
+                yield connection
+
+        return opened()
+
+    async def close(self) -> None:
+        if self._connection is not None and not self._connection.is_closed():
+            await self._connection.close()
+
+
+async def _run_into_postgres(name: str, *, pilot_state: str, database_url: str) -> PullMetadata:
+    """One adapter, loading for real.
+
+    asyncpg is imported lazily rather than at module scope so that the rest of
+    the CLI — `sources`, `plan`, `run` without `--load` — keeps working on a
+    machine with no database driver installed, which is the same bargain
+    `pipeline.sinks` strikes.
+    """
+    if not database_url:
+        raise SystemExit("--load needs DATABASE_URL or --database-url")
+
+    from pipeline.sinks_postgres import PostgresSink  # noqa: PLC0415
+
+    connection = _LazyConnection(database_url)
+    try:
+        sink = PostgresSink(connection)
+        metadata = await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink)
+    finally:
+        await connection.close()
+    return metadata
+
+
+async def _grid(*, state_fips: str, database_url: str, dry_run: bool) -> int:
+    """Build the hex grid, or report what it would build.
+
+    Exits non-zero when the loaded area is implausible against Louisiana's
+    published figure. CS-007 asks for that check rather than for a count
+    somebody eyeballs, because the boundary is the input most likely to be
+    quietly wrong and the cell count alone will not show it.
+    """
+    if not database_url:
+        raise SystemExit("grid needs DATABASE_URL or --database-url")
+
+    from pipeline.grid import BOUNDARY, build_grid, cells_for  # noqa: PLC0415
+
+    connection = _LazyConnection(database_url)
+    try:
+        if dry_run:
+            raw = await connection.fetchval(BOUNDARY, state_fips)
+            if raw is None:
+                print(f"no census_tract rows for state {state_fips}", file=sys.stderr)
+                return 1
+            in_pilot, fringe = cells_for(json.loads(raw))
+            print(
+                f"{len(in_pilot)} cells centred in the state, "
+                f"{len(fringe)} adjacent before pruning. Nothing written."
+            )
+            return 0
+        report = await build_grid(connection, state_fips=state_fips)
+    finally:
+        await connection.close()
+
+    print(report.summary())
+    return 0 if report.plausible else 1
+
+
+async def _interpolate(
+    *, state_fips: str, acs_vintage: str, database_url: str, only: list[str] | None
+) -> int:
+    """Section 7, blocks onto hexes, one county at a time.
+
+    Progress is printed per county because this is the most expensive step in
+    the pipeline and a silent hour is indistinguishable from a hung one. The
+    per-county transaction is `build_county_crosswalk`'s, so interrupting this
+    leaves the counties it finished intact and the rest untouched: rerunning
+    picks up rather than starting over.
+    """
+    if not database_url:
+        raise SystemExit("interpolate needs DATABASE_URL or --database-url")
+
+    from pipeline.dasymetric import postgis  # noqa: PLC0415
+    from pipeline.dasymetric.build import (  # noqa: PLC0415
+        TOTAL_POPULATION,
+        build_county_crosswalk,
+        verify_statewide_population,
+    )
+
+    connection = _LazyConnection(database_url)
+    try:
+        wanted = tuple(only) if only else await postgis.counties(connection, state_fips=state_fips)
+        print(f"{len(wanted)} counties to interpolate")
+
+        written = 0
+        failed: list[str] = []
+        for index, county in enumerate(wanted, start=1):
+            started = time.monotonic()
+            result = await build_county_crosswalk(connection, county_fips=county)
+            written += result.rows_written
+            if not result.ok:
+                failed.append(county)
+            print(
+                f"  [{index}/{len(wanted)}] {county}: {result.rows_written} weights, "
+                f"{'ok' if result.ok else 'OUT OF TOLERANCE'}, "
+                f"{time.monotonic() - started:.1f}s"
+            )
+
+        print(f"{written} tract-hex weights written")
+
+        # Only meaningful over the whole state: the check compares interpolated
+        # hex population against tract totals, and a subset would be short by
+        # every county it left out rather than by an error.
+        if only:
+            print("partial run; skipping the statewide population check")
+            return 1 if failed else 0
+
+        check = await verify_statewide_population(
+            connection, acs_vintage=acs_vintage, variable=TOTAL_POPULATION
+        )
+        print(check.describe())
+        return 0 if check.reconciliation.ok and not failed else 1
+    finally:
+        await connection.close()
+
+
+async def _grid_export(*, out: Path, database_url: str) -> int:
+    """Dump the grid in the shape `tiles` reads, with nothing scored.
+
+    Exists so the tile path can be exercised against real geometry before a
+    scoring run does. The file it writes is a scaffold and says so: every hex
+    carries `no_score_reason`, and `scored` is false at the top level.
+    """
+    if not database_url:
+        raise SystemExit("grid-export needs DATABASE_URL or --database-url")
+
+    from pipeline.grid import export_for_tiles  # noqa: PLC0415
+
+    connection = _LazyConnection(database_url)
+    try:
+        payload = await export_for_tiles(connection)
+    finally:
+        await connection.close()
+
+    if not payload["hexes"]:
+        print("the grid is empty; run `pipeline grid` first", file=sys.stderr)
+        return 1
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload))
+    print(f"{len(payload['hexes'])} unscored cells written to {out}")
+    return 0
 
 
 async def _check(
@@ -430,11 +630,58 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("sources", help="list registered data sources")
 
+    grid = sub.add_parser("grid", help="build the H3 hex grid for the pilot state")
+    grid.add_argument("--pilot-state-fips", default="22", help="FIPS of the state to tile")
+    grid.add_argument("--database-url", default=None, help="override DATABASE_URL")
+    grid.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="count the cells the boundary yields without writing them",
+    )
+
+    interpolate = sub.add_parser(
+        "interpolate",
+        help="run the section 7 dasymetric interpolation from blocks onto the hex grid",
+    )
+    interpolate.add_argument("--pilot-state-fips", default="22")
+    interpolate.add_argument(
+        "--acs-vintage",
+        default="2020-2024",
+        help="the tract_demographics vintage to check statewide population against",
+    )
+    interpolate.add_argument("--database-url", default=None, help="override DATABASE_URL")
+    interpolate.add_argument(
+        "--county",
+        action="append",
+        default=None,
+        help="restrict to these five-digit county FIPS; repeatable. For measuring one first.",
+    )
+
+    grid_export = sub.add_parser(
+        "grid-export",
+        help="write the grid as an unscored scores file, for drawing it before scoring exists",
+    )
+    grid_export.add_argument("--out", type=Path, required=True)
+    grid_export.add_argument("--database-url", default=None, help="override DATABASE_URL")
+
     run = sub.add_parser("run", help="run one adapter")
     run.add_argument("source")
     run.add_argument("--dry-run", action="store_true", help="fetch and normalize, write nothing")
     run.add_argument("--pilot-state", default="LA")
     run.add_argument("--json", action="store_true", help="print the manifest as JSON")
+    # Off by default. A `run` that silently wrote to whatever DATABASE_URL
+    # happened to be exported would make the in-memory exercise and the real
+    # load look identical from the command line.
+    run.add_argument(
+        "--load",
+        action="store_true",
+        help="write to Postgres via DATABASE_URL instead of the in-memory sink",
+    )
+    run.add_argument(
+        "--database-url",
+        default=None,
+        help="override DATABASE_URL for --load",
+    )
 
     check = sub.add_parser("check", help="run adapters and apply the data quality gate")
     check.add_argument(
@@ -566,6 +813,33 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "sources":
         return _list_sources()
 
+    if args.command == "interpolate":
+        return asyncio.run(
+            _interpolate(
+                state_fips=args.pilot_state_fips,
+                acs_vintage=args.acs_vintage,
+                database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
+                only=args.county,
+            )
+        )
+
+    if args.command == "grid-export":
+        return asyncio.run(
+            _grid_export(
+                out=args.out,
+                database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
+            )
+        )
+
+    if args.command == "grid":
+        return asyncio.run(
+            _grid(
+                state_fips=args.pilot_state_fips,
+                database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
+                dry_run=args.dry_run,
+            )
+        )
+
     if args.command == "history":
         return _history(args.store, args.check)
 
@@ -646,7 +920,21 @@ def main(argv: list[str] | None = None) -> int:
             _surface(report, github=args.github)
         return 0 if report.passed else 1
 
-    metadata = asyncio.run(_run(args.source, dry_run=args.dry_run, pilot_state=args.pilot_state))
+    if args.load:
+        if args.dry_run:
+            print("--load and --dry-run are opposites; pick one", file=sys.stderr)
+            return 2
+        metadata = asyncio.run(
+            _run_into_postgres(
+                args.source,
+                pilot_state=args.pilot_state,
+                database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
+            )
+        )
+    else:
+        metadata = asyncio.run(
+            _run(args.source, dry_run=args.dry_run, pilot_state=args.pilot_state)
+        )
     if args.json:
         print(metadata.model_dump_json(indent=2))
     else:

@@ -83,6 +83,40 @@ $(ETL_VENV): $(ETL)/pyproject.toml
 	$(ETL_VENV)/bin/pip install -q -e "$(ETL)[dev]"
 	@touch $(ETL_VENV)
 
+# ---- Hex grid (CS-007) -------------------------------------------------
+#
+# The fixed set of resolution 8 cells everything else joins against. Cut from
+# the dissolved tract layer, so `run census_acs --load` has to have happened
+# first. Idempotent: re-running converges on the same grid rather than adding
+# to it, and exits non-zero if the loaded area does not match Louisiana's
+# published figure.
+
+.PHONY: grid
+grid: $(ETL_VENV) ## Build the H3 hex grid for the pilot state
+	cd $(ETL) && .venv/bin/python -m pipeline grid
+
+.PHONY: grid-plan
+grid-plan: $(ETL_VENV) ## Count the cells the boundary yields, writing nothing
+	cd $(ETL) && .venv/bin/python -m pipeline grid --dry-run
+
+# Draws the grid before a scoring run exists, so the tile path is exercised
+# against real geometry while a wrong boundary is still cheap to fix. Every hex
+# comes out grey and carries `no_score_reason`; this is a scaffold, and the
+# archive it feeds is not a preview of the product.
+GRID_SCORES ?= tiles/grid-unscored.json
+
+.PHONY: grid-tiles
+grid-tiles: $(ETL_VENV) ## Build a grey, unscored PMTiles archive from the grid
+	cd $(ETL) && .venv/bin/python -m pipeline grid-export --out $(abspath $(GRID_SCORES))
+	$(MAKE) tiles SCORES=$(GRID_SCORES) ARCHIVE=$(ARCHIVE)
+
+# Serves the archive locally with the Range support PMTiles needs. `make tiles`
+# writes a file; a browser cannot read one over file://, and the deploy path
+# through R2 is not worth setting up to look at a grid.
+.PHONY: serve-tiles
+serve-tiles: ## Serve tiles/ on :8080 for local development
+	cd tiles && python3 -m http.server 8080
+
 .PHONY: sources
 sources: $(ETL_VENV) ## List the registered data sources
 	cd $(ETL) && .venv/bin/python -m pipeline sources
