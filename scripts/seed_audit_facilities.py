@@ -74,9 +74,19 @@ ON CONFLICT (facility_id) DO NOTHING
 async def fetch_facilities(limit: int) -> list[dict[str, Any]]:
     """Major air sources in Louisiana, from ECHO's REST service."""
     async with httpx.AsyncClient(timeout=120.0) as client:
+        # `responseset` has to go on the query that creates the QueryID. ECHO
+        # fixes the page size when the query is registered, and `get_qid`
+        # silently serves that size no matter what it is asked for: set it to 1
+        # here and the fetch below returns one row while reporting hundreds of
+        # QueryRows.
         start = await client.get(
             f"{ECHO}.get_facilities",
-            params={"output": "JSON", "p_st": "LA", "p_maj": "Y", "responseset": "1"},
+            params={
+                "output": "JSON",
+                "p_st": "LA",
+                "p_maj": "Y",
+                "responseset": str(max(limit, 1)),
+            },
         )
         start.raise_for_status()
         qid = start.json()["Results"]["QueryID"]
