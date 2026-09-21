@@ -118,8 +118,21 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
 
     from openai import AsyncOpenAI
     from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
 
+    # The key comes from the typed settings object, which reads `.env` as well
+    # as the environment. `OpenAIChatModel` with no provider infers one, and the
+    # inferred provider reads `os.environ["OPENAI_API_KEY"]` directly -- so a
+    # deployment that configures the key the way this project documents, in
+    # `.env`, satisfies the 503 check above and then raises inside the model
+    # constructor. That is a 500 on the one endpoint CS-008 requires to degrade
+    # rather than crash.
+    #
+    # Handing the provider the client this function already built fixes it and
+    # collapses two configurations into one: the retrieval embeddings and the
+    # draft model now demonstrably use the same key and the same HTTP client.
     client = AsyncOpenAI(api_key=get_settings().openai_api_key)
+    model = OpenAIChatModel(draft_model, provider=OpenAIProvider(openai_client=client))
 
     async with p.acquire() as conn:
         hex_context = await load_hex_context(conn, body.h3)
@@ -128,7 +141,7 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
             outcome = await service.draft_for_hex(
                 conn,
                 client,
-                OpenAIChatModel(draft_model),
+                model,
                 embedding_model,
                 hex_context,
                 body.document_type,

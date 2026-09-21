@@ -72,9 +72,21 @@ def stamped() -> GeneratedDraft:
 # ---- The 503 that a missing key produces -------------------------------
 
 
-def test_an_unconfigured_deployment_says_so_rather_than_failing_at_startup() -> None:
+def test_an_unconfigured_deployment_says_so_rather_than_failing_at_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """config.py has anticipated an absent key since Phase 0. The API starts and
-    this one endpoint reports itself unavailable."""
+    this one endpoint reports itself unavailable.
+
+    The key is cleared explicitly. `Settings` reads `.env`, which this repository
+    documents as where a developer puts their key and which is symlinked into
+    `api/`, so without this the test asserts nothing on any machine that has one
+    -- it passed only where the file was absent, and failed everywhere else for
+    a reason that had nothing to do with the behaviour under test. An
+    environment variable takes precedence over `.env` in pydantic-settings, so
+    setting it empty is what "unconfigured" has to mean here.
+    """
+    monkeypatch.setenv("OPENAI_API_KEY", "")
     get_settings.cache_clear()
     with TestClient(app) as client:
         response = client.post(
@@ -84,6 +96,10 @@ def test_an_unconfigured_deployment_says_so_rather_than_failing_at_startup() -> 
     assert response.status_code == 503
     assert "OPENAI_API_KEY" in response.json()["detail"]
     assert "Everything else in the API works normally" in response.json()["detail"]
+
+    # The cache is shared with every other test in this process, and the next
+    # one to read it should not inherit an unconfigured deployment.
+    get_settings.cache_clear()
 
 
 def test_the_rest_of_the_api_is_unaffected_by_the_assistant_being_off() -> None:
