@@ -8,6 +8,7 @@ five real sources next to the reference implementation:
     airtoxscreen  modeled cancer risk and respiratory hazard     (E1, E2)
     openaq        measured PM2.5                                 (E4)
     census_acs    income, poverty, education, language, age      (S1-S2, P1-P5)
+    census_block  2020 Decennial block counts, section 7's ancillary layer
 
 and the sixth, which is a table of multipliers rather than a geography:
 
@@ -19,6 +20,7 @@ Each is one module here plus one line in this file.
 from pipeline.adapters.airtoxscreen import AirToxScreenAdapter
 from pipeline.adapters.base import FetchResult, SourceAdapter
 from pipeline.adapters.census_acs import CensusAcsAdapter
+from pipeline.adapters.census_block import CensusBlockAdapter
 from pipeline.adapters.echo import EpaEchoAdapter
 from pipeline.adapters.fake import FakeAirAdapter
 from pipeline.adapters.openaq import OpenAqAdapter
@@ -30,6 +32,7 @@ __all__ = [
     "REGISTRY",
     "AirToxScreenAdapter",
     "CensusAcsAdapter",
+    "CensusBlockAdapter",
     "EpaEchoAdapter",
     "EpaRseiAdapter",
     "EpaTriAdapter",
