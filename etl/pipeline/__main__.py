@@ -300,6 +300,51 @@ async def _interpolate(
         await connection.close()
 
 
+async def _disparity(*, database_url: str, acs_vintage: str, out: Path | None) -> int:
+    """Section 13.6, over the run the API and the tiles are serving.
+
+    Fills the three composition columns first, because `run_scoring` leaves them
+    unset by design and this is the package section 14 allows to read them. The
+    ordering matters for the argument as much as for the data: a composition
+    computed after a score cannot be suspected of having informed it.
+
+    Exits 0 whatever the coefficient turns out to be. Nothing here is a gate:
+    section 13.6 is a reported result, and the moment a build can fail on it
+    somebody eventually tunes a weight until it passes.
+    """
+    if not database_url:
+        raise SystemExit("disparity needs DATABASE_URL or --database-url")
+
+    from pipeline.analysis import run_disparity  # noqa: PLC0415
+    from pipeline.analysis.composition import hex_shares, store_shares  # noqa: PLC0415
+    from pipeline.dasymetric import postgis  # noqa: PLC0415
+
+    connection = _LazyConnection(database_url)
+    try:
+        run_id = await connection.fetchval("SELECT run_id FROM pipeline_run WHERE is_current")
+        if run_id is None:
+            print("no promoted scoring run; nothing to analyse", file=sys.stderr)
+            return 1
+
+        crosswalk = await postgis.load_crosswalk(connection)
+        shares = await hex_shares(connection, crosswalk, acs_vintage=acs_vintage)
+        written = await store_shares(connection, shares, run_id=int(run_id))
+        print(f"composition written for {written} hexes of run {run_id}")
+
+        report = await run_disparity(connection, now=datetime.now(UTC))
+    finally:
+        await connection.close()
+
+    rendered = report.markdown()
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(rendered)
+        print(f"wrote {out}")
+    else:
+        print(rendered)
+    return 0
+
+
 async def _grid_export(*, out: Path, database_url: str) -> int:
     """Dump the grid in the shape `tiles` reads, with nothing scored.
 
@@ -657,6 +702,14 @@ def main(argv: list[str] | None = None) -> int:
         help="restrict to these five-digit county FIPS; repeatable. For measuring one first.",
     )
 
+    disparity = sub.add_parser(
+        "disparity",
+        help="the section 13.6 finding: how the score tracks racial composition",
+    )
+    disparity.add_argument("--database-url", default=None, help="override DATABASE_URL")
+    disparity.add_argument("--acs-vintage", default="2020-2024")
+    disparity.add_argument("--out", type=Path, default=None, help="write the report here")
+
     grid_export = sub.add_parser(
         "grid-export",
         help="write the grid as an unscored scores file, for drawing it before scoring exists",
@@ -820,6 +873,15 @@ def main(argv: list[str] | None = None) -> int:
                 acs_vintage=args.acs_vintage,
                 database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
                 only=args.county,
+            )
+        )
+
+    if args.command == "disparity":
+        return asyncio.run(
+            _disparity(
+                database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
+                acs_vintage=args.acs_vintage,
+                out=args.out,
             )
         )
 
