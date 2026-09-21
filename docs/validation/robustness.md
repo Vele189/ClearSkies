@@ -1,7 +1,7 @@
 # Robustness checks — CS-212
 
 **Implemented 2026-09-11 against methodology v0.1.3. First run against real data
-2026-09-21, run 7, methodology v0.2.0. Outcome: FAIL. See §7.**
+2026-09-21. Latest: run 11, methodology v0.2.0. Outcome: FAIL. See §7.**
 
 Methodology §13.5 specifies three checks that ask whether the score is measuring
 Louisiana or measuring the choices made in §10. All three are implemented, unit
@@ -161,83 +161,82 @@ a test against it rather than a flag on a command line.
 
 ---
 
-## 7. Result — run 7, 2026-09-21
+## 7. Result — run 11, 2026-09-21
 
 - Methodology version: 0.2.0
-- Comparison universe: 6,093 hexes, after 13,788 excluded as insufficient confidence per §12
-- Values file: produced by `scripts/export_run.py --robustness`
+- Comparison universe: 17,263 hexes, after 2,618 excluded as insufficient confidence per §12
+- Values file: `scripts/export_run.py --robustness`
 - **Outcome: FAIL.** Four indicators are over the leave-one-out bar.
+
+Run 11 supersedes an earlier run 7 whose §12 recency term was computing as zero
+for every hexagon, which left only 6,093 hexes clearing the confidence bar. The
+fix changed no weight and no percentile; it widened the comparison universe to
+17,263. The conclusions below are unchanged in direction and firmer in support.
 
 ### 7.1 Alternative specifications — all three clear
 
 | Specification | Gating | Spearman | Verdict |
 |---|---|---|---|
-| `equal_weights` | yes | 0.982 | clears 0.85 |
-| `exposures_only` | yes | 0.957 | clears 0.85 |
-| `additive` | reported | 0.987 | reported, not required |
+| `equal_weights` | yes | 0.978 | clears 0.85 |
+| `exposures_only` | yes | 0.960 | clears 0.85 |
+| `additive` | reported | 0.983 | reported, not required |
 
 This is the part of §13.5 that asks whether the ordering is an artifact of §10's
 weights, and the answer is that it is not. Moving Environmental Effects from 0.5
-to 1.0 leaves a 0.982 rank correlation; dropping the group entirely still leaves
-0.957. Whatever is wrong with this score, it is not the F-group weighting, and a
-proposal to fix the §13.2 site failures by reweighting that group should expect
-to change almost nothing.
+to 1.0 leaves a 0.978 rank correlation; dropping the group entirely still leaves
+0.960. **Whatever is wrong with this score, it is not the F-group weighting**,
+and a proposal to fix the §13.2 site failures or the §13.4 control failures by
+reweighting that group should expect to change almost nothing.
 
-The additive variant correlating at 0.987 is worth reading with §2's warning in
-hand. A high correlation here is the *unsurprising* direction only if one already
-believes the two models make the same claim, which §3 denies. It is reported
-rather than required for exactly that reason, and it is not evidence that the
-multiplicative model is unnecessary.
+The additive variant correlating at 0.983 is worth reading with §2's warning in
+hand. It is reported rather than required because §3 rejects the additive model
+for making a *different claim*, not a worse one, and a high correlation is not
+evidence that the multiplicative model is unnecessary.
 
 ### 7.2 Leave-one-indicator-out — four over the bar
 
 No single removal may move more than 10% of hexes by more than one decile.
 
-| Indicator | Group | Moved > 1 decile | Share | Group lost | Verdict |
-|---|---|---|---|---|---|
-| S2 | sensitive_populations | 1,733 of 6,093 | 28.4% | 0 | **over** |
-| S1 | sensitive_populations | 1,574 of 6,093 | 25.8% | 0 | **over** |
-| E2 | exposures | 627 of 6,093 | 10.3% | 971 | **over** |
-| E1 | exposures | 622 of 6,093 | 10.2% | 971 | **over** |
-| P5 | socioeconomic_factors | 48 of 6,093 | 0.8% | 0 | within |
-| E3 | exposures | 46 of 6,093 | 0.8% | 0 | within |
-| P3 | socioeconomic_factors | 40 of 6,093 | 0.7% | 0 | within |
-| E4 | exposures | 33 of 6,093 | 0.5% | 0 | within |
-| P2 | socioeconomic_factors | 12 of 6,093 | 0.2% | 0 | within |
-| P4 | socioeconomic_factors | 6 of 6,093 | 0.1% | 0 | within |
-| F3 | environmental_effects | 1 of 6,093 | 0.0% | 0 | within |
-| P1 | socioeconomic_factors | 1 of 6,093 | 0.0% | 0 | within |
-| F1, F2, F4 | environmental_effects | 0 of 6,093 | 0.0% | 0 | within |
+| Indicator | Group | Moved > 1 decile | Share | Lost score | Group lost | Verdict |
+|---|---|---|---|---|---|---|
+| E2 | exposures | 5,247 of 17,263 | 30.4% | 359 | 8,247 | **over** |
+| E1 | exposures | 5,189 of 17,263 | 30.1% | 359 | 8,247 | **over** |
+| S2 | sensitive_populations | 4,975 of 17,263 | 28.8% | 0 | 0 | **over** |
+| S1 | sensitive_populations | 4,599 of 17,263 | 26.6% | 0 | 0 | **over** |
+| E3 | exposures | 274 of 17,263 | 1.6% | 0 | 0 | within |
+| E4 | exposures | 77 of 17,263 | 0.4% | 0 | 0 | within |
+| F1 to F4 | environmental_effects | at most 1 | 0.0% | 0 | 0 | within |
+| P1 to P5 | socioeconomic_factors | at most 48 | ≤0.8% | 0 | 0 | within |
 
-**S1 and S2 are the finding.** Sensitive Populations holds two indicators and
-§11 rule 2 sets its minimum at 1, so either one alone satisfies the group and
-carries roughly half of Population Characteristics by itself. Removing either
-moves more than a quarter of the state by more than a decile, and the `Group
-lost` column is 0, so this is not the §11 artifact §2 warns about — it is the
-indicator genuinely doing that much work alone.
+**S1 and S2 are the cleanest finding.** Sensitive Populations holds two
+indicators and §11 rule 2 sets its minimum at 1, so either alone satisfies the
+group and carries roughly half of Population Characteristics by itself. Removing
+either moves more than a quarter of the state by more than a decile, and the
+`Group lost` column is **0** for both — so this is not the §11 artifact §2 warns
+about. It is the indicator genuinely doing that much work alone.
 
-That is a property of §8's group design rather than of the data, and §13.5 is
-explicit that it goes back to the methodology paper to be re-argued rather than
-being fixed in code. It is also the most plausible explanation currently on the
-table for the §13.4 negative-control failures, where affluent neighbourhoods
-rank higher than they should: Population Characteristics is the half that ought
-to be pulling them down, and it rests on a two-indicator group either half of
-which can swing a quarter of the state.
+That is a property of §8's group design rather than of the data, and §13.5 sends
+it back to this paper to be re-argued rather than fixed in code. It is also the
+most plausible explanation on the table for the §13.4 negative-control failures,
+where affluent neighbourhoods rank higher than they should: Population
+Characteristics is the half that ought to be pulling them down, and it rests on
+a two-indicator group either half of which can swing a quarter of the state.
 
-**E1 and E2 sit marginally over**, at 10.2% and 10.3% against a 10% bar. Their
-`Group lost` column is 971, so a meaningful share of that movement is Exposures
-falling below its minimum of 2 rather than the indicator's own information —
-these two are the only source covering every part of the state evenly, and with
-E1 or E2 removed a hexagon with no TRI facility and no nearby monitor has one
-Exposures indicator or none. Whether that counts as failing the check is a
-question for the paper; the number is recorded here either way.
+**E1 and E2 are a different case and should not be read the same way.** Their
+`Group lost` column is 8,247 and `Lost score` is 359, so most of that movement is
+Exposures falling below its minimum of 2 rather than the indicator's own
+information. AirToxScreen is the only source covering every part of the state
+evenly; with E1 or E2 removed, a hexagon with no TRI facility and no nearby
+monitor has one Exposures indicator or none. §2 asks for these two columns to be
+read apart for exactly this reason, and on that reading E1 and E2 are evidence
+about the *group minimum* rather than about the indicators.
 
 ### 7.3 Interpolation sensitivity — did not run
 
 §13.5's third check needs the same run recomputed with simple areal weighting,
 which `dasymetric.areal_counterpart` builds from the 2020 block layer. CS-112
-discards the blocks once the §7 crosswalk is built, in order to fit the project
-inside a 512 MB storage limit, so the areal counterpart could not be produced.
+discards the blocks once the §7 crosswalk is built, to fit inside a 512 MB
+storage limit, so the areal counterpart could not be produced.
 
 The report says the check *did not run*, which is deliberately different from
 saying it found no divergence. Producing it means reloading the block layer,
@@ -247,7 +246,7 @@ answered the question until that happens.
 ### 7.4 What §13.7 permits from here
 
 Fix a defect in the code, fix a defect in the data handling, or revise the
-methodology with a rationale that stands independently of this outcome — and
-then re-run every check from the beginning. Moving the 0.85 or the 10% because a
+methodology with a rationale that stands independently of this outcome — then
+re-run every check from the beginning. Moving the 0.85 or the 10% because a
 check missed them is not among the options, and neither is dropping S1 or S2
 because removing one of them moves the score.
