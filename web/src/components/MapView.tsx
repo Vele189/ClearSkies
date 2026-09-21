@@ -58,6 +58,7 @@ export default function MapView({ onSelect }: Props) {
    *  map, so this is a notice and not a takeover. */
   const [tileError, setTileError] = useState(false);
   const [showInsufficient, setShowInsufficient] = useState(false);
+  const [contextLost, setContextLost] = useState(false);
 
   // Held in a ref so the map effect below can stay keyed to [] and not tear
   // down and rebuild the map every time the parent re-renders a new callback.
@@ -99,6 +100,17 @@ export default function MapView({ onSelect }: Props) {
       // survivable, so the overlay is gated on `load` never arriving.
       setFatal("The basemap could not be loaded.");
     });
+
+    // A lost context is not reported through map.on("error"). Without this the
+    // canvas simply freezes after `load` has already fired, which leaves the
+    // reader a map that looks live and is not — the failure mode the error
+    // handler above exists to rule out, arriving by a door it does not watch.
+    // Common on an integrated GPU when dev-mode remounts churn through
+    // contexts, and survivable: a reload gets a fresh one.
+    const canvas = map.getCanvas();
+    const onContextLost = () => setContextLost(true);
+    canvas.addEventListener("webglcontextlost", onContextLost);
+    canvas.addEventListener("webglcontextrestored", () => setContextLost(false));
 
     map.on("load", () => {
       setReady(true);
@@ -160,6 +172,7 @@ export default function MapView({ onSelect }: Props) {
 
     return () => {
       mapRef.current = null;
+      canvas.removeEventListener("webglcontextlost", onContextLost);
       map.remove();
       removeProtocol("pmtiles");
     };
@@ -177,7 +190,11 @@ export default function MapView({ onSelect }: Props) {
 
   // Only a failure that stopped the map from ever loading is worth taking the
   // viewport for. Everything else leaves the reader a map they can still use.
-  const blocked = ready ? null : fatal;
+  const blocked = contextLost
+    ? "The map lost its graphics context and has stopped drawing."
+    : ready
+      ? null
+      : fatal;
 
   const handlePick = useCallback((place: Place) => {
     mapRef.current?.flyTo({ center: place.center, zoom: 11, essential: true });
@@ -213,8 +230,12 @@ export default function MapView({ onSelect }: Props) {
         >
           <p className="text-sm text-slate-700">{blocked}</p>
           <p className="max-w-sm text-xs text-slate-500">
-            Scores are still available through the API. Reloading is worth trying; if it keeps
-            failing the basemap host is likely down.
+            {contextLost
+              ? "The browser dropped the map's WebGL context, usually under memory pressure or a " +
+                "graphics driver reset. Reloading gets a fresh one; if it recurs, check that " +
+                "hardware acceleration is enabled."
+              : "Scores are still available through the API. Reloading is worth trying; if it " +
+                "keeps failing the basemap host is likely down."}
           </p>
           <button
             type="button"
