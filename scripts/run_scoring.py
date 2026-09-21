@@ -68,7 +68,27 @@ from pipeline.dasymetric.interpolate import (  # noqa: E402
 )
 
 ACS_VINTAGE = "2020-2024"
-TOTAL_POPULATION = "B01003_001"
+
+#: The published estimate suffix. `tract_demographics.variable` stores the id
+#: as the Census publishes it, `B01003_001E`, and the margin under the same id
+#: ending `M`; the schema's own comment gives `B17002_001E` as its example.
+#: `census_acs.INDICATORS` names the *base* ids, because the adapter appends
+#: the suffix when it queries and when it writes.
+#:
+#: Everything below therefore has to convert before it reads the table, and
+#: `load_tract_estimates` matches `variable` exactly. Getting this wrong does
+#: not raise: the query returns no rows, every rate comes out absent, and the
+#: run reports each hex as having insufficient population data — a sentence
+#: that describes a state with no census rather than a name that did not match.
+ESTIMATE_SUFFIX = "E"
+
+
+def _stored(variable: str) -> str:
+    """A published base id as `tract_demographics` keys it."""
+    return f"{variable}{ESTIMATE_SUFFIX}"
+
+
+TOTAL_POPULATION = _stored("B01003_001")
 
 # Section 8.2: the same inverse-square decay and 10 km cutoff as E3.
 INTERACTION_RADIUS_M = 10_000.0
@@ -80,12 +100,17 @@ ENFORCEMENT_YEARS = 5
 # Indicators this run cannot produce, and why. Named rather than silently
 # absent, because "no row" and "no data" look identical downstream and only one
 # of them is worth acting on.
-UNAVAILABLE: Mapping[str, str] = {
-    "E1": "AirToxScreen is not loaded: its 2010 tracts do not all exist in the 2020 set",
-    "E2": "AirToxScreen is not loaded: its 2010 tracts do not all exist in the 2020 set",
-    "E3": "chemical_toxicity_weight is empty, so RSEI weighting cannot be applied",
-    "E4": "OpenAQ exceeded its partial-failure tolerance and loaded nothing",
-}
+UNAVAILABLE: Mapping[str, str] = {}
+
+#: The AirToxScreen release E1 and E2 are computed over, matching the adapter's
+#: RELEASE_YEAR. A constant somebody bumps, like the ACS and TRI vintages above.
+EXPOSURE_VINTAGE_YEAR = 2019
+
+#: The TRI reporting year E3 is computed over. A constant somebody bumps, for
+#: the same reason the ACS release is: which year the score describes is a
+#: property of the run and should be legible in it, not inferred from whatever
+#: happens to be the newest row.
+TRI_REPORTING_YEAR = 2024
 
 # F3 used to sit here, left out on the grounds that section 8.2 did not say
 # whether a formal action with no penalty contributed its count or nothing at
@@ -173,7 +198,7 @@ async def acs_indicators(
     for variable in sorted(wanted):
         loaded.extend(
             await postgis.load_tract_estimates(
-                conn, variable=variable, acs_vintage=ACS_VINTAGE
+                conn, variable=_stored(variable), acs_vintage=ACS_VINTAGE
             )
         )
 
@@ -215,7 +240,7 @@ def _summed(
     """
     from pipeline.dasymetric.quantities import Kind, TractEstimate
 
-    wanted = set(names)
+    wanted = {_stored(name) for name in names}
     parts: dict[str, list[Any]] = {}
     for estimate in estimates:
         if estimate.variable in wanted:
@@ -326,6 +351,119 @@ async def facility_indicators(
     return {"F1": f1, "F2": f2, "F3": f3, "F4": f4}
 
 
+# Section 8.1. The numerator is `facility_release_toxicity.toxicity_weighted_lb`,
+# which is sum(w_c * m_{f,c}) over a facility's chemicals for one reporting
+# year; the denominator is the same decayed distance F1 to F4 use, so E3 and the
+# environmental-effects indicators agree about which facilities reach a hexagon
+# and by how much.
+#
+# One reporting year, not all of them. TRI publishes annually and a sum across
+# years would count a facility's steady-state emissions once per year of
+# history, which is a different quantity from the annual release the indicator
+# names.
+RELEASE_PROXIMITY = """
+SELECT l.h3::text AS h3,
+       sum(l.decay_weight * t.toxicity_weighted_lb)::float8 AS e3
+  FROM hex_facility_links_all($1) l
+  JOIN facility_release_toxicity t ON t.facility_id = l.facility_id
+ WHERE t.reporting_year = $2
+ GROUP BY l.h3
+"""
+
+# E4 is already per hexagon: the OpenAQ adapter does the interpolation and the
+# sparse-coverage decision at ingest, because how far the nearest monitor is
+# belongs with the measurement rather than with the scoring. `observed` is the
+# section 11 flag, and a hex without it carries a real distance and no value.
+#: The distance behind c_monitor. One row per hexagon whatever E4 came out as:
+#: a hex with no reading still has a nearest monitor, and how far it is is the
+#: whole point of the term.
+NEAREST_MONITOR = """
+SELECT h3::text AS h3, min(nearest_monitor_km)::float8 AS km
+  FROM hex_air_quality
+ GROUP BY h3
+"""
+
+MEASURED_PM25 = """
+SELECT h3::text AS h3, value::float8 AS e4
+  FROM hex_air_quality
+ WHERE parameter = 'pm25' AND observed AND value IS NOT NULL
+"""
+
+
+#: E1 and E2 as stored: one row per 2020 tract, already crossed from the 2010
+#: geography AirToxScreen publishes on. See pipeline.tract_vintage.
+TRACT_EXPOSURE = """
+SELECT tract_geoid, cancer_risk_per_million, respiratory_hazard_index
+  FROM tract_exposure
+ WHERE vintage_year = $1
+"""
+
+
+async def modelled_exposure(
+    conn: asyncpg.Connection, crosswalk: Any, *, vintage_year: int
+) -> dict[str, dict[str, float | None]]:
+    """E1 and E2, interpolated from tracts onto hexagons.
+
+    Intensive: a modelled risk per million is a rate and does not sum across
+    space, so section 7 combines it as a population-weighted mean over the
+    crosswalk rather than apportioning it. Passing Kind.EXTENSIVE here instead
+    would halve a community's exposure wherever a tract happens to span two
+    hexagons, which is the error section 7 names as the most common one in this
+    step.
+
+    No margin of error: AirToxScreen publishes a modelled surface, not a survey,
+    and `None` says that rather than claiming a margin of zero.
+    """
+    from pipeline.dasymetric.quantities import Kind, TractEstimate  # noqa: PLC0415
+
+    rows = await conn.fetch(TRACT_EXPOSURE, vintage_year)
+    estimates = [
+        TractEstimate(
+            tract_geoid=str(row["tract_geoid"]),
+            variable=name,
+            estimate=None if row[column] is None else float(row[column]),
+            margin_of_error=None,
+            kind=Kind.INTENSIVE,
+        )
+        for row in rows
+        for name, column in (
+            ("E1", "cancer_risk_per_million"),
+            ("E2", "respiratory_hazard_index"),
+        )
+    ]
+    interpolated = interpolate(crosswalk, estimates)
+    return {
+        name: {h3: value.value for h3, value in interpolated.get(name, {}).items()}
+        for name in ("E1", "E2")
+    }
+
+
+async def exposure_indicators(
+    conn: asyncpg.Connection, *, tri_year: int
+) -> dict[str, dict[str, float | None]]:
+    """E3 and E4, the two Exposures indicators this database can support.
+
+    E1 and E2 stay in `UNAVAILABLE`: AirToxScreen publishes on 2010 tracts and
+    273 of Louisiana's do not exist in the 2020 set the rest of this run is
+    keyed to, which is a crosswalk decision and not this script's to make.
+
+    Without these two the whole Exposures group falls below the section 11
+    minimum of 2 and drops out, taking half the Pollution Burden component with
+    it and leaving every scored hexagon on an `insufficient` confidence band.
+    """
+    e3: dict[str, float | None] = {}
+    for row in await conn.fetch(RELEASE_PROXIMITY, INTERACTION_RADIUS_M, tri_year):
+        # Null means no facility within the radius reported a weighted release.
+        # An observed zero: the facilities were looked for. A hexagon the links
+        # relation never mentions gets no row here at all, which is the absence.
+        e3[row["h3"]] = float(row["e3"]) if row["e3"] is not None else 0.0
+
+    e4: dict[str, float | None] = {
+        row["h3"]: float(row["e4"]) for row in await conn.fetch(MEASURED_PM25)
+    }
+    return {"E3": e3, "E4": e4}
+
+
 # ---- writing the three tables ------------------------------------------
 
 # `households` and the three race shares are left unset. The race variables are
@@ -426,6 +564,10 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
     values: dict[str, dict[str, float | None]] = {}
     values.update(await acs_indicators(conn, crosswalk))
     values.update(await facility_indicators(conn, as_of=as_of))
+    values.update(await exposure_indicators(conn, tri_year=TRI_REPORTING_YEAR))
+    values.update(
+        await modelled_exposure(conn, crosswalk, vintage_year=EXPOSURE_VINTAGE_YEAR)
+    )
     present = sorted(values)
     print(f"{len(present)} indicators computed: {', '.join(present)}")
 
@@ -443,6 +585,16 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
             (w.h3, w.mean_block_area_m2) for w in crosswalk.weights
         )
     }
+    # Section 12's c_monitor term. The OpenAQ adapter already computed the
+    # distance to the nearest monitor for every hexagon, including the ones it
+    # found no value for, because how far away the nearest sensor is belongs
+    # with the measurement. Passing None here instead pins the term at its 0.05
+    # floor, and under a geometric mean that alone caps every hex's confidence
+    # near 0.55 before the other three terms are applied.
+    nearest_monitor = {
+        row["h3"]: float(row["km"])
+        for row in await conn.fetch(NEAREST_MONITOR)
+    }
     evidence = [
         HexEvidence(
             h3=h3,
@@ -451,7 +603,7 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
             mean_block_area_km2=(
                 mean_block_area[h3] / 1e6 if mean_block_area.get(h3) else None
             ),
-            nearest_monitor_km=None,
+            nearest_monitor_km=nearest_monitor.get(h3),
         )
         for h3 in scored
     ]
