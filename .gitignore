@@ -25,6 +25,11 @@ dist/
 data/
 *.pmtiles
 *.parquet
+# The tile build's working directory: the scores payload it reads and the
+# archive it writes are both regenerated from the database by `make grid-tiles`.
+tiles/
+# The archive is copied here to be served in development; see README.
+web/public/*.pmtiles
 
 # OS / editor
 .DS_Store

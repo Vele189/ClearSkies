@@ -73,7 +73,7 @@ Every component is open source. Two line items cost money: a Railway Hobby plan 
 |---|---|
 | Languages | Python 3.12, TypeScript |
 | Geospatial | GeoPandas, Shapely, h3-py |
-| Database | PostgreSQL + PostGIS + h3-pg + pgvector, custom image on Railway |
+| Database | Neon Postgres + PostGIS + h3 + pgvector, managed extensions |
 | ETL orchestration | GitHub Actions scheduled workflow |
 | Backend API | FastAPI |
 | Vector tiles | Static PMTiles on Cloudflare R2 |
@@ -82,26 +82,27 @@ Every component is open source. Two line items cost money: a Railway Hobby plan 
 | LLM provider | OpenAI |
 | Frontend | React, TypeScript, Tailwind, MapLibre GL |
 | Basemap | OpenFreeMap or Protomaps |
-| Hosting | Railway (frontend, API, database) |
+| Hosting | Railway (frontend, API), Neon (database) |
 | Monitoring | Railway logs plus an external uptime check |
 
 One database handles spatial queries, vector search, and application data.
 
-**Why the split.** Railway runs everything that is a running process: the frontend, the API, and the database. One platform, one bill, one deploy config. Railway's CDN is enabled on the frontend service, so static assets are served from the edge and cache hits cost no egress and never wake the container.
+**Why the split.** Railway runs the two things that are long-lived processes, the frontend and the API, and its CDN is enabled on the frontend service so static assets are served from the edge and cache hits cost no egress and never wake the container.
+
+**Why the database is not one of them.** Neon provides PostGIS, h3 and pgvector as managed extensions, which removes the custom image, the compile step and the volume to look after. It also makes the database branchable: a migration runs against a copy-on-write fork of real data before it runs against production, which is worth more here than colocation, since the API talks to the database over the network either way. The trade is a second platform and a scale-to-zero cold start on an idle branch.
 
 **Why tiles are the exception.** PMTiles are read with HTTP Range requests against one large archive, which is a poor fit for an edge cache keyed on whole URLs, and Railway bills egress at $0.05/GB. R2 charges nothing for egress and is built for exactly this access pattern. Tiles are also the only asset in the project large enough for that difference to matter.
 
 **Enable the CDN on the frontend service only.** The draft endpoint is a POST that returns per-hex generated documents, and an edge cache in front of it buys nothing and risks serving one request's output to another.
 
-**Cost:** Railway Hobby at $5/month plus LLM API usage. Everything else is free.
+**Cost:** Railway Hobby at $5/month, the Neon free plan, plus LLM API usage. Everything else is free.
 
-**Three Railway services, one repo.** Each service points at the same GitHub repository with a different Root Directory, and Watch Paths scoped so a frontend commit does not redeploy the API.
+**Two Railway services, one repo.** Each service points at the same GitHub repository with a different Root Directory, and Watch Paths scoped so a frontend commit does not redeploy the API. The database is a Neon branch rather than a third service, and the API reaches it through `DATABASE_URL`.
 
 | Service | Root directory | Built from |
 |---|---|---|
 | `web` | `/web` | Vite build, CDN enabled |
 | `api` | `/api` | FastAPI, CDN disabled |
-| `db` | `/infra/postgres` | Dockerfile, volume at `/var/lib/postgresql/data` |
 
 Service configuration lives in `.railway/railway.ts` rather than `railway.json`, which Railway deprecated with a hard cutoff of 2026-12-01. Generate it with `railway config pull` after the services exist rather than hand-writing it, and note that a service cannot be managed by the dashboard and by infrastructure as code at the same time.
 
@@ -147,17 +148,21 @@ clearskies/
 ├── web/                          React, MapLibre GL, PMTiles
 │   ├── src/lib/ramp.ts           The ramp, section 12's bands, and the legend's source of truth
 │   └── src/components/           MapView, Legend, SearchBox, HexPanel
-├── infra/postgres/               Custom image: PostGIS + h3-pg + pgvector
+├── infra/postgres/               Optional local image: PostGIS + h3-pg + pgvector
 ├── infra/r2/                     Tile bucket: CORS policy and why not Railway
 ├── scripts/                      Pre-registration and fixture guards
+├── neon.ts                       Neon project config: the private `clearskies` bucket
+├── .neon                         Which Neon project and branch the repo is linked to
 ├── .railway/railway.ts           Railway service definitions
 ├── .github/workflows/            CI and the nightly ETL job
 ├── .github/ISSUE_TEMPLATE/       Bug, scoring, methodology, data source
 ├── CONTRIBUTING.md
 ├── LICENSE                       MIT
 ├── Makefile
-└── docker-compose.yml            Local database only
+└── docker-compose.yml            Optional local database
 ```
+
+The schema of record is `api/migrations`, applied by `make migrate`. A second, unrelated Drizzle schema sits in `src/db/schema.ts` with its own migrations in `drizzle/` and `db:*` scripts in the root `package.json`; see [below](#two-schemas-in-one-database).
 
 `scoring/` was deliberately absent until the validation set had been committed. The methodology requires the pre-registered set to exist before any scoring code does, and CI compares commit history to enforce it: the first commit adding a file under `scoring/` must be a descendant of the one adding `docs/validation/sites.yml`. That ordering is now fixed in the history and the check keeps it that way.
 
@@ -171,22 +176,53 @@ clearskies/
 
 ## Running it locally
 
-**Prerequisites:** Python 3.12, Node 20+, Docker.
+**Prerequisites:** Python 3.12+, Node 20+, and a Neon project. Docker is optional and only needed if you want a local database instead of a Neon branch.
+
+The database is a [Neon](https://neon.com) branch, not a local container. Neon ships PostGIS, h3 and pgvector as managed extensions, so there is no image to build and nothing to compile.
 
 ```bash
-cp .env.example .env
-make up            # build and start Postgres with all three extensions
-make extensions    # print the extension versions, proving the image is right
-make migrate       # create the schema
-make install       # Python venv and npm dependencies
-make api           # FastAPI on :8000, docs at /docs
-make web           # Vite dev server on :5173
-make check         # lint, typecheck, tests, pre-registration guard
+cp .env.example .env     # DATABASE_URL points at your Neon branch
+make install             # Python venvs and npm dependencies
+make migrate             # create the schema
+make api                 # FastAPI on :8000, docs at /docs
+make web                 # Vite dev server on :5173
+make check               # lint, typecheck, tests, pre-registration guard
 ```
 
-`make up` builds `infra/postgres` from source, which compiles h3-pg and takes several minutes the first time.
+Confirm the branch has the extensions the schema needs. `make migrate` creates a `clearskies_extensions` view for exactly this, readable from `psql`, the Neon SQL editor, or any other client:
 
-Schema changes only ever land as a migration: `make migrate-new name=...` writes the numbered pair of files, `make migrate` applies them, and the runner refuses to continue if a released migration has been edited since it ran. [docs/database.md](docs/database.md) covers the workflow, what each table is for, and how to point the same commands at a shared development database instead of the container.
+```
+SELECT * FROM clearskies_extensions;
+
+    name     | version
+-------------+---------
+ h3          | 4.2.3
+ h3_postgis  | 4.2.3
+ postgis     | 3.6.4
+ vector      | 0.8.6
+```
+
+Use the **direct (unpooled)** connection string for anything that migrates. PgBouncer's transaction mode breaks the session-level DDL the migration runner relies on; the pooled URL is fine for the API at runtime.
+
+If `python3 -m venv` fails on your machine for lack of `ensurepip`, build the four venvs with [uv](https://docs.astral.sh/uv/) instead — `uv venv api/.venv && uv pip install --python api/.venv/bin/python -e "api[dev]"`, and the same for `etl`, `scoring` and `assistant`. The Makefile targets that use them work unchanged afterwards.
+
+**Prefer a container?** `docker-compose.yml` and `infra/postgres` still build the equivalent database locally: `make up`, `make extensions`, `make psql`. Point `DATABASE_URL` at it and every other command is identical.
+
+Schema changes only ever land as a migration: `make migrate-new name=...` writes the numbered pair of files, `make migrate` applies them, and the runner refuses to continue if a released migration has been edited since it ran. [docs/database.md](docs/database.md) covers the workflow and what each table is for; its setup instructions still describe the container path.
+
+Branch the database rather than sharing one. A Neon branch is a copy-on-write fork of production data, so a migration you are unsure about gets tested against real rows and thrown away, and `.neon` records which branch the repo is linked to.
+
+### Two schemas in one database
+
+The Neon branch currently carries two unrelated schemas in `public`, and only one of them is the project's.
+
+`api/migrations` is the schema of record: 22 numbered migrations, tracked in `schema_migration`, applied by `make migrate`, and the one every query in `api/`, `etl/`, `scoring/` and `assistant/` is written against. It is the schema `docs/methodology.md` describes — hexagons, tracts, indicators, scores, provenance, the statute corpus.
+
+`src/db/schema.ts` is a Drizzle model of nine tables — `corporations`, `facilities`, `communities`, `emissions`, `pollutants`, `violations`, `community_demographics`, `community_reports`, `report_attachments` — with migrations in `drizzle/`, tracked separately in `drizzle.__drizzle_migrations`, and applied by `npm run db:migrate`. It was added alongside the Neon setup and **no application code reads or writes any of it.** It is not a port of the migrations above and does not model the same thing; note that its `facilities` is a different table from the schema of record's `facility`.
+
+Until that is resolved, use `make migrate`. Running `npm run db:migrate` adds tables nothing consumes. Resolving it means either deleting the Drizzle track or deliberately migrating onto it, and the second is a much larger change than it looks: the hex grid, the percentile machinery, the confidence values and the corpus have no counterpart in those nine tables.
+
+The `db:*` scripts also need `DATABASE_URL_UNPOOLED` from a `.env.local` that `.env.example` does not document.
 
 The map renders the basemap and the API answers `/health` and `/indicators`, but no hexagon is scored yet. `/hex/{h3}` validates the cell and reports that the pipeline has not run rather than inventing a score. The frontend shows a banner saying the same. That is Phase 0 behaving correctly.
 
