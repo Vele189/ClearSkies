@@ -24,11 +24,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# CS-006, the Postgres sink. An extra rather than a dependency: `pipeline.sinks`
+# and every adapter import stay driver-free, and only `run --load` and the
+# nightly job need a database at all. `pipeline.sinks_postgres` imports nothing
+# from it; `__main__` imports it inside the one function that loads.
+load = [
+    "asyncpg>=0.30",
+]
 dev = [
     "mypy>=1.13",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "ruff>=0.7",
+    "asyncpg>=0.30",
 ]
 
 [build-system]
@@ -54,7 +62,7 @@ warn_unreachable = true
 # it does: the RSEI adapter narrows every value it reads to str or float itself,
 # because what Excel put in a cell is a runtime fact rather than a typed one.
 [[tool.mypy.overrides]]
-module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*", "openpyxl.*"]
+module = ["h3.*", "pmtiles.*", "mapbox_vector_tile.*", "openpyxl.*", "asyncpg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
