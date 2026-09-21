@@ -301,6 +301,15 @@ def build_crosswalk(
         area_share = area_in_cell[cell] / tract_area[tract]
         total_population = tract_population[tract]
         if total_population > 0:
+            # An overlap holding none of the tract's people is not a weight.
+            # It contributes nothing to an extensive quantity, which multiplies
+            # through `pop_weight`, and nothing to an intensive one, which
+            # averages over `population`; storing it would add a row that every
+            # formula multiplies by zero. Migration 0003 says the same thing
+            # with `CHECK (pop_weight > 0)`, and it is common rather than
+            # exotic: any tract spanning housing and marsh has such a cell.
+            if population_in_hex == 0:
+                continue
             pop_share = population_in_hex / total_population
             from_area = False
         else:

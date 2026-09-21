@@ -64,7 +64,14 @@ log = logging.getLogger("pipeline.dasymetric")
 #: is the quantity every other apportioned count is weighted by: if population
 #: closes, the rest closes with it. Passed rather than assumed wherever the
 #: caller has a reason to check a different count.
-TOTAL_POPULATION = "B01003_001"
+#:
+#: The trailing `E` is the estimate suffix and is part of the stored id, not
+#: decoration: `tract_demographics.variable` holds `B01003_001E` (the schema's
+#: own comment gives `B17002_001E` as its example) and `LOAD_TRACT_ESTIMATES`
+#: matches it exactly. Without the suffix the query returns no rows, which
+#: reads as a state with no population rather than as a name that did not
+#: match — the two modules had never run together for it to surface.
+TOTAL_POPULATION = "B01003_001E"
 
 
 @dataclass(frozen=True, slots=True)

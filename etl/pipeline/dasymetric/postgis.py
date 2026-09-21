@@ -98,10 +98,15 @@ FROM (
       ON b.geom && h.boundary
      AND ST_Intersects(b.geom, h.boundary)
     WHERE left(b.tract_geoid, 5) = $1
-) overlaps
+) block_hex_overlap
 WHERE overlap_area_m2 > 0
 ORDER BY block_geoid, h3
 """
+# The alias is `block_hex_overlap` and not `overlaps` because OVERLAPS is a
+# reserved word: Postgres reads it as the SQL period-overlap operator and
+# refuses the query outright. This module's tests run against an in-memory
+# stand-in that never parses the SQL, so the statement reached a real planner
+# for the first time when CS-112 finally gave it blocks to read.
 
 #: Idempotent by the (tract_geoid, h3) primary key of migration 0003, so a
 #: re-run replaces the crosswalk in place rather than doubling it.
