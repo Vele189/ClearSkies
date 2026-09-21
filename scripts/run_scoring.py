@@ -50,7 +50,6 @@ sys.path.insert(0, str(REPO_ROOT / "scoring"))
 sys.path.insert(0, str(REPO_ROOT / "etl"))
 
 import asyncpg  # noqa: E402
-
 from burden.component import compute  # noqa: E402
 from burden.confidence import HexEvidence, confidence_for_run  # noqa: E402
 from burden.eligibility import eligible  # noqa: E402
@@ -135,9 +134,21 @@ UPDATE pipeline_run
 """
 
 # One current run at a time: the API reads `is_current` to decide which scores
-# to serve, and two would make that read ambiguous.
+# to serve, and two would make that read ambiguous. `pipeline_run_one_current`
+# enforces it.
+#
+# Two statements rather than one. `SET is_current = (run_id = $1)` expresses the
+# same end state, but Postgres checks the index per row as the update walks the
+# table: if it reaches the new run before the old one it holds two current runs
+# for an instant and the unique index refuses. Which order it walks in depends
+# on physical row order, so the single statement works until one day it does
+# not. Clearing first is unconditionally safe.
+DEMOTE_RUNS = """
+UPDATE pipeline_run SET is_current = false WHERE is_current
+"""
+
 PROMOTE_RUN = """
-UPDATE pipeline_run SET is_current = (run_id = $1)
+UPDATE pipeline_run SET is_current = true WHERE run_id = $1
 """
 
 
@@ -208,7 +219,9 @@ async def acs_indicators(
         # published income-by-cost brackets rather than one total, so a rate
         # whose denominator is a single variable is the special case here, not
         # the rule.
-        numerator, numerator_name = _summed(loaded, recipe.numerator, f"{recipe.id}_numerator")
+        numerator, numerator_name = _summed(
+            loaded, recipe.numerator, f"{recipe.id}_numerator"
+        )
         denominator, denominator_name = _summed(
             loaded, recipe.denominator, f"{recipe.id}_denominator"
         )
@@ -414,7 +427,7 @@ async def modelled_exposure(
     No margin of error: AirToxScreen publishes a modelled surface, not a survey,
     and `None` says that rather than claiming a margin of zero.
     """
-    from pipeline.dasymetric.quantities import Kind, TractEstimate  # noqa: PLC0415
+    from pipeline.dasymetric.quantities import Kind, TractEstimate
 
     rows = await conn.fetch(TRACT_EXPOSURE, vintage_year)
     estimates = [
@@ -501,12 +514,68 @@ VALUES ($1, $2::h3_cell, $3::float8::numeric, $4::float8::numeric,
 """
 
 
+#: Which loaded sources each indicator's value depends on, by the names
+#: `source_snapshot.source` uses.
+#:
+#: E3 names two: TRI publishes the released quantities and RSEI the toxicity
+#: weights that scale them, and a score built from a 2024 extract and a 2012
+#: weighting table is as old as the older half.
+INDICATOR_SOURCES: Mapping[str, tuple[str, ...]] = {
+    "E1": ("airtoxscreen",),
+    "E2": ("airtoxscreen",),
+    "E3": ("tri", "rsei"),
+    "E4": ("openaq",),
+    "F1": ("echo",),
+    "F2": ("echo",),
+    "F3": ("echo",),
+    "F4": ("echo",),
+    "S1": ("acs",),
+    "S2": ("acs",),
+    "P1": ("acs",),
+    "P2": ("acs",),
+    "P3": ("acs",),
+    "P4": ("acs",),
+    "P5": ("acs",),
+}
+
+
 async def source_vintages(conn: asyncpg.Connection) -> dict[str, date]:
-    """The newest vintage_end per source, for section 12's recency term."""
+    """The newest vintage_end per source."""
     rows = await conn.fetch(
         "SELECT source, max(vintage_end) AS vintage_end FROM source_snapshot GROUP BY source"
     )
     return {row["source"]: row["vintage_end"] for row in rows}
+
+
+def indicator_vintages(per_source: Mapping[str, date]) -> dict[str, date]:
+    """The vintage_end behind each indicator, keyed the way section 12 asks.
+
+    `confidence._recency` looks these up by *indicator*, and this was previously
+    handed the per-source mapping. Every lookup missed, the contributing weight
+    summed to zero, and the recency term returned 0.0 for every hexagon in the
+    state -- which, floored at 0.05 and raised to its 0.20 share of a geometric
+    mean, quietly held every confidence value down. It does not raise, and a
+    score whose age is unknown is indistinguishable in the output from one that
+    is genuinely stale, so it is written out here rather than left to be
+    rediscovered.
+
+    The oldest contributing source wins: an indicator is no fresher than the
+    stalest thing it is built from.
+    """
+    out: dict[str, date] = {}
+    for indicator, sources in INDICATOR_SOURCES.items():
+        dates = [per_source[name] for name in sources if name in per_source]
+        if dates:
+            out[indicator] = min(dates)
+    return out
+
+
+WRITE_DISTRIBUTION = """
+INSERT INTO indicator_distribution
+    (run_id, indicator_id, n_hexes, n_zero, min_value, max_value, breakpoints, vintage_end)
+VALUES ($1, $2, $3, $4, $5::float8::numeric, $6::float8::numeric,
+        $7::float8[]::numeric[], $8)
+"""
 
 
 async def main() -> int:
@@ -540,7 +609,9 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
     as_of = datetime.now(UTC).date()
 
     missing = sorted({**UNAVAILABLE, **UNDEFINED})
-    print(f"methodology {METHODOLOGY_VERSION}; {len(missing)} indicators unavailable: {', '.join(missing)}")
+    print(
+        f"methodology {METHODOLOGY_VERSION}; {len(missing)} indicators unavailable: {', '.join(missing)}"
+    )
     for indicator, reason in sorted({**UNAVAILABLE, **UNDEFINED}.items()):
         print(f"  {indicator}: {reason}")
 
@@ -551,12 +622,17 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
     # The whole grid, not just the hexes with people: a cell the run knows
     # about and did not score has to say why, and the map draws it differently
     # rather than leaving a hole.
-    grid = [row["h3"] for row in await conn.fetch("SELECT h3::text AS h3 FROM hex ORDER BY h3")]
+    grid = [
+        row["h3"]
+        for row in await conn.fetch("SELECT h3::text AS h3 FROM hex ORDER BY h3")
+    ]
     cover = {h3: population.get(h3) for h3 in grid}
 
     eligibility = eligible(cover)
     scored = eligibility.scored
-    print(f"section 5: {len(scored)} hexes scored, {len(eligibility.excluded)} excluded")
+    print(
+        f"section 5: {len(scored)} hexes scored, {len(eligibility.excluded)} excluded"
+    )
     if not scored:
         print("nothing to score", file=sys.stderr)
         return 1
@@ -575,15 +651,14 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
     pollution = compute(POLLUTION_BURDEN, rankings, scored=scored)
     characteristics = compute(POPULATION_CHARACTERISTICS, rankings, scored=scored)
 
-    vintages = await source_vintages(conn)
+    vintages = indicator_vintages(await source_vintages(conn))
     observed_by_hex = {
-        h3: frozenset(i for i in present if values[i].get(h3) is not None) for h3 in scored
+        h3: frozenset(i for i in present if values[i].get(h3) is not None)
+        for h3 in scored
     }
     mean_block_area = {
         h3: area
-        for h3, area in (
-            (w.h3, w.mean_block_area_m2) for w in crosswalk.weights
-        )
+        for h3, area in ((w.h3, w.mean_block_area_m2) for w in crosswalk.weights)
     }
     # Section 12's c_monitor term. The OpenAQ adapter already computed the
     # distance to the nearest monitor for every hexagon, including the ones it
@@ -592,8 +667,7 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
     # floor, and under a geometric mean that alone caps every hex's confidence
     # near 0.55 before the other three terms are applied.
     nearest_monitor = {
-        row["h3"]: float(row["km"])
-        for row in await conn.fetch(NEAREST_MONITOR)
+        row["h3"]: float(row["km"]) for row in await conn.fetch(NEAREST_MONITOR)
     }
     evidence = [
         HexEvidence(
@@ -625,18 +699,73 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
 
     try:
         async with conn.transaction():
-            await _write(conn, run_id, run, rankings, values, population, worst_cv, mean_block_area)
+            await _write(
+                conn,
+                run_id,
+                run,
+                rankings,
+                values,
+                population,
+                worst_cv,
+                mean_block_area,
+            )
+            await _write_distributions(conn, run_id, rankings, vintages)
         await conn.execute(CLOSE_RUN, run_id, "succeeded", len(scored))
         if promote:
-            await conn.execute(PROMOTE_RUN, run_id)
+            async with conn.transaction():
+                await conn.execute(DEMOTE_RUNS)
+                await conn.execute(PROMOTE_RUN, run_id)
     except BaseException:
         await conn.execute(CLOSE_RUN, run_id, "failed", None)
         raise
 
-    print(f"run {run_id}: wrote {len(run.hexes)} hex_score rows, {len(scored)} of them scored")
+    print(
+        f"run {run_id}: wrote {len(run.hexes)} hex_score rows, {len(scored)} of them scored"
+    )
     if promote:
         print(f"run {run_id} is now the current run")
     return 0
+
+
+async def _write_distributions(
+    conn: asyncpg.Connection,
+    run_id: int,
+    rankings: Mapping[str, Any],
+    vintages: Mapping[str, date],
+) -> None:
+    """The distribution each indicator's percentiles were ranked against.
+
+    A percentile means nothing beside the distribution that produced it, which
+    is why migration 0009 stores one row per indicator per run. The ranking
+    already carries it and this run was discarding it: the table has been empty
+    on every run so far, so a stored score could not be re-derived and the
+    section 9 denominators were unrecoverable after the fact.
+
+    An indicator with no vintage is skipped rather than given today's date.
+    `vintage_end` is NOT NULL and drives the recency term; inventing one would
+    make a source of unknown age read as fresh, which is the single thing
+    section 12 says a recency term must never do.
+    """
+    rows = [
+        (
+            run_id,
+            indicator,
+            ranking.distribution.n,
+            ranking.distribution.n_zero,
+            ranking.distribution.min_value,
+            ranking.distribution.max_value,
+            list(ranking.distribution.breakpoints),
+            vintages[indicator],
+        )
+        for indicator, ranking in sorted(rankings.items())
+        if indicator in vintages
+    ]
+    if rows:
+        await conn.executemany(WRITE_DISTRIBUTION, rows)
+
+    unknown = sorted(set(rankings) - set(vintages))
+    if unknown:
+        print(f"  no vintage for {', '.join(unknown)}; distribution rows omitted")
 
 
 async def _write(
@@ -651,7 +780,10 @@ async def _write(
 ) -> None:
     scored = {row.h3 for row in run.hexes if row.score is not None}
 
-    rates = {name: values.get(name, {}) for name in ("S1", "S2", "P1", "P2", "P3", "P4", "P5")}
+    rates = {
+        name: values.get(name, {})
+        for name in ("S1", "S2", "P1", "P2", "P3", "P4", "P5")
+    }
     await conn.executemany(
         WRITE_DEMOGRAPHICS,
         [
@@ -681,7 +813,14 @@ async def _write(
     await conn.executemany(
         WRITE_INDICATOR,
         [
-            (run_id, h3, indicator, value, percentiles[indicator].get(h3), value is not None)
+            (
+                run_id,
+                h3,
+                indicator,
+                value,
+                percentiles[indicator].get(h3),
+                value is not None,
+            )
             for indicator in sorted(values)
             for h3 in sorted(scored)
             if (value := values[indicator].get(h3)) is not None
