@@ -2,8 +2,10 @@
 
 The component the whole phase is built around. A draft that survives this is one
 where every statute section named exists in the corpus it was written against,
-every record ID exists in the loaded dataset, and every claim is one the cited
-passage actually makes.
+every claim cited to a statute is one the cited passage actually makes, and
+every record ID exists in the loaded dataset and belongs to the hexagon the
+draft is about. Record citations are checked for existence and membership, not
+for support; the section below says exactly what that does and does not prove.
 
 **A draft with any unverifiable citation is rejected.** Not shown with a
 warning, not shown with the bad citation removed, not shown at all. That is a
@@ -18,6 +20,29 @@ document.
 A section label is looked up in the sealed corpus, exactly as the model wrote
 it. A record id is looked up in `facility`. Both are string comparisons and both
 catch the obvious failure, which is a citation to something that does not exist.
+
+## What a record citation proves, and what it does not
+
+A statute citation is judged for support. A record citation is not, and it is
+worth being exact about the difference, because the proposition on a record
+citation is never read by anything here.
+
+A facility citation that verifies proves two things: the identifier names a row
+that exists in the loaded facility table, and that facility is one of those the
+model was shown for the draft's hexagon, which are facilities within the 10 km
+interaction radius. A hexagon citation proves that it names the hexagon the
+draft is about.
+
+It does **not** prove the proposition. Whether the facility has the permit, the
+violation history or the distance the draft claims is not checked, and neither
+is any figure attributed to the hexagon. The model was handed those fields and
+asked to copy them, so the realistic failures are the ones checked here: an
+invented identifier, and a real facility from somewhere else. A misquoted field
+of a real, nearby facility gets through, and the draft notice's instruction to
+check every factual claim is what covers it.
+
+Every distinct (citation, proposition) pair is checked, not every distinct
+section. A section cited twice for two claims is two claims.
 
 ## Support is the half that matters
 
@@ -45,6 +70,7 @@ citation nobody will check again, because it has already been checked.
 from __future__ import annotations
 
 import logging
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -58,6 +84,7 @@ from app.assistant.documents import (
     RecordCitation,
     StatuteCitation,
 )
+from app.assistant.structured import token_counts
 
 log = logging.getLogger(__name__)
 
@@ -84,17 +111,17 @@ HEX_DATASET = "hex"
 # the reader to check.
 DATASET_LOOKUPS: dict[str, str] = {
     "echo": """
-        SELECT facility_id, name FROM facility
+        SELECT facility_id, registry_id, name FROM facility
          WHERE facility_id = $1 OR registry_id = $1
          LIMIT 1
     """,
     "frs": """
-        SELECT facility_id, name FROM facility
+        SELECT facility_id, registry_id, name FROM facility
          WHERE facility_id = $1 OR registry_id = $1
          LIMIT 1
     """,
     "tri": """
-        SELECT facility_id, name FROM facility
+        SELECT facility_id, registry_id, name FROM facility
          WHERE tri_facility_id = $1 OR facility_id = $1
          LIMIT 1
     """,
@@ -113,11 +140,16 @@ DATASET_LOOKUPS: dict[str, str] = {
 # The boundary matters. `§ 7412(b)` must match `§ 7412(b)` and `§ 7412(b)(1)`,
 # and must NOT match `§ 7412(a)`. Requiring the next character to be an opening
 # parenthesis gives exactly that, and stops `§ 741` matching `§ 7412`.
-SECTION_LOOKUP = """
+#
+# The label is the model's text, and inside a LIKE pattern `_` and `%` are
+# wildcards: `4_ U.S.C. § 7410` matched `42 U.S.C. § 7410(a)`, and a label of
+# `%` matched the whole corpus. So the pattern is built from
+# `like_literal(label)`, passed as `$2`, while the exact comparison keeps `$1`.
+SECTION_LOOKUP = r"""
 SELECT section_label, document_id, text, may_reason_from
   FROM statute_corpus_active
  WHERE section_label = $1
-    OR section_label LIKE $1 || '(%'
+    OR section_label LIKE $2 || '(%' ESCAPE '\'
  ORDER BY section_label, ordinal
 """
 
@@ -125,12 +157,23 @@ SELECT section_label, document_id, text, may_reason_from
 # is already rejected; this says whether it was close to one that does, which is
 # the difference between "the model invented a statute" and "the model dropped a
 # subdivision", and those are different problems.
-NEAR_MISS = """
+NEAR_MISS = r"""
 SELECT DISTINCT section_label
   FROM statute_corpus_active
- WHERE section_label LIKE $1 || '%' OR $1 LIKE section_label || '%'
+ WHERE section_label LIKE $2 || '%' ESCAPE '\' OR $1 LIKE section_label || '%'
  LIMIT 5
 """
+
+
+def like_literal(text: str) -> str:
+    """`text` escaped so that a LIKE pattern matches it character for character.
+
+    The escape character is the backslash, named in each query's ESCAPE clause
+    rather than left to the server default, and it is escaped first so that a
+    backslash already in the text cannot escape what follows it.
+    """
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
 
 Verdict = Literal["verified", "not_in_corpus", "not_in_dataset", "unsupported", "unclear"]
 
@@ -192,6 +235,10 @@ class CitationCheck:
     verdict: Verdict
     detail: str = ""
     near_misses: list[str] = field(default_factory=list)
+    # What asking the judge cost. Zero for a citation decided without one: a
+    # record, or a section that is not in the corpus at all.
+    request_tokens: int = 0
+    response_tokens: int = 0
 
     @property
     def ok(self) -> bool:
@@ -213,6 +260,14 @@ class Verification:
     """The verdict on a whole draft."""
 
     checks: list[CitationCheck] = field(default_factory=list)
+
+    @property
+    def request_tokens(self) -> int:
+        return sum(c.request_tokens for c in self.checks)
+
+    @property
+    def response_tokens(self) -> int:
+        return sum(c.response_tokens for c in self.checks)
 
     @property
     def failures(self) -> list[CitationCheck]:
@@ -254,9 +309,10 @@ async def check_statute(
     citation: StatuteCitation,
 ) -> CitationCheck:
     """Does this section exist in the corpus, and does it say what is claimed?"""
-    rows = await conn.fetch(SECTION_LOOKUP, citation.section)
+    pattern = like_literal(citation.section)
+    rows = await conn.fetch(SECTION_LOOKUP, citation.section, pattern)
     if not rows:
-        near = await conn.fetch(NEAR_MISS, citation.section)
+        near = await conn.fetch(NEAR_MISS, citation.section, pattern)
         misses = [str(r["section_label"]) for r in near]
         return CitationCheck(
             citation=citation,
@@ -277,24 +333,39 @@ async def check_statute(
         f"PASSAGE ({citation.section}):\n{passage}\n\nPROPOSITION:\n{citation.proposition}"
     )
     judgement = result.output
-    if judgement.verdict == "supported":
-        return CitationCheck(citation=citation, verdict="verified", detail=judgement.reason)
+    request_tokens, response_tokens = token_counts(result)
     return CitationCheck(
         citation=citation,
-        verdict="unsupported" if judgement.verdict == "not_supported" else "unclear",
+        verdict=(
+            "verified"
+            if judgement.verdict == "supported"
+            else "unsupported"
+            if judgement.verdict == "not_supported"
+            else "unclear"
+        ),
         detail=judgement.reason,
+        request_tokens=request_tokens,
+        response_tokens=response_tokens,
     )
 
 
 async def check_record(
-    conn: Any, citation: RecordCitation, subject_h3: str | None = None
+    conn: Any,
+    citation: RecordCitation,
+    subject_h3: str | None = None,
+    facility_ids: Collection[str] | None = None,
 ) -> CitationCheck:
-    """Does this record exist in the loaded dataset?
+    """Does this record exist, and is it one the draft was given?
 
-    No support check. A record citation asserts that a row exists and says what
-    the row says; there is no paraphrase to verify, because the model was given
-    the row's fields and copied one. The failure available here is a made-up or
-    mistyped identifier, and existence catches it.
+    No support check: see "What a record citation proves" in the module
+    docstring. Existence catches a made-up or mistyped identifier. Membership of
+    `facility_ids`, the identifiers of the facilities in the draft's hexagon
+    context, catches a real facility from somewhere else, which existence alone
+    passed: a correct registry id for a plant a hundred miles away verified.
+
+    `facility_ids` of None means the caller did not say which facilities the
+    draft was given, and a facility citation then fails, for the same reason a
+    hexagon citation fails without `subject_h3`: checking it would pass anything.
     """
     dataset = citation.dataset.strip().lower()
 
@@ -339,6 +410,27 @@ async def check_record(
             verdict="not_in_dataset",
             detail=f"no record {citation.record_id!r} in {dataset}",
         )
+    if facility_ids is None:
+        return CitationCheck(
+            citation=citation,
+            verdict="not_in_dataset",
+            detail=(
+                "a facility citation was checked without knowing which facilities "
+                "the draft was given"
+            ),
+        )
+    # The context names a facility by registry id, or by facility id when it has
+    # none, and the model may have copied either; the row carries both.
+    names = {citation.record_id, str(row["facility_id"]), str(row["registry_id"] or "")}
+    if names.isdisjoint(facility_ids):
+        return CitationCheck(
+            citation=citation,
+            verdict="not_in_dataset",
+            detail=(
+                f"{row['name']} ({citation.record_id!r}) exists, but is not one of the "
+                "facilities this draft was given for its hexagon"
+            ),
+        )
     return CitationCheck(citation=citation, verdict="verified", detail=f"matched {row['name']}")
 
 
@@ -347,16 +439,22 @@ async def verify_document(
     model: Model | str,
     document: DraftDocument,
     subject_h3: str | None = None,
+    facility_ids: Collection[str] | None = None,
 ) -> Verification:
-    """Check every citation in a draft. Returns the verdict; raises nothing."""
+    """Check every claim in a draft. Returns the verdict; raises nothing.
+
+    `document.claims()`, not `document.citations`: the second is deduplicated
+    by source for display, and would judge only the first of two propositions
+    cited to one section.
+    """
     judge = build_judge(model)
     verification = Verification()
 
-    for citation in document.citations:
+    for citation in document.claims():
         if isinstance(citation, StatuteCitation):
             check = await check_statute(conn, judge, citation)
         else:
-            check = await check_record(conn, citation, subject_h3)
+            check = await check_record(conn, citation, subject_h3, facility_ids)
         verification.checks.append(check)
         if not check.ok:
             log.warning(

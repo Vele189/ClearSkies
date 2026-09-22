@@ -225,9 +225,28 @@ async def _revert(conn: Any, migration: Migration) -> None:
         await conn.execute("DELETE FROM schema_migration WHERE version = $1", migration.version)
 
 
+def _target(migrations: tuple[Migration, ...], to: str | None) -> str | None:
+    """`to` as a version that exists, or a `MigrationError` saying why not.
+
+    Both comparisons against it are string comparisons -- the versions are
+    zero-padded so that they sort correctly -- and a target that is not in that
+    form compares in ways nobody intends: `up --to 7` applied everything,
+    because "0024" < "7" in every string comparison there is. A typo'd version
+    is worse than an error, so the target has to name a migration that exists.
+    """
+    if to is None:
+        return None
+    if not re.fullmatch(r"\d{4}", to):
+        raise MigrationError(f"--to {to!r} must be a four-digit version, e.g. 0007")
+    if to not in {m.version for m in migrations}:
+        raise MigrationError(f"--to {to!r} is not a migration in {MIGRATIONS_DIR}")
+    return to
+
+
 async def up(
     conn: Any, migrations: tuple[Migration, ...], to: str | None = None
 ) -> list[Migration]:
+    to = _target(migrations, to)
     await _ensure_ledger(conn)
     applied = await _applied(conn)
 
@@ -255,8 +274,18 @@ async def down(
     conn: Any, migrations: tuple[Migration, ...], to: str | None = None
 ) -> list[Migration]:
     """Revert down to but not including ``to``; with no target, revert one."""
+    to = _target(migrations, to)
     await _ensure_ledger(conn)
     applied = await _applied(conn)
+
+    # The same drift check `up` runs, for a stronger reason: reverting runs the
+    # .down.sql that sits beside the .up.sql on disk, and drift means the file
+    # that was applied is not the file on disk. Its down is then a reversal of
+    # something else.
+    problems = drift(migrations, applied)
+    if problems:
+        raise MigrationError("\n".join(problems))
+
     known = {m.version: m for m in migrations}
 
     order = sorted(applied, reverse=True)

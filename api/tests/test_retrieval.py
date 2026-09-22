@@ -158,7 +158,9 @@ async def test_retrieval_may_return_nothing() -> None:
     on the nearest unrelated section instead is the failure to avoid."""
     conn = FakeConn([row(distance=MAX_DISTANCE + 0.5)])
 
-    assert await retrieve(conn, FakeClient(), "text-embedding-3-small", "unrelated") == []
+    retrieved = await retrieve(conn, FakeClient(), "text-embedding-3-small", "unrelated")
+
+    assert retrieved.passages == []
 
 
 async def test_retrieval_reads_only_the_active_corpus_view() -> None:
@@ -205,11 +207,11 @@ async def test_the_standing_questions_still_go_through_the_sealed_view() -> None
 async def test_a_passage_returned_by_two_queries_appears_once() -> None:
     conn = FakeConn([row()])
 
-    passages = await retrieve_for(
+    retrieved = await retrieve_for(
         conn, FakeClient(), "text-embedding-3-small", "public_comment_letter", "Draft."
     )
 
-    assert len(passages) == 1
+    assert len(retrieved.passages) == 1
 
 
 async def test_an_unknown_document_type_just_asks_the_users_question() -> None:

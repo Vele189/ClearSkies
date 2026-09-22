@@ -65,7 +65,7 @@ async def get_provenance(
     With `source`, returns that source's history newest first instead, which is
     what answers "was this number current when the claim was made".
     """
-    p = db.pool()
+    p = await db.pool()
     if p is None:
         raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
 

@@ -51,7 +51,6 @@ from app.assistant.audit import Profile  # noqa: E402
 from app.assistant.context import HexContext  # noqa: E402
 from app.assistant.documents import SYSTEM_WRITTEN_FIELDS, DocumentType  # noqa: E402
 from app.assistant.structured import DraftRejected  # noqa: E402
-from app.routers.draft import default_request  # noqa: E402
 
 TYPES: list[DocumentType] = [
     "public_comment_letter",
@@ -165,9 +164,10 @@ async def audit_one(
     document_type: DocumentType,
 ) -> AuditedDraft:
     try:
-        # The same request text a user sends by clicking the button in the
-        # panel and typing nothing. Auditing a request nobody makes would
-        # measure a path nobody takes.
+        # The empty request a user sends by clicking the button in the panel
+        # and typing nothing, which the service turns into the same default
+        # text. Auditing a request nobody makes would measure a path nobody
+        # takes.
         outcome = await with_backoff(
             "generation",
             lambda: service.draft_for_hex(
@@ -177,8 +177,7 @@ async def audit_one(
                 embedding_model,
                 context,
                 document_type,
-                default_request(document_type),
-                "0.1.4",
+                "",
             ),
         )
     except verifier.DraftUnverifiable as exc:
@@ -214,7 +213,10 @@ async def audit_one(
     # failing must cost one draft.
     try:
         recheck = await with_backoff(
-            "re-check", lambda: verifier.verify_document(conn, model, document, context.h3)
+            "re-check",
+            lambda: verifier.verify_document(
+                conn, model, document, context.h3, context.facility_ids()
+            ),
         )
     except Exception as exc:  # noqa: BLE001 - see above
         return AuditedDraft(

@@ -9,6 +9,7 @@ says what is wrong. This is the regression check for that.
 
 from collections.abc import Iterator
 
+import asyncpg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -36,10 +37,10 @@ def cold_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         get_settings.cache_clear()
 
 
-def test_the_app_starts_with_no_database_and_leaves_the_pool_empty(
+async def test_the_app_starts_with_no_database_and_leaves_the_pool_empty(
     cold_database: TestClient,
 ) -> None:
-    assert db.pool() is None
+    assert await db.pool() is None
 
 
 def test_health_answers_200_and_says_the_database_is_unavailable(
@@ -76,3 +77,80 @@ def test_a_data_endpoint_reports_503_rather_than_failing(
 def test_validation_still_runs_without_a_database(cold_database: TestClient) -> None:
     """422 before 503: a malformed index is wrong whether or not Postgres is up."""
     assert cold_database.get("/hex/not-a-hex").status_code == 422
+
+
+# ---- The pool is optional, not abandoned --------------------------------
+
+
+async def test_the_pool_is_built_on_a_later_request_when_startup_could_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Neon scales to zero, so the first connection after an idle period can
+    time out. A process that started during one stayed degraded until somebody
+    redeployed it, answering 503 with a healthy database on the other end."""
+    built: list[str] = []
+
+    async def create_pool(*args: object, **kwargs: object) -> str:
+        built.append("pool")
+        return "pool"
+
+    assert await db.pool() is None
+
+    monkeypatch.setattr(asyncpg, "create_pool", create_pool)
+    db.reset_for_tests()
+    try:
+        assert await db.pool() == "pool"
+        # And once built, it is not rebuilt.
+        assert await db.pool() == "pool"
+        assert built == ["pool"]
+    finally:
+        db._pool = None
+        db.reset_for_tests()
+
+
+async def test_a_database_that_stays_down_is_not_dialled_on_every_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retrying is worth a cold start and not worth a connection attempt per
+    request while the database is genuinely gone."""
+    attempts: list[str] = []
+
+    async def create_pool(*args: object, **kwargs: object) -> str:
+        attempts.append("try")
+        raise OSError("refused")
+
+    monkeypatch.setattr(asyncpg, "create_pool", create_pool)
+    db.reset_for_tests()
+    try:
+        assert await db.pool() is None
+        assert await db.pool() is None
+        assert len(attempts) == 1
+    finally:
+        db.reset_for_tests()
+
+
+# ---- One provider client for the process --------------------------------
+
+
+async def test_the_provider_client_is_built_once_and_closed_on_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A client per request leaves its connection pool and TLS sessions behind
+    for the garbage collector, which under load is a slow leak of sockets."""
+    from app import llm
+
+    closed: list[str] = []
+
+    class FakeClient:
+        async def close(self) -> None:
+            closed.append("closed")
+
+    monkeypatch.setattr(llm, "_client", FakeClient())
+    first = llm.client()
+
+    assert llm.client() is first
+
+    await llm.close()
+
+    assert closed == ["closed"]
+    assert llm._client is None

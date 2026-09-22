@@ -23,36 +23,80 @@ a fault.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app import db, hex_detail, runs
-from app.assistant import cost, service, verifier
+from app import db, hex_detail, llm, rate_limit, runs
+from app.assistant import cost, retrieval, service, verifier
 from app.assistant.context import HexContext
 from app.assistant.documents import DOCUMENT_MODELS, DocumentType, GeneratedDraft
 from app.assistant.guardrails import InsufficientConfidence, Refusal
 from app.assistant.structured import DraftRejected
 from app.config import get_settings
-from app.methodology import METHODOLOGY_VERSION
+from app.h3_cell import H3Cell
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["draft"])
 
+# One window per process, built from the settings on first use so that a test
+# or a deployment can change the limit without the module having read it at
+# import time. See app/rate_limit.py for what this does and does not promise.
+_limiter: rate_limit.SlidingWindow | None = None
+
+
+def limiter() -> rate_limit.SlidingWindow:
+    global _limiter
+    settings = get_settings()
+    if (
+        _limiter is None
+        or _limiter.limit != settings.draft_rate_limit
+        or _limiter.window_s != settings.draft_rate_window_s
+    ):
+        _limiter = rate_limit.SlidingWindow(settings.draft_rate_limit, settings.draft_rate_window_s)
+    return _limiter
+
+
+def enforce_rate_limit(request: Request) -> None:
+    """429 with a Retry-After, or nothing at all."""
+    key = rate_limit.client_key(
+        request.headers.get("x-forwarded-for"),
+        request.client.host if request.client else None,
+    )
+    wait = limiter().check(key)
+    if wait is None:
+        return
+    seconds = max(int(math.ceil(wait)), 1)
+    raise HTTPException(
+        status_code=429,
+        detail=(
+            f"Too many drafting requests from this client. Each draft calls a paid "
+            f"API, so this deployment allows {limiter().limit} every "
+            f"{int(limiter().window_s)} seconds. Try again in {seconds} seconds."
+        ),
+        headers={"Retry-After": str(seconds)},
+    )
+
 
 class DraftRequest(BaseModel):
-    h3: str = Field(description="H3 cell index at resolution 8.")
+    h3: H3Cell = Field(
+        description=(
+            "H3 cell index at resolution 8, as fifteen lower-case hex digits, e.g. 88444600ddfffff."
+        )
+    )
     document_type: DocumentType
     request: str = Field(
         default="",
         max_length=2000,
         description=(
             "Optional free text about what the document should cover. The draft is "
-            "about the hexagon; this steers emphasis and is not part of the cache key, "
-            "because two people asking for the same document in different words should "
-            "get the same document."
+            "about the hexagon, and this steers which passages are retrieved and what "
+            "the document argues, so it is part of the cache key: a draft answers the "
+            "request that produced it and is not served to somebody who asked for "
+            "something else."
         ),
     )
 
@@ -95,28 +139,29 @@ def _settings_or_503() -> tuple[str, str]:
     responses={
         409: {"model": Unavailable, "description": "The hexagon cannot be drafted from"},
         422: {"model": Unavailable, "description": "The draft failed verification"},
+        429: {"model": Unavailable, "description": "Too many drafts from this client"},
         503: {
             "model": Unavailable,
             "description": "Not configured, or the provider is unavailable",
         },
     },
 )
-async def create_draft(body: DraftRequest) -> DraftResponse:
+async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
     """Draft one document about one hexagon, with every citation verified.
 
     The draft is not legal advice, has not been reviewed by a lawyer, and says so
     on its face. There is no endpoint that sends, files or publishes one.
     """
     draft_model, embedding_model = _settings_or_503()
+    enforce_rate_limit(request)
 
     if body.document_type not in DOCUMENT_MODELS:  # pragma: no cover - Literal pins it
         raise HTTPException(status_code=422, detail=f"unknown document type {body.document_type}")
 
-    p = db.pool()
+    p = await db.pool()
     if p is None:
         raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
 
-    from openai import AsyncOpenAI
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
@@ -128,10 +173,11 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
     # constructor. That is a 500 on the one endpoint CS-008 requires to degrade
     # rather than crash.
     #
-    # Handing the provider the client this function already built fixes it and
-    # collapses two configurations into one: the retrieval embeddings and the
-    # draft model now demonstrably use the same key and the same HTTP client.
-    client = AsyncOpenAI(api_key=get_settings().openai_api_key)
+    # Handing the provider the process's client fixes it and collapses two
+    # configurations into one: the retrieval embeddings and the draft model
+    # demonstrably use the same key and the same HTTP client. The client is the
+    # process's rather than this request's; `app/llm.py` says why.
+    client = llm.client()
     model = OpenAIChatModel(draft_model, provider=OpenAIProvider(openai_client=client))
 
     async with p.acquire() as conn:
@@ -145,8 +191,7 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
                 embedding_model,
                 hex_context,
                 body.document_type,
-                body.request or default_request(body.document_type),
-                METHODOLOGY_VERSION,
+                body.request,
             )
         except InsufficientConfidence as exc:
             # 409 rather than 422: nothing about the request is malformed. The
@@ -155,6 +200,20 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
             raise HTTPException(status_code=409, detail=exc.explanation) from exc
         except service.NoCorpus as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except retrieval.EmbeddingModelMismatch as exc:
+            # A deployment fault, not a bad request: every draft it produced
+            # would be retrieved from vectors in a different coordinate space
+            # from the corpus's, which fails quietly rather than loudly.
+            log.error("corpus and query embedding models disagree: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The drafting assistant is misconfigured on this deployment: the "
+                    "statute corpus was embedded with a different model from the one "
+                    "configured here, so retrieval cannot be trusted. Everything else "
+                    "in the API works normally."
+                ),
+            ) from exc
         except service.ProviderUnavailable as exc:
             raise HTTPException(
                 status_code=503,
@@ -162,6 +221,20 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
                     "The language model provider is temporarily unavailable or the "
                     "spend cap for this deployment has been reached. Nothing is wrong "
                     "with your request; try again later."
+                ),
+            ) from exc
+        except service.VerificationFailed as exc:
+            # The citations were never checked, because the judge could not be
+            # asked. Reported as 422 rather than 500 for the same reason as a
+            # failed check: the draft is gone either way, and nothing about
+            # this is a fault the caller can read as a bug in their request.
+            log.warning("verification could not run: %s", exc)
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "A draft was produced, but its citations could not be checked "
+                    "because the verifier did not return a usable judgement, so it "
+                    "was discarded rather than shown. Trying again may work."
                 ),
             ) from exc
         except verifier.DraftUnverifiable as exc:
@@ -208,36 +281,12 @@ class SpendReport(BaseModel):
 @router.get("/draft/spend", response_model=SpendReport)
 async def spend() -> SpendReport:
     """Month-to-date usage, so the bill is legible before it arrives."""
-    p = db.pool()
+    p = await db.pool()
     if p is None:
         raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
     async with p.acquire() as conn:
         month = await cost.month_to_date(conn)
     return SpendReport(usd=round(month.usd, 4), tokens=month.tokens, calls=month.calls)
-
-
-DEFAULT_REQUESTS: dict[str, str] = {
-    "public_comment_letter": (
-        "Draft a public comment letter about the permitted sources affecting this "
-        "hexagon, based only on the supplied data and passages."
-    ),
-    "agency_complaint_draft": (
-        "Draft an administrative complaint about the cumulative burden recorded for "
-        "this hexagon, based only on the supplied data and passages."
-    ),
-    "community_briefing_sheet": (
-        "Draft a plain-language briefing sheet for residents of this hexagon, based "
-        "only on the supplied data and passages."
-    ),
-    "journalist_fact_sheet": (
-        "Draft a fact sheet for a reporter covering this hexagon, based only on the "
-        "supplied data and passages."
-    ),
-}
-
-
-def default_request(document_type: str) -> str:
-    return DEFAULT_REQUESTS[document_type]
 
 
 async def load_hex_context(conn: Any, h3: str) -> HexContext:
@@ -267,6 +316,7 @@ async def load_hex_context(conn: Any, h3: str) -> HexContext:
     return HexContext(
         h3=detail.h3,
         parish=detail.parish,
+        run_id=run.run_id,
         score=detail.score,
         percentile=detail.percentile,
         confidence=detail.confidence.value,
@@ -275,5 +325,6 @@ async def load_hex_context(conn: Any, h3: str) -> HexContext:
         indicators=[i.model_dump() for i in detail.indicators],
         demographics=detail.demographics.model_dump(),
         facilities=[f.model_dump() for f in detail.facilities],
+        facility_count=detail.facility_count,
         data_vintage=detail.data_vintage,
     )

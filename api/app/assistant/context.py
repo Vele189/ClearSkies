@@ -41,10 +41,34 @@ class HexContext:
     confidence: float | None
     confidence_band: str
     methodology_version: str
+    # The scored run these figures came from. None for a context no run
+    # produced -- the citation audit builds hexagons from fixtures -- and a
+    # draft about one of those is not cacheable, because the cache is keyed on
+    # the run. Not rendered: what a reader of the draft can act on is the
+    # methodology version, which is printed above.
+    run_id: int | None = None
+    # Facilities within the interaction radius, which is not the length of the
+    # list below: that is capped, and the cap was being printed as the total.
+    # None means nobody counted, and the context then says how many it holds
+    # rather than claiming a total it does not have.
+    facility_count: int | None = None
     indicators: list[dict[str, Any]] = field(default_factory=list)
     demographics: dict[str, Any] = field(default_factory=dict)
     facilities: list[dict[str, Any]] = field(default_factory=list)
     data_vintage: dict[str, str] = field(default_factory=dict)
+
+    def facility_ids(self) -> set[str]:
+        """The record ids of the facilities the model is shown, and no others.
+
+        What a facility citation has to be one of. The ones past the listing
+        limit are real and nearby, but the model was never given them, so a
+        citation to one came from somewhere other than the supplied data.
+        """
+        return {
+            str(facility["registry_id"])
+            for facility in self.facilities[:MAX_FACILITIES]
+            if facility.get("registry_id")
+        }
 
     def render(self) -> str:
         lines: list[str] = [
@@ -95,7 +119,8 @@ class HexContext:
         for key, value in self.demographics.items():
             lines.append(f"- {key}: {_number(value) if isinstance(value, float) else value}")
 
-        lines += ["", f"## Contributing facilities ({len(self.facilities)})"]
+        total = len(self.facilities) if self.facility_count is None else self.facility_count
+        lines += ["", f"## Contributing facilities ({total})"]
         if not self.facilities:
             lines.append(
                 "None within the 10 km interaction radius. Do not refer to any "
@@ -108,9 +133,10 @@ class HexContext:
                 f"{_number(facility.get('distance_km'))} km, "
                 f"program {facility.get('program')}"
             )
-        if len(self.facilities) > MAX_FACILITIES:
+        listed = min(len(self.facilities), MAX_FACILITIES)
+        if total > listed:
             lines.append(
-                f"...and {len(self.facilities) - MAX_FACILITIES} more not listed here. "
+                f"...and {total - listed} more not listed here. "
                 "Do not state a total you have not been given."
             )
 

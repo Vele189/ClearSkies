@@ -291,8 +291,8 @@ CDN is enabled on `web` only.
 
 1. **Band check**, before anything is spent. An insufficient-confidence hexagon
    never reaches retrieval, let alone the model.
-2. **Cache**, keyed on the hexagon, the document type, and the methodology,
-   corpus and prompt versions.
+2. **Cache**, keyed on the hexagon, the document type, the scored run, the
+   requester's free text, and the methodology, corpus and prompt versions.
 3. **Retrieve** from the sealed corpus.
 4. **Generate**, with refusal available.
 5. **Verify** every citation. A draft that fails is logged and discarded.
@@ -300,16 +300,29 @@ CDN is enabled on `web` only.
 
 ### The cache key is the design
 
-A draft is a function of the hexagon, the document type, and the three versions
-that decide what it says. Key on all of them and a revision invalidates exactly
-what it should, with no invalidation step for anybody to remember and no stale
-draft served under a new methodology version.
+A draft is a function of everything that decides what it says: the hexagon, the
+document type, the scored run, the request, and the three versions. Key on all
+of them and a revision invalidates exactly what it should, with no invalidation
+step for anybody to remember and no stale draft served under a new methodology
+version.
 
-What is deliberately **not** in the key is the user's free text. Two people
-asking for a comment letter on the same hexagon in different words should get
-the same document, because the document is about the hexagon. Keying on the
-phrasing would make the cache miss almost always, which is the same as not
-having one.
+The request was once left out, on the argument that two people asking for the
+same document in different words should get the same document. That is true of
+the phrasing and false of the content: the request is handed to retrieval and to
+the model, so it chooses which passages are pulled and what the draft argues.
+"Draft a comment letter about the odour complaints" and "about the flare" are
+different documents, and the old key served the first to everybody who asked
+after. The key holds a SHA-256 of the request with its whitespace normalised, so
+the same question typed untidily still hits.
+
+The run is in the key for the same reason. Re-running the pipeline under one
+methodology version produces new scores for the same hexagons, and a cached
+draft would then describe figures the map no longer shows. The version stamped
+on a draft is the run's, not the application's constant.
+
+A context no run produced — the citation audit builds hexagons from fixtures —
+is neither read from nor written to the cache, because there is no run to key it
+on.
 
 A cache hit is not re-verified, because nothing that failed verification was
 ever written, and the corpus version is part of the key.
@@ -321,19 +334,32 @@ ever written, and the corpus version is part of the key.
 | 409 | The hexagon is in the insufficient band | The tool does not trust its own number here, in plain language, not an error code |
 | 422 | A citation could not be verified | A draft was produced and discarded; this is the system working |
 | 422 | The model did not produce the schema | Nothing was shown; trying again may work |
+| 422 | The verifier could not be asked | The citations were never checked, so the draft was discarded |
+| 429 | Too many drafts from one client | How many this deployment allows, and how long to wait |
 | 503 | No API key configured | The rest of the API works normally |
 | 503 | No sealed corpus | Nothing could be verified even if it were cited |
 | 503 | Provider rate limit or spend cap | Nothing is wrong with the request; try later |
 
-A provider limit is recognised from the exception's name and message rather than
-by importing the SDK's exception classes. That hierarchy changes between major
-versions, and the cost of getting it wrong is a 500 where a legible "try later"
-belonged.
+The 429 is a courtesy and not a control. The counters live in the process, so
+two replicas allow twice the limit and a restart forgets everything; the limit
+that cannot be got round is the spend cap configured with the provider. What it
+buys is that one client cannot burn a month's budget by holding down a button.
+
+A provider limit, and equally an outage -- a connection failure, a timeout, the
+provider's own 5xx, a key it rejects -- is recognised from the exception's name
+and message rather than by importing the SDK's exception classes. That hierarchy
+changes between major versions, and the cost of getting it wrong is a 500 where
+a legible "try later" belonged.
 
 ### The spend cap is not in this repository
 
 `llm_usage` records every call, including the refused, the rejected and the
-failed, because cost is incurred by attempts and not by successes. `GET
+failed, because cost is incurred by attempts and not by successes. Every call
+means all three purposes the table documents: the embeddings that retrieval asks
+(one per standing question plus the user's) and the judge that reads every
+claim, not only the generation. Both were recorded as zero tokens, which
+understated the bill by the parts that scale with how much a draft retrieves and
+how much it cites. `GET
 /draft/spend` reports the month to date. Both are **indicative**: the prices are
 a table in an application that the provider can change without telling it.
 

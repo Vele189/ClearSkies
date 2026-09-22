@@ -95,6 +95,8 @@ export interface HexDetail {
   confidence: Confidence;
   demographics: Demographics;
   facilities: Facility[];
+  /** Facilities within 10 km. `facilities` is capped at the nearest 50. */
+  facility_count: number;
   no_score_reason: NoScoreReason | null;
   methodology_version: string;
   data_vintage: Record<string, string>;

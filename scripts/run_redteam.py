@@ -206,10 +206,12 @@ async def run_attack(
     document_type = DOCUMENT_FOR[attack.category]
     prompt = prompts.load(document_type)
 
-    passages = await retrieval.retrieve_for(
+    retrieved = await retrieval.retrieve_for(
         conn, client, embedding_model, document_type, attack.request, limit=8
     )
-    user_prompt = build_prompt(FIXTURE_HEX, retrieval.as_context(passages), attack.request)
+    user_prompt = build_prompt(
+        FIXTURE_HEX, retrieval.as_context(retrieved.passages), attack.request
+    )
 
     try:
         result = await generate(document_type, model, prompt.text, user_prompt)
