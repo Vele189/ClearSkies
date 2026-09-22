@@ -34,6 +34,18 @@ never to fire on rounding and tight enough that anything which does fire is a
 bug worth stopping the run for. Section 7's acceptance is that statewide totals
 match within a documented tolerance; this is the documentation and
 `reconcile_population` is the check.
+
+**Explained is not the same as excused.** Subtracting an unreached tract's value
+is right for a water tract or an offshore sliver the grid was never meant to
+cover. It is wrong for a county whose blocks never met the grid at all: every
+one of its tracts is unreached, every person in them is explained, and the
+residual is zero over a state with a county missing. So the explained part is
+itself bounded, at **1e-4 of the tract total**, one person in ten thousand. In
+Louisiana that is under five hundred people, less than one ordinary tract of
+about four thousand, so a populated tract falling outside the grid stops the run
+while the unpopulated tracts that legitimately fall outside it do not. And a
+crosswalk with no rows at all is refused outright rather than reconciled, since
+there is nothing on the hex side for any tolerance to be measured against.
 """
 
 import math
@@ -45,6 +57,11 @@ from pipeline.dasymetric.weights import Crosswalk
 
 #: One person in a million. See the module docstring for why this number.
 DEFAULT_RELATIVE_TOLERANCE = 1e-6
+
+#: One person in ten thousand: the most of the tract total that tracts the
+#: crosswalk never reached may hold before the run stops. See the module
+#: docstring for why this number, and why it exists at all.
+DEFAULT_UNREACHED_TOLERANCE = 1e-4
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +77,13 @@ class Reconciliation:
     relative_tolerance: float
     explanation: str = ""
     detail: tuple[str, ...] = field(default=())
+    #: The most of the tract total `explained` may be. Unbounded by default,
+    #: for the block-layer check, whose explained part is population in blocks
+    #: the geometry reported by name.
+    explained_tolerance: float = math.inf
+    #: Set when there was nothing to reconcile, which is a failure rather than
+    #: a perfect match: an empty crosswalk closes trivially over any total.
+    refusal: str = ""
 
     @property
     def raw_difference(self) -> float:
@@ -78,8 +102,19 @@ class Reconciliation:
         return abs(self.residual) / abs(self.tract_total)
 
     @property
+    def explained_share(self) -> float:
+        """The explained part as a share of the tract total."""
+        if self.tract_total == 0:
+            return 0.0 if self.explained == 0 else math.inf
+        return abs(self.explained) / abs(self.tract_total)
+
+    @property
     def ok(self) -> bool:
-        return self.relative_residual <= self.relative_tolerance
+        return (
+            not self.refusal
+            and self.relative_residual <= self.relative_tolerance
+            and self.explained_share <= self.explained_tolerance
+        )
 
     def describe(self) -> str:
         verdict = "within tolerance" if self.ok else "OUT OF TOLERANCE"
@@ -89,8 +124,15 @@ class Reconciliation:
             f"  hex total   {self.hex_total:,.3f}",
             f"  difference  {self.raw_difference:,.3f}",
         ]
+        if self.refusal:
+            lines.append(f"  refused: {self.refusal}")
         if self.explained:
             lines.append(f"  of which {self.explained:,.3f} is {self.explanation}")
+            if self.explained_share > self.explained_tolerance:
+                lines.append(
+                    f"  that is {self.explained_share:.2e} of the total, over the "
+                    f"{self.explained_tolerance:.0e} that may go unreached"
+                )
         lines.append(
             f"  residual {self.residual:,.6f} "
             f"({self.relative_residual:.2e} relative, tolerance {self.relative_tolerance:.0e})"
@@ -112,6 +154,7 @@ def reconcile_population(
     *,
     crosswalk: Crosswalk | None = None,
     relative_tolerance: float = DEFAULT_RELATIVE_TOLERANCE,
+    unreached_tolerance: float = DEFAULT_UNREACHED_TOLERANCE,
 ) -> Reconciliation:
     """Compare an interpolated extensive total against its tract-level source.
 
@@ -120,7 +163,9 @@ def reconcile_population(
     distinguish a tract that was never offered to the interpolation, because no
     block of it meets the hex grid, from arithmetic that lost people. Without
     it, both read as a failure, which is the safe default but a less useful
-    message.
+    message. What unreached tracts may hold is bounded by
+    `unreached_tolerance`, and a crosswalk with no rows is refused, so that
+    naming a gap never becomes a way of passing over it.
 
     This works for any extensive quantity, not only population. Population is
     the one section 7 names because it is the quantity every other apportioned
@@ -131,10 +176,13 @@ def reconcile_population(
 
     unreached: tuple[str, ...] = ()
     unreached_total = 0.0
+    refusal = ""
     if crosswalk is not None:
         reached = set(crosswalk.tracts())
         unreached = tuple(sorted(t for t in tract_estimates if t not in reached))
         unreached_total = math.fsum(tract_estimates[t] for t in unreached)
+        if not crosswalk.weights:
+            refusal = "the crosswalk has no rows, so every tract is unreached"
 
     return Reconciliation(
         tract_total=tract_total,
@@ -143,6 +191,8 @@ def reconcile_population(
         relative_tolerance=relative_tolerance,
         explanation=f"the value of {len(unreached)} tracts the crosswalk never reached",
         detail=unreached,
+        explained_tolerance=unreached_tolerance,
+        refusal=refusal,
     )
 
 
@@ -158,10 +208,15 @@ def reconcile_crosswalk(
     that met no hexagon. This runs before any ACS value is interpolated, which
     is where it earns its keep: it separates a broken crosswalk from a broken
     estimate, and only one of those two is worth re-running the geometry for.
+
+    A crosswalk with no rows is refused. It is what a county produces when none
+    of its blocks meets the hex grid, and zero people in against zero people out
+    would otherwise read as a county that closed exactly.
     """
     report = crosswalk.report
     stranded = tuple(sorted(b.block_geoid for b in report.uncovered_blocks if b.coverage == 0))
     return Reconciliation(
+        refusal="" if crosswalk.weights else "the crosswalk has no rows: no block met the grid",
         tract_total=float(report.total_block_population),
         hex_total=math.fsum(w.population for w in crosswalk.weights),
         explained=float(report.unassigned_population),

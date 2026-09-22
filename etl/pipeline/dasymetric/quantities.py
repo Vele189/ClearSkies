@@ -120,6 +120,10 @@ class HexValue:
     #: Bureau's conservative alternative, so the margin is an overstatement
     #: rather than an error, and saying so keeps it from reading as one.
     moe_is_conservative: bool = False
+    #: The tracts whose values this one was built from, when an interpolation
+    #: built it. `derive_rate` reads it to refuse a numerator and a denominator
+    #: assembled over different tracts; empty means unrecorded, not none.
+    tracts: frozenset[str] = frozenset()
 
     @property
     def present(self) -> bool:

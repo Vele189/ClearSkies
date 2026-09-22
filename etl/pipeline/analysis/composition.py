@@ -144,7 +144,7 @@ async def hex_shares(
     absent carries no share rather than a zero: nobody lives there to have a
     composition, and a zero would read as an all-white hexagon.
     """
-    from pipeline.dasymetric.interpolate import derive_rate, interpolate
+    from pipeline.dasymetric.interpolate import interpolate_rate
     from pipeline.dasymetric.quantities import Kind, TractEstimate
 
     codes = {stored(code) for spec in SHARES for code in (*spec.numerator, *spec.denominator)}
@@ -167,10 +167,13 @@ async def hex_shares(
     for spec in SHARES:
         numerator = _fold(loaded, spec.numerator, f"{spec.column}_numerator")
         denominator = _fold(loaded, spec.denominator, f"{spec.column}_denominator")
-        interpolated = interpolate(crosswalk, [*numerator, *denominator])
-        rate = derive_rate(
-            interpolated.get(f"{spec.column}_numerator", {}),
-            interpolated.get(f"{spec.column}_denominator", {}),
+        # Only the tracts that published both parts: a numerator the ACS had
+        # nothing for would otherwise divide as a zero over a denominator that
+        # counted everyone, and read as a hexagon with none of that group.
+        rate = interpolate_rate(
+            crosswalk,
+            numerator,
+            denominator,
             variable=spec.column,
             scale=100.0,
         )

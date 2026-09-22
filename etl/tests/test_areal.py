@@ -30,7 +30,7 @@ from pipeline.dasymetric import (
     tract_populations,
 )
 from pipeline.dasymetric.areal import PartialCrosswalk
-from tests.test_dasymetric import BLOCK_A, BLOCK_B, FIXTURE, H1, H2, T1, T2, weight
+from tests.test_dasymetric import BLOCK_A, BLOCK_B, FIXTURE, H1, H2, H3, T1, T2, weight
 
 
 @pytest.fixture
@@ -203,6 +203,37 @@ def test_a_crosswalk_read_back_from_storage_behaves_the_same(dasymetric: Crosswa
     # the counterpart has to be derivable from stored rows alone.
     restored = crosswalk_from_weights(dasymetric.weights)
     assert areal_counterpart(restored).weights == areal_counterpart(dasymetric).weights
+
+
+def test_the_counterpart_spreads_people_into_the_cells_the_blocks_left_empty() -> None:
+    # The case that broke it. Block D holds a quarter of T1's area and none of
+    # its people, so section 7 gives that cell no weight and the crosswalk
+    # keeps it as `area_only`. Simple areal weighting puts a quarter of T1's
+    # people there, which is exactly the over-assignment section 7 opens by
+    # describing and the divergence section 13.5 exists to measure.
+    marsh = build_crosswalk([*FIXTURE, BlockOverlap("220010001002000", T1, H3, 0, 100.0, 100.0)])
+    counterpart = areal_counterpart(marsh)
+
+    # T1's area splits 0.375 / 0.375 / 0.25 over H1, H2 and H3, and it holds
+    # 400 people: 150, 150 and 100 of them.
+    assert weight(counterpart, T1, H1).population == pytest.approx(150.0)
+    assert weight(counterpart, T1, H2).population == pytest.approx(150.0)
+    assert weight(counterpart, T1, H3).population == pytest.approx(100.0)
+    assert counterpart.area_only == ()
+
+    # All of T1's people are placed under either method, which is what makes
+    # the comparison a comparison.
+    assert tract_populations(counterpart)[T1] == pytest.approx(400.0)
+    assert divergence(marsh, counterpart)[H3] == pytest.approx(100.0)
+    assert sum(divergence(marsh, counterpart).values()) == pytest.approx(0.0)
+
+
+def test_the_counterpart_survives_the_round_trip_through_storage() -> None:
+    # The production path reads `tract_hex_weight`, where the zero-weight rows
+    # live alongside the rest under migration 0025.
+    marsh = build_crosswalk([*FIXTURE, BlockOverlap("220010001002000", T1, H3, 0, 100.0, 100.0)])
+    restored = crosswalk_from_weights((*marsh.weights, *marsh.area_only))
+    assert areal_counterpart(restored).weights == areal_counterpart(marsh).weights
 
 
 def test_a_tract_with_no_block_population_apportions_nothing(dasymetric: Crosswalk) -> None:

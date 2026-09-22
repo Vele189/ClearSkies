@@ -20,7 +20,7 @@ on their own, and the unit tests drive them directly:
     overlaps  = await postgis.load_block_overlaps(conn, county_fips=...)
     crosswalk = weights.build_crosswalk(overlaps)          # section 7 steps 1-2
     values    = interpolate.interpolate(crosswalk, tract_estimates)
-    rate      = interpolate.derive_rate(numerator, denominator, variable="P1")
+    rate      = interpolate.interpolate_rate(crosswalk, tops, bottoms, variable="P1")
     report    = reconcile.require(reconcile.reconcile_population(...))
 
 Four rules from section 7 are load-bearing, and each is enforced somewhere
@@ -32,7 +32,9 @@ rather than merely documented:
 
 2. Where a rate has a published numerator and denominator, both are
    interpolated as counts and the rate is derived once at the end.
-   `derive_rate` is that division and it refuses non-extensive inputs.
+   `derive_rate` is that division; it refuses non-extensive inputs, and
+   refuses a numerator and a denominator built over different tracts.
+   `interpolate_rate` is the two interpolations and that division together.
 
 3. Margins of error are combined in quadrature under the Census Bureau's
    approximation for derived sums, and the resulting coefficient of variation
@@ -68,10 +70,12 @@ from pipeline.dasymetric.build import (
     verify_statewide_population,
 )
 from pipeline.dasymetric.interpolate import (
+    UnpairedRate,
     derive_rate,
     interpolate,
     interpolate_extensive,
     interpolate_intensive,
+    interpolate_rate,
     max_coefficient_variation,
 )
 from pipeline.dasymetric.quantities import (
@@ -88,6 +92,7 @@ from pipeline.dasymetric.quantities import (
 )
 from pipeline.dasymetric.reconcile import (
     DEFAULT_RELATIVE_TOLERANCE,
+    DEFAULT_UNREACHED_TOLERANCE,
     Reconciliation,
     ReconciliationFailed,
     reconcile_crosswalk,
@@ -109,6 +114,7 @@ __all__ = [
     "ACS_MOE_Z",
     "AREA_SHARE_TOLERANCE",
     "DEFAULT_RELATIVE_TOLERANCE",
+    "DEFAULT_UNREACHED_TOLERANCE",
     "HIGH_UNCERTAINTY_CV",
     "TOTAL_POPULATION",
     "BlockOverlap",
@@ -126,6 +132,7 @@ __all__ = [
     "TractEstimate",
     "TractHexWeight",
     "UncoveredBlock",
+    "UnpairedRate",
     "build_and_verify",
     "build_county_crosswalk",
     "build_crosswalk",
@@ -137,6 +144,7 @@ __all__ = [
     "interpolate",
     "interpolate_extensive",
     "interpolate_intensive",
+    "interpolate_rate",
     "max_coefficient_variation",
     "proportion_moe",
     "reconcile_crosswalk",
