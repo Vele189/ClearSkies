@@ -126,6 +126,52 @@ describe("choosing a document", () => {
   });
 });
 
+describe("a draft belongs to the hexagon it was asked about", () => {
+  /** A fetch that never settles on its own, so the test decides when it lands. */
+  function heldFetch() {
+    let land: (body: unknown) => void = () => undefined;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          land = (body) =>
+            resolve({ ok: true, status: 200, statusText: "", json: () => Promise.resolve(body) });
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return { fetchMock, land: (body: unknown) => land(body) };
+  }
+
+  function signalOf(fetchMock: ReturnType<typeof vi.fn>): AbortSignal {
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    return init.signal as AbortSignal;
+  }
+
+  it("abandons a draft in flight when the panel goes away", async () => {
+    const { fetchMock } = heldFetch();
+    const { unmount } = render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Public comment letter"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    unmount();
+
+    expect(signalOf(fetchMock).aborted).toBe(true);
+  });
+
+  it("abandons a draft in flight when the hexagon changes, and never shows it", async () => {
+    const { fetchMock, land } = heldFetch();
+    const { rerender } = render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Public comment letter"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    rerender(<DraftPanel hex={{ ...hex(), h3: "88444600dbfffff" }} />);
+    expect(signalOf(fetchMock).aborted).toBe(true);
+
+    land(DRAFTED);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+});
+
 describe("the insufficient band", () => {
   it("explains the refusal in plain language before anything is clicked", () => {
     // The reader is being told the tool does not trust its own number for their
@@ -180,6 +226,121 @@ describe("a drafted document", () => {
     await userEvent.click(screen.getByText("Public comment letter"));
 
     expect(await screen.findByText(/appendix-b-test/)).toBeTruthy();
+  });
+});
+
+describe("a complaint shows what it rests on", () => {
+  const COMPLAINT: DraftResponse = {
+    status: "drafted",
+    from_cache: false,
+    refusal: null,
+    draft: {
+      ...DRAFTED.draft!,
+      document: {
+        document_type: "agency_complaint_draft",
+        draft_notice: "DRAFT FOR HUMAN REVIEW. It is not legal advice.",
+        citations: [],
+        paragraphs: [{ text: "The burden here is cumulative.", citations: [] }],
+        recipient_office: "EPA Office of External Civil Rights Compliance",
+        legal_basis: [
+          {
+            kind: "statute",
+            section: "42 U.S.C. § 2000d",
+            document_id: "usc-42-chap21",
+            proposition: "No person shall be subjected to discrimination under such a program.",
+          },
+        ],
+        key_figures: [
+          {
+            label: "Cancer risk",
+            value: "62",
+            unit: "per million",
+            citation: {
+              kind: "statute",
+              section: "40 C.F.R. § 51.166",
+              document_id: "cfr-40-51",
+              proposition: "PSD review applies to this source.",
+            },
+          },
+        ],
+        relief_sought: "An investigation.",
+      },
+    },
+  };
+
+  it("renders the legal basis, as a link like every other citation", async () => {
+    vi.stubGlobal("fetch", respondWith(COMPLAINT));
+    render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Agency complaint"));
+
+    await screen.findByRole("note");
+    expect(screen.getByText("Legal basis")).toBeInTheDocument();
+    const links = screen.getAllByRole("link", { name: "42 U.S.C. § 2000d" });
+    expect(links[0].getAttribute("href")).toBe("https://www.law.cornell.edu/uscode/text/42/2000d");
+  });
+
+  it("lists the legal basis and the key figures' sources among the citations", async () => {
+    // A reader checking the citations at the foot of the draft is entitled to
+    // find every claim that was cited to them there.
+    vi.stubGlobal("fetch", respondWith(COMPLAINT));
+    render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Agency complaint"));
+
+    await screen.findByRole("note");
+    expect(screen.getByText(/^Citations \(2\)$/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "40 C.F.R. § 51.166" }).length).toBeGreaterThan(0);
+  });
+
+  it("carries the legal basis into what is copied or downloaded", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    vi.stubGlobal("fetch", respondWith(COMPLAINT));
+
+    render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Agency complaint"));
+    await screen.findByRole("note");
+    await userEvent.click(screen.getByText("Copy"));
+
+    expect(String(writeText.mock.calls[0][0])).toContain("42 U.S.C. § 2000d");
+  });
+});
+
+describe("taking the draft away", () => {
+  it("says so when the browser refuses the clipboard", async () => {
+    // A reader who believes they have the draft and pastes nothing has lost it.
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+
+    render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Public comment letter"));
+    await screen.findByRole("note");
+    await userEvent.click(screen.getByText("Copy"));
+
+    expect(await screen.findByText(/would not let the page write to the clipboard/i)).toBeTruthy();
+    expect(screen.getByText("Copy")).toBeInTheDocument();
+  });
+
+  it("keeps a download's blob alive past the click that started it", async () => {
+    // Revoking in the same tick races the download: a browser that has not
+    // fetched the blob yet saves an empty file.
+    const createObjectURL = vi.fn().mockReturnValue("blob:draft");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const timers = vi.spyOn(window, "setTimeout");
+
+    render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Public comment letter"));
+    await screen.findByRole("note");
+    await userEvent.click(screen.getByText("Download"));
+
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+
+    // Nothing is leaked either: the URL is released once the download is safe.
+    const scheduled = timers.mock.calls.find((call) => call[1] === 60_000);
+    expect(scheduled).toBeDefined();
+    (scheduled![0] as () => void)();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:draft");
   });
 });
 

@@ -282,4 +282,36 @@ describe("HexPanel", () => {
     await userEvent.tab();
     expect(screen.getByRole("link", { name: /Example Chemical Works/ })).toHaveFocus();
   });
+
+  it("writes every rank as English writes it", () => {
+    render(
+      <HexPanel
+        hex={hex({
+          percentile: 1,
+          indicators: [indicator({ percentile: 22 })],
+          components: [
+            { component: "pollution_burden", score: 9.5, groups: [group({ mean_percentile: 11 })] },
+          ],
+        })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/1st percentile statewide/)).toBeInTheDocument();
+    expect(screen.getByText("22nd")).toBeInTheDocument();
+    expect(screen.getByText("11th")).toBeInTheDocument();
+  });
+
+  it("says a percentile is not reported rather than printing a bare suffix", () => {
+    render(<HexPanel hex={hex({ percentile: null })} onClose={() => {}} />);
+
+    expect(screen.getByText(/percentile not reported/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^th percentile/)).not.toBeInTheDocument();
+  });
+
+  it("says no reason was recorded rather than trailing off after a colon", () => {
+    render(<HexPanel hex={hex({ score: null, percentile: null, no_score_reason: null })} onClose={() => {}} />);
+
+    expect(screen.getByText(/not scored: no reason recorded/i)).toBeInTheDocument();
+  });
 });

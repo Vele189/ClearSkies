@@ -33,6 +33,31 @@ export function weightedGroupMean(groups: GroupScore[]): number | null {
   return weight === 0 ? null : weighted / weight;
 }
 
+/** A rank as English writes it: 1st, 2nd, 3rd, 11th, 21st, 22nd.
+ *
+ *  Percentiles are read aloud, and "1th" or "22th" on a panel that is asking to
+ *  be trusted with a legal document is the kind of slip that makes a reader
+ *  wonder what else was not checked. The teens are the whole difficulty: they
+ *  take "th" whatever their last digit is.
+ *
+ *  Rounded to a whole rank, because that is how every caller shows one. */
+export function ordinal(value: number): string {
+  const rank = Math.round(value);
+  const lastTwo = Math.abs(rank) % 100;
+  const last = Math.abs(rank) % 10;
+  const suffix =
+    lastTwo >= 11 && lastTwo <= 13
+      ? "th"
+      : last === 1
+        ? "st"
+        : last === 2
+          ? "nd"
+          : last === 3
+            ? "rd"
+            : "th";
+  return `${String(rank)}${suffix}`;
+}
+
 /** Groups that were dropped from their component's mean, so the panel can name
  *  them rather than leaving a reader to notice the weights do not add up. */
 export function droppedGroups(groups: GroupScore[]): GroupScore[] {

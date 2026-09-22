@@ -7,6 +7,7 @@ import {
   droppedGroups,
   isZeroInflated,
   leadsWithCaveat,
+  ordinal,
   productOfComponents,
   vintageFor,
   weakestTerm,
@@ -61,7 +62,7 @@ function IndicatorRow({
       </div>
       <div className="text-right text-sm tabular-nums text-slate-600">
         {indicator.observed && indicator.percentile !== null
-          ? `${indicator.percentile.toFixed(0)}th`
+          ? ordinal(indicator.percentile)
           : "—"}
       </div>
     </li>
@@ -99,7 +100,7 @@ function ComponentWaterfall({ component }: { component: ComponentScore }) {
             </div>
             <div className="text-right text-sm tabular-nums text-slate-700">
               {group.computable && group.mean_percentile !== null
-                ? `${group.mean_percentile.toFixed(0)}th`
+                ? ordinal(group.mean_percentile)
                 : "—"}
             </div>
           </li>
@@ -231,7 +232,11 @@ export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: ()
 
         {hex.score === null ? (
           <p className="mt-3 text-sm text-slate-600">
-            Not scored: {hex.no_score_reason?.replace(/_/g, " ")}
+            {/* The reason is what makes this sentence useful, and it is
+                optional on the response. Without it the panel says plainly that
+                none was recorded rather than trailing off after a colon. */}
+            Not scored:{" "}
+            {hex.no_score_reason ? hex.no_score_reason.replace(/_/g, " ") : "no reason recorded"}
           </p>
         ) : (
           <div className="mt-3 flex items-baseline gap-3">
@@ -239,7 +244,9 @@ export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: ()
               {hex.score.toFixed(1)}
             </span>
             <span className="text-sm text-slate-600">
-              {hex.percentile?.toFixed(0)}th percentile statewide
+              {hex.percentile === null
+                ? "statewide percentile not reported"
+                : `${ordinal(hex.percentile)} percentile statewide`}
             </span>
           </div>
         )}

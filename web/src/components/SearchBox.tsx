@@ -10,6 +10,11 @@ interface Props {
 export default function SearchBox({ onPick }: Props) {
   const listId = useId();
   const [query, setQuery] = useState("");
+  /** What the geocoder is asked for, which is not always what the input shows.
+   *  Only typing sets it. Picking a result writes the place's name into the
+   *  input, and if that were a search too the list would reopen under the
+   *  reader straight after they had chosen from it. */
+  const [term, setTerm] = useState("");
   const [results, setResults] = useState<Place[]>([]);
   const [active, setActive] = useState(-1);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +25,7 @@ export default function SearchBox({ onPick }: Props) {
   // ever schedules work, so it never sets state during a render pass.
   function handleChange(value: string) {
     setQuery(value);
+    setTerm(value);
     if (value.trim().length < 3) {
       setResults([]);
       setActive(-1);
@@ -29,7 +35,7 @@ export default function SearchBox({ onPick }: Props) {
   }
 
   useEffect(() => {
-    const trimmed = query.trim();
+    const trimmed = term.trim();
     if (trimmed.length < 3) return;
 
     const controller = new AbortController();
@@ -56,20 +62,29 @@ export default function SearchBox({ onPick }: Props) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [term]);
+
+  /** Closes the list and cancels any search still pending, so a response that
+   *  was already on its way cannot reopen it. Clearing the term is what
+   *  cancels: the effect's cleanup aborts the request and the timer. */
+  function dismiss() {
+    setTerm("");
+    setResults([]);
+    setActive(-1);
+    setError(null);
+    setPending(false);
+  }
 
   function choose(place: Place) {
     onPick(place);
-    setResults([]);
-    setActive(-1);
+    dismiss();
     setQuery(place.name);
     inputRef.current?.blur();
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
-      setResults([]);
-      setActive(-1);
+      dismiss();
       return;
     }
     if (results.length === 0) return;

@@ -61,6 +61,38 @@ export function citationLabel(citation: Citation): string {
   return citation.kind === "statute" ? citation.section : citation.record_id;
 }
 
+/**
+ * Every citation the document makes, in one list, deduplicated.
+ *
+ * `document.citations` is the list the API assembles, and it is not the whole
+ * of what the document cites: a complaint's `legal_basis` and a briefing
+ * sheet's key figures carry their own references. A reader checking the
+ * citations at the foot of the draft is entitled to find every claim that was
+ * cited to them there, including the statutes the complaint rests on and the
+ * source behind each headline number.
+ *
+ * Two citations are the same when they point at the same place for the same
+ * proposition. A second proposition on an already-cited section is a separate
+ * claim and stays a separate line.
+ */
+export function allCitations(document: DraftDocument): Citation[] {
+  const seen = new Set<string>();
+  const all: Citation[] = [];
+  const candidates: Citation[] = [
+    ...document.citations,
+    ...(document.legal_basis ?? []),
+    ...(document.key_figures ?? []).map((figure) => figure.citation),
+    ...document.paragraphs.flatMap((paragraph) => paragraph.citations),
+  ];
+  for (const citation of candidates) {
+    const key = `${citation.kind}|${citationLabel(citation)}|${citation.proposition}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    all.push(citation);
+  }
+  return all;
+}
+
 const HEADINGS: Record<string, (d: DraftDocument) => string[]> = {
   public_comment_letter: (d) => [
     `To: ${d.recipient ?? ""}`,
@@ -119,12 +151,23 @@ export function renderDraftText(stamped: GeneratedDraft): string {
     lines.push("");
   }
 
+  // The authority the complaint rests on, in the text as on the screen. A
+  // complaint that arrives without it asks its reader to take the legal footing
+  // on trust, which is the one thing this tool is built not to do.
+  if (d.legal_basis?.length) {
+    lines.push("Legal basis", "");
+    for (const citation of d.legal_basis) {
+      lines.push(`- ${citationLabel(citation)}: ${citation.proposition}`);
+    }
+    lines.push("");
+  }
+
   if (d.requested_action) lines.push(d.requested_action, "");
   if (d.relief_sought) lines.push(`Relief sought: ${d.relief_sought}`, "");
   if (d.filing_note) lines.push(d.filing_note, "");
 
   lines.push("Citations", "");
-  for (const citation of d.citations) {
+  for (const citation of allCitations(d)) {
     const url = citationUrl(citation);
     lines.push(`- ${citationLabel(citation)}${url ? ` — ${url}` : ""}`);
     lines.push(`  ${citation.proposition}`);
