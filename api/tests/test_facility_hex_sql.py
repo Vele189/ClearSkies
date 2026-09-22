@@ -172,7 +172,10 @@ async def seeded() -> AsyncIterator[tuple[asyncpg.Connection, dict[str, str]]]:
                                                      snapshot_id)
             VALUES ('NEAR', date '2025-01-01', 'CAA', 'high_priority_violation', $1),
                    ('NEAR', date '2025-04-01', 'CAA', 'violation', $1),
-                   ('NEAR', date '2025-07-01', 'CAA', 'in_compliance', $1)
+                   ('NEAR', date '2025-07-01', 'CAA', 'in_compliance', $1),
+                   -- Outside the twelve quarters F2 counts. ECHO's history can
+                   -- run deeper than the window, which is what AUD-18 is about.
+                   ('NEAR', date '2019-01-01', 'CAA', 'high_priority_violation', $1)
             """,
             snapshot_id,
         )
@@ -430,6 +433,50 @@ async def test_the_enforcement_window_is_a_parameter_not_todays_date(
 
     # The action settled 100 days ago, so a ten-day window excludes it.
     assert rows["NEAR"]["formal_actions"] == 0
+
+
+async def test_the_panel_counts_only_the_twelve_quarters_the_score_counts(
+    seeded: tuple[asyncpg.Connection, dict[str, str]],
+) -> None:
+    """AUD-18. The panel and F2 must not disagree about the same facility.
+
+    `facility_compliance_quarter` holds a 2019 violation for NEAR. F2 counts the
+    twelve quarters ending with the run's `as_of` (scoring/burden/inputs.py,
+    COMPLIANCE_QUARTERS = 12), so it does not see that row and neither may the
+    drill-down. Before migration 0027 the panel counted every row in the table
+    and would report three where the score counted two.
+    """
+    conn, cells = seeded
+    rows = {
+        r["facility_id"]: r
+        for r in await conn.fetch(
+            "SELECT * FROM facilities_near_hex($1, $2)", cells["inland"], INTERACTION_RADIUS_M
+        )
+    }
+
+    assert rows["NEAR"]["quarters_in_noncompliance"] == 2
+
+
+async def test_the_quarter_window_is_a_parameter_not_todays_date(
+    seeded: tuple[asyncpg.Connection, dict[str, str]],
+) -> None:
+    """A stored run's panel asks about that run's twelve quarters.
+
+    Passed a date inside 2019, the window reaches back far enough to include the
+    old violation, which is how a caller rendering an archived run gets a count
+    that matches the score that run wrote.
+    """
+    conn, cells = seeded
+    rows = {
+        r["facility_id"]: r
+        for r in await conn.fetch(
+            "SELECT * FROM facilities_near_hex($1, $2, NULL, date '2019-01-01')",
+            cells["inland"],
+            INTERACTION_RADIUS_M,
+        )
+    }
+
+    assert rows["NEAR"]["quarters_in_noncompliance"] == 3
 
 
 # ---- the index the read path depends on ----------------------------------

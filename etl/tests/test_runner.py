@@ -16,6 +16,7 @@ from pipeline.policy import DEFAULT_POLICY, PartialFailurePolicy, SourcePolicy
 from pipeline.records import NormalizedRecord
 from pipeline.runner import run_adapter
 from pipeline.sinks import InMemorySink
+from pipeline.snapshots import InMemorySnapshotStore
 from tests.conftest import make_context, make_fetcher
 
 
@@ -181,3 +182,113 @@ async def test_the_pull_timestamp_comes_from_the_context(sink: InMemorySink) -> 
         result = await run_adapter(StubAdapter([Row("a")]), ctx)
 
     assert result.pulled_at == ctx.now
+
+
+# --- AUD-16: what a run's bytes are worth -------------------------------
+
+
+class FetchingAdapter(StubAdapter):
+    """Downloads before it validates, which is what makes AUD-16 reachable."""
+
+    url = "https://stub.invalid/rows"
+
+    async def fetch(self, ctx: RunContext) -> FetchResult[Row]:
+        download = await ctx.http.get(self.url)
+        return FetchResult(records=self.rows, vintage=self.vintage, artifacts=[download.artifact])
+
+
+@asynccontextmanager
+async def fetching_context(
+    sink: InMemorySink,
+    snapshots: InMemorySnapshotStore,
+    *,
+    body: bytes,
+    policy: SourcePolicy = DEFAULT_POLICY,
+) -> AsyncIterator[RunContext]:
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=body))
+    async with build_client(transport=transport) as client:
+        yield make_context(
+            http=make_fetcher(client, source="stub", policy=policy, snapshots=snapshots),
+            sink=sink,
+            policy=policy,
+            source="stub",
+        )
+
+
+async def test_a_successful_pull_stores_what_it_downloaded(
+    sink: InMemorySink, snapshots: InMemorySnapshotStore
+) -> None:
+    adapter = FetchingAdapter([Row("a")])
+    async with fetching_context(sink, snapshots, body=b"good") as ctx:
+        result = await run_adapter(adapter, ctx)
+
+    assert result.status == "ok"
+    stored = await snapshots.get("stub", FetchingAdapter.url)
+    assert stored is not None
+    assert stored.content == b"good"
+
+
+async def test_a_pull_that_fails_validation_keeps_the_last_good_snapshot(
+    sink: InMemorySink, snapshots: InMemorySnapshotStore
+) -> None:
+    """AUD-16. The 200 that is about to be rejected must not become the fallback.
+
+    Downloading and succeeding are different events, and the store may only
+    learn about the second one. Otherwise the stale fallback serves exactly the
+    response that failed, which is the one copy it must never serve.
+    """
+    good = FetchingAdapter([Row("a")])
+    async with fetching_context(sink, snapshots, body=b"good") as ctx:
+        assert (await run_adapter(good, ctx)).status == "ok"
+
+    # Every row rejected, which the default policy calls a failed run.
+    doomed = FetchingAdapter([Row("bad", ok=False)])
+    async with fetching_context(sink, snapshots, body=b"corrupt") as ctx:
+        result = await run_adapter(doomed, ctx)
+
+    assert result.status == "failed"
+    stored = await snapshots.get("stub", FetchingAdapter.url)
+    assert stored is not None
+    assert stored.content == b"good", "the failed pull replaced the last good copy"
+
+
+async def test_a_rolled_back_load_keeps_the_last_good_snapshot(
+    sink: InMemorySink, snapshots: InMemorySnapshotStore
+) -> None:
+    """A load that rolls back is a failed run, and its bytes are worth nothing."""
+
+    class FetchingFailingLoad(FetchingAdapter):
+        async def load(self, records: Sequence[NormalizedRecord], ctx: RunContext) -> int:
+            raise SinkError("the database went away mid-write")
+
+    async with fetching_context(sink, snapshots, body=b"good") as ctx:
+        assert (await run_adapter(FetchingAdapter([Row("a")]), ctx)).status == "ok"
+
+    async with fetching_context(sink, snapshots, body=b"corrupt") as ctx:
+        result = await run_adapter(FetchingFailingLoad([Row("a")]), ctx)
+
+    assert result.status == "failed"
+    stored = await snapshots.get("stub", FetchingAdapter.url)
+    assert stored is not None
+    assert stored.content == b"good"
+
+
+async def test_a_duplicate_key_run_keeps_the_last_good_snapshot(
+    sink: InMemorySink, snapshots: InMemorySnapshotStore
+) -> None:
+    """The other failure that returns before the load: repeated natural keys."""
+
+    class FetchingColliding(FetchingAdapter):
+        def normalize(self, record: Row, ctx: RunContext) -> Iterator[StubRecord]:
+            yield StubRecord(id="always-the-same")
+
+    async with fetching_context(sink, snapshots, body=b"good") as ctx:
+        assert (await run_adapter(FetchingAdapter([Row("a")]), ctx)).status == "ok"
+
+    async with fetching_context(sink, snapshots, body=b"corrupt") as ctx:
+        result = await run_adapter(FetchingColliding([Row("a"), Row("b")]), ctx)
+
+    assert result.status == "failed"
+    stored = await snapshots.get("stub", FetchingAdapter.url)
+    assert stored is not None
+    assert stored.content == b"good"

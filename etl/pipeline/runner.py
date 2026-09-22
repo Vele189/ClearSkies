@@ -53,6 +53,31 @@ async def run_adapter[Raw](adapter: SourceAdapter[Raw], ctx: RunContext) -> Pull
     notes: list[str] = []
     static_gaps = tuple(adapter.known_gaps(ctx))
 
+    async def conclude(status: RunStatus) -> PullMetadata:
+        """The manifest, plus the decision about what this run's bytes are worth.
+
+        Every exit path goes through here, which is what keeps AUD-16 fixed: a
+        run that ends `failed` discards what it downloaded and the snapshot
+        store keeps the last copy that was good. Any other status means the
+        pull is one a later night would be right to fall back on, so it is
+        written.
+
+        `stale` discards too, and for a reason worth stating. A stale run is one
+        whose fetch raised part-way through, and an adapter that pages will have
+        staged whatever it got before that. Those bytes each came back 200, but
+        the fetch they belong to did not finish and nothing validated them as a
+        set — a half-read paged response can be perfectly well-formed and still
+        be missing half the state. Promoting them would hand the next night a
+        fallback that looks complete and is not.
+        """
+        if status in ("failed", "stale"):
+            ctx.http.discard_snapshots()
+        else:
+            written = await ctx.http.promote_snapshots()
+            if written:
+                ctx.log.debug("%s: stored %d snapshot(s)", adapter.name, written)
+        return manifest(status)
+
     def manifest(status: RunStatus) -> PullMetadata:
         return PullMetadata(
             source=adapter.spec.name,
@@ -80,7 +105,7 @@ async def run_adapter[Raw](adapter: SourceAdapter[Raw], ctx: RunContext) -> Pull
         result = await _fetch_from_snapshot(adapter, ctx, notes)
         if result is None:
             notes.append(f"fetch failed: {exc}")
-            return manifest("failed")
+            return await conclude("failed")
         stale = True
         extra_gaps.append(staleness_gap(adapter.spec.title))
 
@@ -114,7 +139,7 @@ async def run_adapter[Raw](adapter: SourceAdapter[Raw], ctx: RunContext) -> Pull
     repeated = duplicate_keys(normalized)
     if repeated:
         notes.append(f"{len(repeated)} duplicate natural keys, first {repeated[0]}")
-        return manifest("failed")
+        return await conclude("failed")
 
     verdict = ctx.policy.partial_failure.verdict(accepted=accepted, rejected=len(rejections))
     if verdict == "failed":
@@ -122,7 +147,7 @@ async def run_adapter[Raw](adapter: SourceAdapter[Raw], ctx: RunContext) -> Pull
             f"rejected {len(rejections)} of {counts.fetched} records, "
             "above the configured tolerance; nothing was loaded"
         )
-        return manifest("failed")
+        return await conclude("failed")
 
     status: RunStatus = "stale" if stale else verdict
     if stale and verdict == "partial":
@@ -131,7 +156,7 @@ async def run_adapter[Raw](adapter: SourceAdapter[Raw], ctx: RunContext) -> Pull
     # ---- load ----------------------------------------------------------
     if ctx.dry_run:
         notes.append("dry run: nothing was written")
-        return manifest(status)
+        return await conclude(status)
 
     await ctx.sink.begin(ctx.source)
     try:
@@ -139,12 +164,15 @@ async def run_adapter[Raw](adapter: SourceAdapter[Raw], ctx: RunContext) -> Pull
         counts = counts.model_copy(update={"loaded": loaded})
         final = manifest(status)
         await ctx.sink.commit(final)
+        # After the commit, not before: a load that rolls back is a failed run
+        # and its bytes must not become the fallback.
+        await ctx.http.promote_snapshots()
     except (SinkError, SourceError) as exc:
         await ctx.sink.rollback()
         counts = counts.model_copy(update={"loaded": 0})
         notes.append(f"load failed and was rolled back: {exc}")
         ctx.log.exception("%s: load failed, rolled back", adapter.name)
-        return manifest("failed")
+        return await conclude("failed")
 
     ctx.log.info("%s", final.summary())
     return final
