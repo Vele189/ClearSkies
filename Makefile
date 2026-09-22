@@ -353,7 +353,7 @@ test: $(VENV) ## Run the API and frontend test suites
 .PHONY: test-spatial
 test-spatial: $(VENV) ## Run the neighbour-query tests against the local database
 	cd $(API) && CLEARSKIES_TEST_DATABASE_URL="$${DATABASE_URL:-postgresql://clearskies:clearskies@localhost:$${POSTGRES_PORT:-5432}/clearskies}" \
-	  .venv/bin/python -m pytest tests/test_facility_hex_sql.py tests/test_retrieval_sql.py -q
+	  .venv/bin/python -m pytest tests/test_facility_hex_sql.py tests/test_hex_detail_sql.py tests/test_retrieval_sql.py -q
 
 .PHONY: lint
 lint: $(VENV) ## Lint and typecheck the API and frontend
