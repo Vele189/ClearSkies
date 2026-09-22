@@ -39,6 +39,7 @@ permits three responses to a failing check and none of them is editing these.
 | [validation/citation-audit.md](validation/citation-audit.md) | CS-308: the fifty-draft audit, with the drafts themselves in `validation/audit-drafts/`. |
 | [validation/citation-audit-review.md](validation/citation-audit-review.md) | What a person found reading those fifty drafts, kept apart from what the harness measured. |
 | [validation/redteam.md](validation/redteam.md) | The adversarial set run against the real model. |
+| [validation/safe-language.md](validation/safe-language.md) | CS-407: the pass over everything user-facing, and the scan that repeats it on every CI run. |
 | [validation/verifier.md](validation/verifier.md) | The citation judge against real sections: eight traps and four true propositions. |
 
 ## The 2026-09-22 audit
