@@ -41,6 +41,12 @@ class HexContext:
     confidence: float | None
     confidence_band: str
     methodology_version: str
+    # The scored run these figures came from. None for a context no run
+    # produced -- the citation audit builds hexagons from fixtures -- and a
+    # draft about one of those is not cacheable, because the cache is keyed on
+    # the run. Not rendered: what a reader of the draft can act on is the
+    # methodology version, which is printed above.
+    run_id: int | None = None
     indicators: list[dict[str, Any]] = field(default_factory=list)
     demographics: dict[str, Any] = field(default_factory=dict)
     facilities: list[dict[str, Any]] = field(default_factory=list)

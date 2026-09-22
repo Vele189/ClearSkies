@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.assistant import cost, service
+from app.assistant import cost, prompts, service
 from app.assistant.context import HexContext
 from app.assistant.documents import (
     GeneratedDraft,
@@ -24,9 +24,9 @@ from app.assistant.documents import (
     StatuteCitation,
 )
 from app.assistant.guardrails import InsufficientConfidence
+from app.assistant.service import DEFAULT_REQUESTS, default_request
 from app.config import get_settings
 from app.main import app
-from app.routers.draft import DEFAULT_REQUESTS, default_request
 
 CITATION = StatuteCitation(
     section="42 U.S.C. § 7661a",
@@ -44,7 +44,7 @@ def letter() -> PublicCommentLetter:
     )
 
 
-def hexagon(band: str = "moderate") -> HexContext:
+def hexagon(band: str = "moderate", run_id: int | None = 11) -> HexContext:
     return HexContext(
         h3="88444600ddfffff",
         parish="St. James",
@@ -53,6 +53,7 @@ def hexagon(band: str = "moderate") -> HexContext:
         confidence=0.71,
         confidence_band=band,
         methodology_version="0.1.4",
+        run_id=run_id,
     )
 
 
@@ -141,18 +142,31 @@ def test_every_document_type_has_a_default_request() -> None:
 
 
 class FakeConn:
-    """The cache and the usage log, as far as the service reads them."""
+    """The cache and the usage log, as far as the service reads them.
 
-    def __init__(self, row: dict[str, Any] | None = None, corpus: str | None = "corpus-1") -> None:
-        self.row = row
+    The cache is a dictionary on the real key, because half of what is under
+    test here is which requests share a row.
+    """
+
+    def __init__(
+        self,
+        row: dict[str, Any] | None = None,
+        corpus: str | None = "corpus-1",
+        key: tuple[Any, ...] | None = None,
+    ) -> None:
+        self.rows: dict[tuple[Any, ...], dict[str, Any]] = {}
+        if row is not None:
+            self.rows[key if key is not None else cache_key()] = row
         self.corpus = corpus
         self.executed: list[tuple[str, tuple[Any, ...]]] = []
+        self.looked_up: list[tuple[Any, ...]] = []
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
         if "statute_corpus_version" in query:
             return None if self.corpus is None else {"version": self.corpus}
         if "FROM draft" in query:
-            return self.row
+            self.looked_up.append(args)
+            return self.rows.get(args)
         if "llm_usage" in query:
             return {"usd": 0.0, "tokens": 0, "calls": 0}
         return None
@@ -161,26 +175,73 @@ class FakeConn:
         self.executed.append((query, args))
 
 
-async def test_a_repeat_request_is_served_from_the_cache() -> None:
-    conn = FakeConn(
-        row={
-            "document": json.loads(letter().stored_json()),
-            "model": "gpt-4o",
-            "confidence_band": "moderate",
-            "generated_at": datetime(2026, 9, 11, tzinfo=UTC),
-        }
+def cache_key(
+    request: str = "Draft it.",
+    run_id: int = 11,
+    h3: str = "88444600ddfffff",
+    document_type: str = "public_comment_letter",
+) -> tuple[Any, ...]:
+    """The lookup's arguments, in the order the query takes them."""
+    return (
+        h3,
+        document_type,
+        run_id,
+        service.request_digest(request),
+        "0.1.4",
+        "corpus-1",
+        prompts.CURRENT_VERSION,
     )
 
-    outcome = await service.draft_for_hex(
+
+def cached_row() -> dict[str, Any]:
+    return {
+        "document": json.loads(letter().stored_json()),
+        "model": "gpt-4o",
+        "confidence_band": "moderate",
+        "generated_at": datetime(2026, 9, 11, tzinfo=UTC),
+    }
+
+
+class Embedded(Exception):
+    """Retrieval was reached, which means the cache missed.
+
+    The service embeds the request before anything else it could do, so a
+    client that raises here marks the miss without needing a model, a vector
+    index or a corpus.
+    """
+
+
+class FakeClient:
+    class embeddings:
+        @staticmethod
+        async def create(**kwargs: Any) -> Any:
+            raise Embedded
+
+
+async def draft(conn: FakeConn, request: str = "Draft it.", **overrides: Any) -> Any:
+    return await service.draft_for_hex(
         conn,
-        None,
+        overrides.pop("client", FakeClient()),
         "gpt-4o",
         "text-embedding-3-small",
-        hexagon(),
+        overrides.pop("hex_context", hexagon()),
         "public_comment_letter",
-        "Draft it.",
-        "0.1.4",
+        request,
+        **overrides,
     )
+
+
+async def missed(conn: FakeConn, request: str = "Draft it.", **overrides: Any) -> bool:
+    """Whether this request went past the cache and on to retrieval."""
+    with pytest.raises(Embedded):
+        await draft(conn, request, **overrides)
+    return True
+
+
+async def test_a_repeat_request_is_served_from_the_cache() -> None:
+    conn = FakeConn(row=cached_row())
+
+    outcome = await draft(conn)
 
     assert outcome.from_cache
     assert outcome.draft is not None
@@ -191,25 +252,9 @@ async def test_a_repeat_request_is_served_from_the_cache() -> None:
 
 async def test_a_cache_hit_is_still_recorded_as_a_call() -> None:
     """Zero tokens, but the fact that somebody asked is worth having."""
-    conn = FakeConn(
-        row={
-            "document": json.loads(letter().stored_json()),
-            "model": "gpt-4o",
-            "confidence_band": "moderate",
-            "generated_at": datetime(2026, 9, 11, tzinfo=UTC),
-        }
-    )
+    conn = FakeConn(row=cached_row())
 
-    await service.draft_for_hex(
-        conn,
-        None,
-        "gpt-4o",
-        "text-embedding-3-small",
-        hexagon(),
-        "public_comment_letter",
-        "Draft it.",
-        "0.1.4",
-    )
+    await draft(conn)
 
     logged = [args for query, args in conn.executed if "llm_usage" in query]
     assert logged
@@ -220,16 +265,7 @@ async def test_an_insufficient_hexagon_never_reaches_the_cache_or_the_model() ->
     conn = FakeConn()
 
     with pytest.raises(InsufficientConfidence):
-        await service.draft_for_hex(
-            conn,
-            None,
-            "gpt-4o",
-            "text-embedding-3-small",
-            hexagon(band="insufficient"),
-            "public_comment_letter",
-            "Draft it.",
-            "0.1.4",
-        )
+        await draft(conn, hex_context=hexagon(band="insufficient"))
 
     assert conn.executed == []
 
@@ -239,16 +275,66 @@ async def test_no_sealed_corpus_is_refused_before_anything_is_spent() -> None:
     conn = FakeConn(corpus=None)
 
     with pytest.raises(service.NoCorpus, match="No sealed statute corpus"):
-        await service.draft_for_hex(
-            conn,
-            None,
-            "gpt-4o",
-            "text-embedding-3-small",
-            hexagon(),
-            "public_comment_letter",
-            "Draft it.",
-            "0.1.4",
-        )
+        await draft(conn)
+
+
+# ---- What the cache is keyed on ------------------------------------------
+
+
+async def test_two_different_requests_do_not_share_a_cache_row() -> None:
+    """The request steers retrieval and generation, so a draft written for one
+    is an answer to a question the next requester did not ask. Under the old
+    key the first person's free text was served to everybody after them."""
+    conn = FakeConn(row=cached_row(), key=cache_key("Write about the flare."))
+
+    assert (await draft(conn, "Write about the flare.")).from_cache
+    assert await missed(conn, "Write about the odour complaints.")
+
+
+async def test_the_same_request_typed_untidily_still_hits() -> None:
+    """Whitespace is not a different question, and a key that thought so would
+    miss often enough to be no cache at all."""
+    conn = FakeConn(row=cached_row(), key=cache_key("Write about the flare."))
+
+    assert (await draft(conn, "  Write about\n  the flare. ")).from_cache
+
+
+async def test_no_request_is_keyed_on_the_empty_string() -> None:
+    conn = FakeConn(row=cached_row(), key=cache_key(""))
+
+    assert (await draft(conn, "")).from_cache
+    assert service.request_digest("") == service.request_digest("   ")
+
+
+async def test_a_new_run_misses_the_cache() -> None:
+    """A re-run under the same methodology version produces new scores for the
+    same hexagon, and a draft describing the old ones is about figures the map
+    no longer shows."""
+    conn = FakeConn(row=cached_row(), key=cache_key(run_id=11))
+
+    assert (await draft(conn, hex_context=hexagon(run_id=11))).from_cache
+    assert await missed(conn, hex_context=hexagon(run_id=12))
+
+
+async def test_a_context_no_run_produced_is_not_cached_at_all() -> None:
+    """The citation audit drafts from fixtures. There is no run to key them on,
+    and keying them on nothing would let a fixture's draft be served for a real
+    hexagon."""
+    conn = FakeConn(row=cached_row(), key=cache_key())
+
+    assert await missed(conn, hex_context=hexagon(run_id=None))
+    assert conn.looked_up == []
+
+
+def test_the_draft_is_stamped_with_the_runs_methodology_version() -> None:
+    """Not the application's constant. They differ exactly when the code has
+    moved on from the run it is serving, and the draft describes the run."""
+    from app.methodology import METHODOLOGY_VERSION
+
+    context = hexagon()
+
+    assert context.methodology_version == "0.1.4"
+    assert context.methodology_version != METHODOLOGY_VERSION
 
 
 # ---- Cost ----------------------------------------------------------------

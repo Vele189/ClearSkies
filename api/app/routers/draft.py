@@ -35,7 +35,6 @@ from app.assistant.documents import DOCUMENT_MODELS, DocumentType, GeneratedDraf
 from app.assistant.guardrails import InsufficientConfidence, Refusal
 from app.assistant.structured import DraftRejected
 from app.config import get_settings
-from app.methodology import METHODOLOGY_VERSION
 
 log = logging.getLogger(__name__)
 
@@ -50,9 +49,10 @@ class DraftRequest(BaseModel):
         max_length=2000,
         description=(
             "Optional free text about what the document should cover. The draft is "
-            "about the hexagon; this steers emphasis and is not part of the cache key, "
-            "because two people asking for the same document in different words should "
-            "get the same document."
+            "about the hexagon, and this steers which passages are retrieved and what "
+            "the document argues, so it is part of the cache key: a draft answers the "
+            "request that produced it and is not served to somebody who asked for "
+            "something else."
         ),
     )
 
@@ -145,8 +145,7 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
                 embedding_model,
                 hex_context,
                 body.document_type,
-                body.request or default_request(body.document_type),
-                METHODOLOGY_VERSION,
+                body.request,
             )
         except InsufficientConfidence as exc:
             # 409 rather than 422: nothing about the request is malformed. The
@@ -216,30 +215,6 @@ async def spend() -> SpendReport:
     return SpendReport(usd=round(month.usd, 4), tokens=month.tokens, calls=month.calls)
 
 
-DEFAULT_REQUESTS: dict[str, str] = {
-    "public_comment_letter": (
-        "Draft a public comment letter about the permitted sources affecting this "
-        "hexagon, based only on the supplied data and passages."
-    ),
-    "agency_complaint_draft": (
-        "Draft an administrative complaint about the cumulative burden recorded for "
-        "this hexagon, based only on the supplied data and passages."
-    ),
-    "community_briefing_sheet": (
-        "Draft a plain-language briefing sheet for residents of this hexagon, based "
-        "only on the supplied data and passages."
-    ),
-    "journalist_fact_sheet": (
-        "Draft a fact sheet for a reporter covering this hexagon, based only on the "
-        "supplied data and passages."
-    ),
-}
-
-
-def default_request(document_type: str) -> str:
-    return DEFAULT_REQUESTS[document_type]
-
-
 async def load_hex_context(conn: Any, h3: str) -> HexContext:
     """The hexagon's data, as the model will see it.
 
@@ -267,6 +242,7 @@ async def load_hex_context(conn: Any, h3: str) -> HexContext:
     return HexContext(
         h3=detail.h3,
         parish=detail.parish,
+        run_id=run.run_id,
         score=detail.score,
         percentile=detail.percentile,
         confidence=detail.confidence.value,

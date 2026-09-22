@@ -291,8 +291,8 @@ CDN is enabled on `web` only.
 
 1. **Band check**, before anything is spent. An insufficient-confidence hexagon
    never reaches retrieval, let alone the model.
-2. **Cache**, keyed on the hexagon, the document type, and the methodology,
-   corpus and prompt versions.
+2. **Cache**, keyed on the hexagon, the document type, the scored run, the
+   requester's free text, and the methodology, corpus and prompt versions.
 3. **Retrieve** from the sealed corpus.
 4. **Generate**, with refusal available.
 5. **Verify** every citation. A draft that fails is logged and discarded.
@@ -300,16 +300,29 @@ CDN is enabled on `web` only.
 
 ### The cache key is the design
 
-A draft is a function of the hexagon, the document type, and the three versions
-that decide what it says. Key on all of them and a revision invalidates exactly
-what it should, with no invalidation step for anybody to remember and no stale
-draft served under a new methodology version.
+A draft is a function of everything that decides what it says: the hexagon, the
+document type, the scored run, the request, and the three versions. Key on all
+of them and a revision invalidates exactly what it should, with no invalidation
+step for anybody to remember and no stale draft served under a new methodology
+version.
 
-What is deliberately **not** in the key is the user's free text. Two people
-asking for a comment letter on the same hexagon in different words should get
-the same document, because the document is about the hexagon. Keying on the
-phrasing would make the cache miss almost always, which is the same as not
-having one.
+The request was once left out, on the argument that two people asking for the
+same document in different words should get the same document. That is true of
+the phrasing and false of the content: the request is handed to retrieval and to
+the model, so it chooses which passages are pulled and what the draft argues.
+"Draft a comment letter about the odour complaints" and "about the flare" are
+different documents, and the old key served the first to everybody who asked
+after. The key holds a SHA-256 of the request with its whitespace normalised, so
+the same question typed untidily still hits.
+
+The run is in the key for the same reason. Re-running the pipeline under one
+methodology version produces new scores for the same hexagons, and a cached
+draft would then describe figures the map no longer shows. The version stamped
+on a draft is the run's, not the application's constant.
+
+A context no run produced — the citation audit builds hexagons from fixtures —
+is neither read from nor written to the cache, because there is no run to key it
+on.
 
 A cache hit is not re-verified, because nothing that failed verification was
 ever written, and the corpus version is part of the key.
