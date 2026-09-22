@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import HexPanel from "./components/HexPanel.tsx";
-import MapView from "./components/MapView.tsx";
-import { ApiError, getHealth, getHex } from "./lib/api.ts";
-import type { HexDetail, Health } from "./lib/types.ts";
+import Footer from "./components/Footer.tsx";
+import Link from "./components/Link.tsx";
+import Nav from "./components/Nav.tsx";
+import { getHealth } from "./lib/api.ts";
+import { match, useRoute, useScrollReset } from "./lib/router.ts";
+import type { Health } from "./lib/types.ts";
+import MapPage from "./pages/MapPage.tsx";
+import NotFound from "./pages/NotFound.tsx";
 
 /** Shown only when this deployment is not serving everything it should.
  *
@@ -36,10 +40,33 @@ function Banner({ health }: { health: Health | null }) {
   );
 }
 
+/** Which page a path renders.
+ *
+ *  Order matters only in that the first match wins, and the patterns are
+ *  exact, so there is nothing here that a reordering would change. A page is
+ *  added by adding a row here and an entry in `Nav`'s PAGES, together, so the
+ *  nav never points at a route that does not exist.
+ */
+function routeTo(path: string) {
+  if (match("/", path)) return <MapPage />;
+  return <NotFound path={path} />;
+}
+
+/** Whether a route wants the whole viewport or ordinary page scroll.
+ *
+ *  The map is the exception: it fills what is left and manages its own
+ *  overflow, because a map with the page scrollbar next to it scrolls the
+ *  document when the reader means to pan.
+ */
+function isFullBleed(path: string): boolean {
+  return match("/", path) !== null;
+}
+
 export default function App() {
+  const path = useRoute();
   const [health, setHealth] = useState<Health | null>(null);
-  const [hex, setHex] = useState<HexDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  useScrollReset(path);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -49,94 +76,51 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
-  /** The hexagon being fetched, while a fetch is in flight. Shown in the rail
-   *  in place of whichever hex was open before, which is no longer the one the
-   *  reader asked about. */
-  const [loading, setLoading] = useState<string | null>(null);
-  const pending = useRef<AbortController | null>(null);
-
-  // Each selection aborts the one before it. Without that, two clicks in quick
-  // succession race, and whichever response lands last is the panel the reader
-  // sees, which need not be the hex they clicked last.
-  const handleSelect = useCallback((h3: string) => {
-    pending.current?.abort();
-    const controller = new AbortController();
-    pending.current = controller;
-
-    setError(null);
-    setHex(null);
-    setLoading(h3);
-    getHex(h3, controller.signal)
-      .then((detail) => {
-        if (controller.signal.aborted) return;
-        setHex(detail);
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(err instanceof ApiError ? err.message : "Could not load that hexagon.");
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        pending.current = null;
-        setLoading(null);
-      });
-  }, []);
-
-  const close = useCallback(() => {
-    pending.current?.abort();
-    pending.current = null;
-    setLoading(null);
-    setHex(null);
-    setError(null);
-  }, []);
-
-  useEffect(() => () => pending.current?.abort(), []);
+  const full = isFullBleed(path);
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-baseline gap-3 border-b border-slate-200 px-5 py-3">
-        <h1 className="text-base font-semibold text-slate-900">ClearSkies</h1>
-        <p className="text-sm text-slate-500">
-          Cumulative environmental burden in Louisiana
-        </p>
+      {/* First in the tab order and invisible until focused, which is the one
+          way a keyboard reader gets past a nav on every single page. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50
+                   focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm
+                   focus:shadow focus:outline-2 focus:outline-sky-700"
+      >
+        Skip to content
+      </a>
+
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-slate-200 px-5 py-3">
+        <Link
+          to="/"
+          className="text-base font-semibold text-slate-900 focus-visible:outline-2
+                     focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+        >
+          ClearSkies
+        </Link>
+        <p className="text-sm text-slate-500">Cumulative environmental burden in Louisiana</p>
+        <div className="ml-auto">
+          <Nav path={path} />
+        </div>
       </header>
 
       <Banner health={health} />
 
-      <main className="relative flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className="min-h-0 min-w-0 flex-1">
-          <MapView onSelect={handleSelect} />
-        </div>
-        {/* A fixed-width rail alongside the map on a desktop viewport; a sheet
-            over the bottom half of it on a phone, where 24rem of the 20rem-wide
-            screen would leave no map at all. */}
-        {(hex || error || loading) && (
-          <div className="h-[55%] w-full shrink-0 border-t border-slate-200 md:h-auto md:w-[24rem] md:border-t-0">
-            {hex ? (
-              // Keyed on the hexagon so that everything under the panel starts
-              // again for a new one. A draft written about the last hex must not
-              // stay on screen under this one's heading.
-              <HexPanel key={hex.h3} hex={hex} onClose={close} />
-            ) : (
-              <aside className="h-full bg-white p-5 md:border-l md:border-slate-200">
-                {loading ? (
-                  <p role="status" className="text-sm text-slate-500">
-                    Loading hexagon <span className="font-mono text-xs">{loading}</span>…
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-700">{error}</p>
-                )}
-                <button
-                  onClick={close}
-                  className="mt-3 rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100"
-                >
-                  Close
-                </button>
-              </aside>
-            )}
-          </div>
-        )}
+      <main
+        id="main"
+        // The map fills the viewport; every other page scrolls normally and is
+        // held to a readable measure.
+        className={
+          full
+            ? "relative flex min-h-0 flex-1 flex-col"
+            : "flex-1 overflow-y-auto px-5 py-8"
+        }
+      >
+        {full ? routeTo(path) : <div className="mx-auto max-w-3xl">{routeTo(path)}</div>}
       </main>
+
+      <Footer />
     </div>
   );
 }
