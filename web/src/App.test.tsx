@@ -41,6 +41,7 @@ function detail(h3: string, parish: string): HexDetail {
     },
     demographics: { population: 1840 },
     facilities: [],
+    facility_count: 0,
     no_score_reason: null,
     methodology_version: "0.1.4",
     data_vintage: {},
