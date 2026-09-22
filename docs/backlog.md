@@ -29,10 +29,19 @@ because tiles are read with HTTP Range requests and Railway bills egress.
 a third service built from `infra/postgres`, because h3-pg is hard to find on a
 managed provider; Neon offers PostGIS, h3 and pgvector as managed extensions, so
 the image, the compile step and the volume are gone and the API reaches the
-branch over `DATABASE_URL`. The free-tier storage ceiling that shaped several
-tickets is still gone, and branching replaces it as the thing that shapes them:
-a migration runs against a copy-on-write fork of real data before it runs
-against the branch being served. `infra/postgres` and `docker-compose.yml`
+branch over `DATABASE_URL`. Branching is what it adds: a migration runs against
+a copy-on-write fork of real data before it runs against the branch being
+served.
+
+**The storage ceiling is not gone, and this paragraph used to say it was**
+(corrected 2026-09-23). Neon's free plan caps a branch's logical size at 512 MB,
+which is the same order as the Railway volume it replaced, and `dev-seed` is at
+487 MB of it — 25 MB of headroom. It is not a theoretical limit: an attempt to
+fill `hex.parish_name` on 2026-09-23 was refused by the database with
+`could not extend file because project size limit (512 MB) has been exceeded`.
+So every ticket the old ceiling shaped is still shaped, CS-112 still discards
+the block layer for the reason it always did, and CP-06 cannot reload it the
+way CP-06 assumed. `infra/postgres` and `docker-compose.yml`
 remain as the offline and CI path. Anything below that reads "the `db` service"
 or "a Railway volume" means the Neon branch.
 

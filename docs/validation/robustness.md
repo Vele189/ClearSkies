@@ -259,8 +259,15 @@ so the block layer is reloaded once, the crosswalk is rebuilt under 0025, and
 then the blocks are discarded again for good, because the geometry that was
 missing now survives in `tract_hex_weight`.
 
+**And it cannot run on the current plan.** Neon's free tier caps a branch at
+512 MB and `dev-seed` is at 487 MB, so the block layer the rebuild reads does
+not fit — the ceiling CS-112 discarded it for, which `backlog.md` had recorded
+as gone and is not. CP-06 now carries the three ways out and the choice between
+them is the owner's, because one of them is a recurring bill.
+
 This document should not be read as having answered the question until a run
-under the rebuilt crosswalk exists. CP-06 and CP-08 are that work.
+under the rebuilt crosswalk exists, and that is now further away than §7.3 used
+to imply rather than nearer.
 
 ### 7.4 What §13.7 permits from here
 

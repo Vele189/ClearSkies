@@ -60,6 +60,7 @@ AUD-20 — were raised while fixing and never ticketed for work.
 | CP-24 | medium | Architecture write-up | CS-409 | CP-22 |
 | CP-25 | medium | Score and build tiles nightly; promotion stays manual | — | CP-07 |
 | CP-26 | medium | Fill the parish name on the hex grid | — | — |
+| CP-27 | high | Section 7 within the storage ceiling | — | — |
 
 **Not ticketed here.** CS-403 (monitoring and uptime checks) and CS-410 (launch)
 both need a live deployment and are held with the Railway and R2 work in CS-009
@@ -233,11 +234,43 @@ none of a tract's block population survive, and `areal_counterpart` reads them.
 What is missing is that the table in the database was built under the old code
 and has none of those rows. It needs one rebuild from blocks.
 
-Acceptance:
-- The 2020 Decennial block layer is reloaded, roughly a thirty-minute pull.
+**BLOCKED, 2026-09-23, and not by anything in the code.** Neon's free plan caps
+a branch at 512 MB of logical size. `dev-seed` is at 487 MB, leaving 25 MB. The
+`hex` table alone is 162 MB for 173,424 polygons, so the 142,874 block polygons
+this ticket wants to reload are of the same order and do not fit with two orders
+of magnitude to spare — they do not fit at all. This was found by the database
+refusing an unrelated write: `could not extend file because project size limit
+(512 MB) has been exceeded`. A block pull was started and stopped at page 70 of
+143 once it was clear the load would be refused after the download.
+
+This is the ceiling CS-112 discarded the layer for in the first place, and
+`docs/backlog.md` said it was gone. It is not.
+
+**Three ways out, and the choice is the owner's because one of them costs
+money.**
+
+1. **Raise the ceiling.** Neon's paid plans lift the 512 MB cap. Simplest, and
+   it is a recurring bill on a project whose stated cost is $5/month.
+2. **Never hold the whole layer at once** — CP-27. Load one parish's blocks,
+   build that parish's crosswalk rows, discard them, repeat. Peak storage is one
+   parish, about 2,200 blocks, comfortably inside 25 MB. `pipeline interpolate`
+   already takes `--county`; the block adapter does not, which is the work.
+3. **Accept that §13.5's third check cannot run on this plan** and say so in
+   `robustness.md`, permanently rather than pending. Honest, and it leaves the
+   methodology's own robustness protocol with a hole in it for as long as the
+   project is on the free plan.
+
+CP-07 and CP-08 can run **without** this ticket. They would produce run 12 and
+re-measure §13.2 to §13.4 and the first two §13.5 checks, which is the part of
+the gate that is actually failing. Only the interpolation-sensitivity check
+needs the blocks.
+
+Acceptance, once unblocked:
+- The 2020 Decennial block layer is available to section 7, whether held whole
+  or a parish at a time.
   Confirmed while implementing: migration 0025 already keeps the rows, and the
   crosswalk in the database was built under the old code and holds none of
-  them, so the reload is needed once and for that reason rather than the one
+  them, so the rebuild is needed once and for that reason rather than the one
   `robustness.md` §7.3 gives.
 - The crosswalk is rebuilt under migration 0025, so the `pop_weight = 0` rows
   are written, and the statewide block total is checked against Louisiana's
@@ -598,6 +631,34 @@ Acceptance:
   presents only the passing run misrepresents the method that produced it, and
   the method is the most interesting thing here.
 - Screenshots, and links to the app, the repo, the paper and the model card.
+
+## CP-27 · Section 7 within the storage ceiling · high · M
+
+**Files:** `etl/pipeline/adapters/census_block.py`, `pipeline/dasymetric/build.py`.
+
+Unblocks CP-06 without a bill. The dasymetric crosswalk needs every block's
+population and geometry, and it needs them *one tract at a time* — section 7
+apportions a tract's value across the hexes its blocks fall in, and no step of
+that arithmetic reads two tracts at once. Nothing requires the whole state to be
+resident, and holding it is what does not fit in 512 MB.
+
+`pipeline interpolate` already takes `--county` "for measuring one first". The
+block adapter has no such scoping: it pulls and loads the state in one
+transaction, which is the only reason the layer is ever whole.
+
+Acceptance:
+- The block adapter accepts a county scope and loads only those blocks.
+- A driver walks the 64 parishes: load, build that parish's `tract_hex_weight`
+  rows, delete those blocks, next. Peak `census_block` size is one parish.
+- It resumes. The per-county crosswalk transaction already means interrupting
+  leaves finished counties intact, and this must not be worse.
+- The run reports peak storage, so the headroom claim is measured rather than
+  asserted.
+- The statewide block total is still checked against the published 2020
+  population, summed across parishes rather than in one query, because CS-112's
+  check is what catches a layer that silently lost a county.
+
+---
 
 ## CP-26 · Fill the parish name on the hex grid · medium · S
 
