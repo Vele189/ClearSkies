@@ -4,7 +4,7 @@
 
 ClearSkies joins EPA compliance records, toxic release inventories, modeled air toxics exposure, measured air quality, and census demographics into a single burden score for every hexagon on a map. Click a hex and you see exactly why it scored the way it did, which facilities contributed, and how confident the score is. From there you can generate a draft public comment letter, agency complaint, community briefing, or journalist fact sheet — grounded in public records, with every citation verified before the draft is shown.
 
-> **Status: Phase 0 (foundations).** The methodology paper, the pre-registered validation set, and the data source adapter interface are written. No real source is wired in and nothing is scored yet. **Pilot state: Louisiana**, locked. See [Roadmap](#roadmap) for what exists and what doesn't.
+> **Status: Phase 2 (score and map), gate failing.** The five adapters have run against live sources, Louisiana is loaded, and run 11 scored 19,881 hexagons under methodology v0.2.0. The Phase 2 exit condition is not met: the §13 primary gate wants 8 of 10 pre-registered sites in the statewide top decile and run 11 reached **7 of 10**, with **2 of 4** negative controls — a **FAIL**, recorded as it came out in [docs/validation/site-validation.md](docs/validation/site-validation.md). The §13.5 robustness checks also fail, on four indicators, and the §13.6 disparity result is reported rather than gated. **Pilot state: Louisiana**, locked. See [Roadmap](#roadmap) for what exists and what doesn't.
 
 ---
 
@@ -115,19 +115,38 @@ What exists today:
 ```
 clearskies/
 ├── docs/
+│   ├── README.md                 Index of everything under docs/
 │   ├── methodology.md            Indicators, weights, normalization, validation
+│   ├── database.md               Setup, the migration workflow, what each table is for
+│   ├── backlog.md                Every ticket, its owner and its status
+│   ├── corpus.md                 The statute corpus: contents, versions, operator commands
+│   ├── drafting.md               The assistant: safety rules, red team, verifier
+│   ├── frontend.md               The ramp, the legend, the bands, the detail panel
+│   ├── nightly.md                The scheduled ETL job: cadence, budget, failure
+│   ├── quality.md                The data quality gate a night has to clear
 │   ├── provenance.md             Per source: release, retrieval, checksum, gaps
-│   └── validation/sites.yml      Pre-registered validation set (append-only)
+│   ├── validation/               The section 13 results, committed as they came out
+│   │   ├── sites.yml             Pre-registered validation set (append-only)
+│   │   ├── site-validation.md    §13.2–13.4, the phase gate
+│   │   ├── robustness.md         §13.5, is the score an artifact of its construction
+│   │   ├── disparity.md          §13.6, the reported disparity result
+│   │   ├── citation-audit.md     The fifty-draft audit, and the drafts themselves
+│   │   ├── redteam.md            The adversarial set against the real model
+│   │   └── verifier.md           The judge against real sections
+│   └── audit/                    The 2026-09-22 codebase audit and its tickets
 ├── api/                          FastAPI service
 │   ├── app/indicators.py         The fifteen indicators, one declaration
 │   ├── app/schemas.py            Response models mirroring the methodology
 │   ├── app/migrate.py            Migration runner
+│   ├── app/routers/              /hex, /indicators, /runs, /draft
+│   ├── app/assistant/            Retrieval, prompts, the citation verifier, spend
 │   ├── migrations/               The schema, one numbered .sql pair per change
 │   └── tests/
 ├── etl/                          Ingestion
 │   ├── pipeline/adapters/base.py The data source interface: four stages
 │   ├── pipeline/policy.py        Retry, rate limit, partial failure, once
 │   ├── pipeline/runner.py        Runs the stages, emits the provenance manifest
+│   ├── pipeline/dasymetric/      Tracts to hexes, section 7
 │   ├── pipeline/tiles/build.py   The map's PMTiles archive
 │   ├── pipeline/analysis/        The section 13.6 disparity analysis
 │   └── README.md                 How to add a new data source
@@ -140,6 +159,7 @@ clearskies/
 │   ├── burden/score.py           The two halves multiplied, section 10 step 4
 │   ├── burden/confidence.py      How well supported a score is, section 12
 │   ├── burden/validation.py      The section 13 phase gate
+│   ├── burden/robustness.py      The section 13.5 checks
 │   └── tests/
 ├── assistant/                    The statute corpus, Appendix B as code
 │   ├── corpus/manifest.py        The sixteen authorities and where to get them
@@ -150,19 +170,18 @@ clearskies/
 │   └── src/components/           MapView, Legend, SearchBox, HexPanel
 ├── infra/postgres/               Optional local image: PostGIS + h3-pg + pgvector
 ├── infra/r2/                     Tile bucket: CORS policy and why not Railway
-├── scripts/                      Pre-registration and fixture guards
-├── neon.ts                       Neon project config: the private `clearskies` bucket
-├── .neon                         Which Neon project and branch the repo is linked to
-├── .railway/railway.ts           Railway service definitions
+├── scripts/                      The runs and the guards: scoring, export, gates, audits
+├── .railway/railway.ts           Railway service definitions: web and api
 ├── .github/workflows/            CI and the nightly ETL job
 ├── .github/ISSUE_TEMPLATE/       Bug, scoring, methodology, data source
+├── .claude/skills/               Vendored Neon skill docs, pinned by skills-lock.json
 ├── CONTRIBUTING.md
 ├── LICENSE                       MIT
 ├── Makefile
 └── docker-compose.yml            Optional local database
 ```
 
-The schema of record is `api/migrations`, applied by `make migrate`. A second, unrelated Drizzle schema sits in `src/db/schema.ts` with its own migrations in `drizzle/` and `db:*` scripts in the root `package.json`; see [below](#two-schemas-in-one-database).
+The schema of record is `api/migrations`, applied by `make migrate`: one numbered `.up.sql`/`.down.sql` pair per change, and nothing outside that directory creates, alters or drops anything.
 
 `scoring/` was deliberately absent until the validation set had been committed. The methodology requires the pre-registered set to exist before any scoring code does, and CI compares commit history to enforce it: the first commit adding a file under `scoring/` must be a descendant of the one adding `docs/validation/sites.yml`. That ordering is now fixed in the history and the check keeps it that way.
 
@@ -202,29 +221,19 @@ SELECT * FROM clearskies_extensions;
  vector      | 0.8.6
 ```
 
-Use the **direct (unpooled)** connection string for anything that migrates. PgBouncer's transaction mode breaks the session-level DDL the migration runner relies on; the pooled URL is fine for the API at runtime.
+Both connection strings matter. `DATABASE_URL` is the **pooled** one, which is what the API, the pipeline and the scoring scripts want, and `DATABASE_URL_UNPOOLED` is the **direct** one, which `make migrate` prefers when it is set. The runner holds a session-level advisory lock for the length of a run so two runners queue rather than interleave, and PgBouncer's transaction mode hands each statement whichever server connection is free, so over the pooler that lock guards nothing.
 
 If `python3 -m venv` fails on your machine for lack of `ensurepip`, build the four venvs with [uv](https://docs.astral.sh/uv/) instead — `uv venv api/.venv && uv pip install --python api/.venv/bin/python -e "api[dev]"`, and the same for `etl`, `scoring` and `assistant`. The Makefile targets that use them work unchanged afterwards.
 
 **Prefer a container?** `docker-compose.yml` and `infra/postgres` still build the equivalent database locally: `make up`, `make extensions`, `make psql`. Point `DATABASE_URL` at it and every other command is identical.
 
-Schema changes only ever land as a migration: `make migrate-new name=...` writes the numbered pair of files, `make migrate` applies them, and the runner refuses to continue if a released migration has been edited since it ran. [docs/database.md](docs/database.md) covers the workflow and what each table is for; its setup instructions still describe the container path.
+Schema changes only ever land as a migration: `make migrate-new name=...` writes the numbered pair of files, `make migrate` applies them, and the runner refuses to continue if a released migration has been edited since it ran. [docs/database.md](docs/database.md) covers the workflow and what each table is for.
 
 Branch the database rather than sharing one. A Neon branch is a copy-on-write fork of production data, so a migration you are unsure about gets tested against real rows and thrown away, and `.neon` records which branch the repo is linked to.
 
-### Two schemas in one database
+A Neon branch made before this repository settled on one schema may still hold nine tables from an abandoned Drizzle track — `corporations`, `facilities`, `communities` and the rest, with a `drizzle` schema beside them. Nothing reads them, and they can be dropped; note that `facilities` is not the schema of record's `facility`.
 
-The Neon branch currently carries two unrelated schemas in `public`, and only one of them is the project's.
-
-`api/migrations` is the schema of record: 22 numbered migrations, tracked in `schema_migration`, applied by `make migrate`, and the one every query in `api/`, `etl/`, `scoring/` and `assistant/` is written against. It is the schema `docs/methodology.md` describes — hexagons, tracts, indicators, scores, provenance, the statute corpus.
-
-`src/db/schema.ts` is a Drizzle model of nine tables — `corporations`, `facilities`, `communities`, `emissions`, `pollutants`, `violations`, `community_demographics`, `community_reports`, `report_attachments` — with migrations in `drizzle/`, tracked separately in `drizzle.__drizzle_migrations`, and applied by `npm run db:migrate`. It was added alongside the Neon setup and **no application code reads or writes any of it.** It is not a port of the migrations above and does not model the same thing; note that its `facilities` is a different table from the schema of record's `facility`.
-
-Until that is resolved, use `make migrate`. Running `npm run db:migrate` adds tables nothing consumes. Resolving it means either deleting the Drizzle track or deliberately migrating onto it, and the second is a much larger change than it looks: the hex grid, the percentile machinery, the confidence values and the corpus have no counterpart in those nine tables.
-
-The `db:*` scripts also need `DATABASE_URL_UNPOOLED` from a `.env.local` that `.env.example` does not document.
-
-The map renders the basemap and the API answers `/health` and `/indicators`, but no hexagon is scored yet. `/hex/{h3}` validates the cell and reports that the pipeline has not run rather than inventing a score. The frontend shows a banner saying the same. That is Phase 0 behaving correctly.
+The map renders scored hexagons and `/hex/{h3}` answers with a run behind it: run 11 scored 19,881 cells and 17,263 of them clear the section 12 confidence bar. A cell the run did not score still says why rather than inventing a number — too few residents under section 5, or no indicator that loaded — and the frontend draws it in the legend's "Not scored" band. What is not finished is the gate: section 13 wants 8 of 10 pre-registered sites in the top decile and run 11 gives 7, so the numbers are real and the phase is not closed. [docs/validation/](docs/validation/) has each result as it came out.
 
 ---
 
@@ -275,7 +284,7 @@ Five phases, each ending in something demoable. No fixed dates; a phase is done 
 
 Phases 0 through 2 stand on their own as a complete piece. Phase 3 is the most distinctive part and is worth finishing, but the project does not depend on it.
 
-The ticket-level breakdown, with owners, dependencies and what is already done, is in [`docs/backlog.md`](docs/backlog.md).
+The ticket-level breakdown, with owners, dependencies and what is already done, is in [`docs/backlog.md`](docs/backlog.md), and [`docs/README.md`](docs/README.md) indexes every other document, including the validation results and the codebase audit.
 
 ---
 
@@ -299,7 +308,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Two rules there are not about code and a
 
 Scoring weights and indicator choices are argued in `docs/methodology.md`, not in code comments, so a disagreement about the score is a disagreement about that document. And the validation set is closed: `docs/validation/sites.yml` is read-only, and a criterion that fails is never answered by adjusting a weight until it passes.
 
-`make check` runs everything CI does apart from the database image build.
+`make check` runs the lint, typecheck and test suites for all four Python packages and the frontend, plus the pre-registration and validation-set guards and the two gate harnesses. CI adds four things it cannot do locally in one command: it builds the database image and runs the migrations up, again, and back down against it, runs the two PostGIS-backed API test files there, produces the frontend production build, and exercises `pipeline plan` and the fixture tile build.
 
 ---
 

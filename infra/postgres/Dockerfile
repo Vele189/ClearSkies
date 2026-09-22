@@ -6,8 +6,11 @@
 #   vector    pgvector, for the statute corpus embeddings
 #
 # h3-pg is the reason this image exists. Managed Postgres providers generally do
-# not offer it, which is what put the database on Railway rather than a free
-# managed tier. The ETL computes H3 indexes in Python and stores them, so the
+# not offer it, and building it here is what let the project have it at all.
+# Neon does offer it, so the deployed database is a Neon branch and nothing
+# deploys this image any more: it is the offline path for local work and the
+# database CI runs the migrations against, which should not depend on a shared
+# branch being up. The ETL computes H3 indexes in Python and stores them, so the
 # pipeline does not depend on this extension; it is here for ad-hoc SQL.
 #
 # Base is postgres:17-bookworm rather than a postgis/postgis tag: those images

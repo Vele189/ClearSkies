@@ -20,13 +20,21 @@ condition is met.
 This backlog was written before the repository existed. It has been reconciled
 against the code as it now stands. The substantive changes:
 
-**Hosting is Railway, not Supabase plus Render plus Vercel.** Three services in
-one repo (`web`, `api`, `db`), each pointing at a different root directory, with
-service definitions in `.railway/railway.ts`. The database is a custom image
-built from `infra/postgres`, not a managed free-tier project, so the 500 MB
-ceiling that shaped several tickets is gone and replaced by a Railway volume.
-Cloudflare R2 hosts PMTiles only, because tiles are read with HTTP Range
-requests and Railway bills egress.
+**Hosting is Railway, not Supabase plus Render plus Vercel.** Two services in
+one repo (`web` and `api`), each pointing at a different root directory, with
+service definitions in `.railway/railway.ts`. Cloudflare R2 hosts PMTiles only,
+because tiles are read with HTTP Range requests and Railway bills egress.
+
+**The database moved to Neon and is not a Railway service** (2026-09-22). It was
+a third service built from `infra/postgres`, because h3-pg is hard to find on a
+managed provider; Neon offers PostGIS, h3 and pgvector as managed extensions, so
+the image, the compile step and the volume are gone and the API reaches the
+branch over `DATABASE_URL`. The free-tier storage ceiling that shaped several
+tickets is still gone, and branching replaces it as the thing that shapes them:
+a migration runs against a copy-on-write fork of real data before it runs
+against the branch being served. `infra/postgres` and `docker-compose.yml`
+remain as the offline and CI path. Anything below that reads "the `db` service"
+or "a Railway volume" means the Neon branch.
 
 **Railway does not idle a service.** Every acceptance criterion about free-tier
 cold starts has been removed or replaced. This mainly rewrites CS-408 and part
@@ -156,7 +164,7 @@ defensible and scope is locked.
 
 - Candidate states compared on: data coverage in ECHO, TRI and AirToxScreen,
   OpenAQ sensor density, number of known EJ sites available for validation, and
-  dataset size against the Railway volume.
+  dataset size against the database's storage allowance.
 - Chosen state and rationale committed to the repo.
 - A note in the README stating that national coverage is out of scope.
 
@@ -374,9 +382,9 @@ against a live project. It says so at the top of the file.
 
 **Acceptance criteria**
 
-- Three services created with the correct root directories: `web` at `/web`,
-  `api` at `/api`, `db` at `/infra/postgres` with a volume at
-  `/var/lib/postgresql/data`.
+- Two services created with the correct root directories: `web` at `/web` and
+  `api` at `/api`. The database is a Neon branch, not a service, and the api's
+  `DATABASE_URL` is sealed in the dashboard rather than composed.
 - Watch paths scoped so a frontend commit does not redeploy the API.
 - CDN enabled on `web` only. The draft endpoint is a POST returning per-hex
   generated documents, and an edge cache in front of it buys nothing and risks
@@ -1180,20 +1188,20 @@ column invites being read as one.
 
 ### CS-206 — Validation run against the fixed site set
 
-**Size:** M · **Labels:** validation, gate · **Depends on:** CS-204, CS-003, CS-111 · **Owner:** Lead · **Status:** Harness done, run blocked on data
+**Size:** M · **Labels:** validation, gate · **Depends on:** CS-204, CS-003, CS-111 · **Owner:** Lead · **Status:** Run against run 11, FAIL — 7 of 10 primary sites, 2 of 4 controls
 
 The phase gate. The score should flag known sites on its own, without being tuned
 to them.
 
-**The harness is finished and the run has not happened.** Every criterion below
-is implemented, tested and reproducible by one command. What does not exist is a
-scored run to point it at: the five real adapters have never been executed
-against live EPA and Census sources, and there is no database holding
-`hex_score` rows. So there is **no validation verdict**, and deliberately **no
-section 18 entry**. Writing one up from invented numbers would be the precise
-failure the pre-registration machinery exists to prevent, and a fabricated
-result is worse than an absent one. The last criterion below is the only one
-outstanding, and it unblocks the moment a real run exists.
+**The gate has been run and it fails.** Run 11, 2026-09-21, methodology v0.2.0:
+7 of 10 primary sites reached the statewide top decile where 8 are required, and
+2 of 4 negative controls stayed below the median where 4 are required. Chalmette,
+Geismar and Gordon Plaza scored but did not rank; Old Metairie and Bocage were
+flagged where a control should not be. The result is committed as it came out in
+[`docs/validation/site-validation.md`](validation/site-validation.md), with the
+run 6, run 7 and run 11 comparison, because the gate moved in both directions
+for reasons worth recording. Section 13.7 permits three responses to it and none
+of them is moving a threshold. Commits `c4689df` and `7449568`.
 
 **Acceptance criteria**
 
@@ -1244,8 +1252,8 @@ outstanding, and it unblocks the moment a real run exists.
   are read from the fixture rather than defaulted in code, because a default is
   one edit away from being loosened without the fixture recording it.
 - Every run, passing or failing, recorded in methodology section 18 against the
-  document version it ran under. **Not done, and cannot be.** No run has
-  happened, so there is nothing to record. See the note above.
+  document version it ran under. **Outstanding.** Runs 6, 7 and 11 have happened
+  and section 18 does not carry them yet; that entry is AUD-06.
 - Validation run reproducible via a single command in CI. **Done:**
   `make validate SCORES=run.json`, which exits non-zero unless the gate passed.
   CI runs `make validate-harness` over a synthetic fixture, which proves the
@@ -1254,13 +1262,14 @@ outstanding, and it unblocks the moment a real run exists.
   without an upstream. That fixture is built to **fail** on purpose: one that
   produced a green result would sooner or later be quoted as one.
 
-**What is needed to finish this ticket.** A real scoring run: the five adapters
-executed against live sources, the interpolation and quality gate passed, and
-`hex_score` populated. Then `make validate SCORES=...` produces the verdict and
-its write-up, and that write-up is recorded in methodology section 18 against
-whichever version it ran under, passing or failing. The paper has moved to 0.1.3
-since this was written, and naming a version here rather than the one on the run
-is exactly the drift section 17.3 is about.
+**What is needed to finish this ticket.** The section 13.7 response to a failing
+gate: a code fix, a data-handling fix, or a methodology revision whose rationale
+stands independently of this outcome, followed by re-running every check from the
+beginning — and the section 18 entries for the runs so far. Neither the site set
+nor a weight is touched on the strength of this result. `robustness.md` section 7
+is the most useful thing to read first: it rules out reweighting Environmental
+Effects as a remedy and points at the two-indicator Sensitive Populations group
+instead.
 
 ---
 
@@ -1581,18 +1590,24 @@ the parts that need data the API cannot yet return.
 
 ### CS-212 — Robustness checks
 
-**Size:** M · **Labels:** validation, methodology · **Depends on:** CS-204, CS-206 · **Owner:** Lead · **Status:** Harness done, unrun
+**Size:** M · **Labels:** validation, methodology · **Depends on:** CS-204, CS-206 · **Owner:** Lead · **Status:** Run against run 11, FAIL — four indicators over the leave-one-out bar
 
 Methodology section 13.5 specifies three checks that the original backlog did not
 cover. They test whether the score is an artifact of its own construction.
 
-**The same shape as CS-206, and for the same reason.** All three checks are
-implemented, tested and runnable in one command. None has been run, because no
-`hex_score` row exists: the five adapters have never been executed against live
-sources. A robustness result written up from an invented grid would be a worse
-failure than a fabricated validation one, because section 13.5's whole subject is
-results that are artifacts of their own construction. The method and the design
-decisions are in `docs/validation/robustness.md`.
+**Two of the three checks have run, and the result is a FAIL.** Run 11, over
+17,263 confident hexes. The alternative specifications clear comfortably — 0.978
+under equal weights, 0.960 with Environmental Effects dropped entirely — which
+rules out reweighting that group as a remedy for CS-206. The leave-one-out check
+is over the 10% bar on four indicators, and S1 and S2 are the finding:
+Sensitive Populations holds two indicators against a section 11 minimum of one,
+`Group lost` is 0 for both, so either alone genuinely carries half of Population
+Characteristics. E1 and E2 read differently — their `Group lost` is 8,247, which
+is evidence about the Exposures group minimum rather than about the indicators.
+The third check could not run at all; it needs the block layer CS-112 discards.
+The method, the design decisions and the full result are in
+[`docs/validation/robustness.md`](validation/robustness.md) section 7. Commits
+`c4689df` and `7449568`.
 
 **Acceptance criteria**
 
@@ -1630,13 +1645,13 @@ decisions are in `docs/validation/robustness.md`.
   of section 5; that count is reported on its own rather than averaged over the
   hexes both methods happened to score, since it is the largest single
   consequence of the choice.
-- Results committed and recorded in section 18. **Recorded, with no result to
-  record.** Section 18 v0.1.3 states that the apparatus exists and has not been
-  run, and settles the three questions section 13.5 states without fixing: that
-  the additive variant never gates, what happens to a hex that loses its score,
-  and what "simple areal weighting" does to the intensive formula. Those are
-  decisions rather than results and belong in the paper whether or not a run has
-  happened. The run's own numbers go in the same place when there are any.
+- Results committed and recorded in section 18. **Committed, not yet in section
+  18.** `robustness.md` section 7 holds the run 11 numbers, and section 18 still
+  describes an apparatus that has not been run; bringing it up to date is
+  AUD-06. Section 18 already settles the three questions section 13.5 states
+  without fixing: that the additive variant never gates, what happens to a hex
+  that loses its score, and what "simple areal weighting" does to the intensive
+  formula.
 
 **Also done, not in the original criteria.** Section 12 bars
 insufficient-confidence hexes from validation statistics and section 13.5 is a
@@ -1646,18 +1661,17 @@ VALUES=...` is the single command, `make robustness-harness` runs it over a
 synthetic fixture in CI, and that fixture is built to **fail** both gating
 checks on purpose, on the same terms as CS-206's.
 
-**What is needed to finish this ticket.** The same thing CS-206 needs: a real
-scoring run, plus confidence from CS-205, which this check refuses to proceed
-without. The third check additionally needs the tract-level sources interpolated
-a second time through `dasymetric.areal_counterpart`; without it the first two
-still run and the third reports that it did not, which is a different thing from
-reporting that it found no divergence.
+**What is needed to finish this ticket.** The third check: the tract-level
+sources interpolated a second time through `dasymetric.areal_counterpart`, which
+needs the block layer of CS-112. Without it the first two run and the third
+reports that it did not, which is a different thing from reporting that it found
+no divergence. And the section 18 entry for the run.
 
 ---
 
 ### CS-213 — Disparity analysis
 
-**Size:** M · **Labels:** validation, methodology, docs · **Depends on:** CS-204, CS-105 · **Owner:** Lead · **Status:** Partly done
+**Size:** M · **Labels:** validation, methodology, docs · **Depends on:** CS-204, CS-105 · **Owner:** Lead · **Status:** Computed against run 11; the write-up and the site rendering are outstanding
 
 Methodology section 13.6. This is the project's headline finding and it needs to
 be computed carefully and framed correctly.
@@ -1666,13 +1680,16 @@ be computed carefully and framed correctly.
 
 - Correlation between a hex's score percentile and its Black population share,
   and separately its overall people-of-colour share, computed population-weighted
-  and published with confidence intervals. **Machinery done, number not
-  computed:** both measures run by weighted Pearson and weighted Spearman with a
-  parish cluster bootstrap interval, and the Fisher interval on Kish's effective
-  sample size published beside it as the independence-assuming comparison.
-  Nothing can be computed until CS-204 writes `hex_score`, and the analysis
-  reports that as a `not_computable` reason naming the ticket rather than
-  returning an empty result.
+  and published with confidence intervals. **Done, and computed.** Run 11, over
+  17,263 confident hexes in 64 parishes: weighted Pearson +0.339 on Black
+  population share (95% CI +0.189 to +0.454) and +0.382 on people-of-colour
+  share (+0.267 to +0.471), Spearman agreeing to within 0.01 and the all-scored
+  cohort agreeing too. In the top decile the Black share is 48.1% against 29.0%
+  elsewhere, +19.1 pp, ratio 1.66. Every interval excludes zero. The Fisher
+  interval on Kish's effective sample size is published beside each coefficient
+  as the independence-assuming comparison. See
+  [`docs/validation/disparity.md`](validation/disparity.md); commits `c4689df`
+  and `7449568`.
 - Framed as a reported result, not a validation target. **Done**, and enforced:
   the report carries no verdict, no threshold and no pass field, and a test
   asserts a flat dataset produces a reported near-zero coefficient rather than
@@ -1682,9 +1699,9 @@ be computed carefully and framed correctly.
   fields on the report, validated non-empty, rendered above the numbers, and
   present even when nothing was computable. Consumers read them rather than
   restating the argument.
-- Feeds the architecture write-up and the public site. **Not done**, and blocked
-  on the same thing: CS-409 and CS-207 have something to render only once there
-  is a run to render. The top-decile contrast exists for exactly that purpose,
+- Feeds the architecture write-up and the public site. **Not done**, and no
+  longer blocked: there is a run to render, so CS-409 and CS-207 have to pick
+  the figure up. The top-decile contrast exists for exactly that purpose,
   because a correlation coefficient is not a sentence a reader can act on.
 
 Implemented in `etl/pipeline/analysis/`, deliberately not under `scoring/`.
@@ -1693,10 +1710,8 @@ score, and this is the only code in the project that reads those three columns;
 a package boundary is one a reviewer sees in a diff.
 
 `run_disparity` takes a connection rather than opening one, following
-`pipeline.dasymetric.postgis`. The ETL package depends on no database driver and
-has no Postgres door of its own until the sink in `pipeline/sinks.py` lands, so
-there is no `python -m pipeline` command for this yet. Wiring one now would ship
-a command that cannot connect to anything.
+`pipeline.dasymetric.postgis`. `python -m pipeline disparity` is the command
+that opens one and writes the report.
 
 ---
 
@@ -2473,9 +2488,9 @@ cold-start ticket, which assumed a host that spins down.
   view actually pulls rather than the archive size alone.
 - CDN cache behaviour confirmed on the `web` service: cache hits should cost no
   egress and should not wake the container.
-- Database size measured against the Railway volume, with headroom recorded. The
-  scored grid, the facility tables and the pgvector corpus are the three things
-  that grow.
+- Database size measured against the Neon plan's storage, with headroom
+  recorded. The scored grid, the facility tables and the pgvector corpus are the
+  three things that grow.
 - `GET /hex/{h3}` response time measured under a realistic click rate, since the
   panel makes one request per hex opened.
 
