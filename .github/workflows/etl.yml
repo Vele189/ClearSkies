@@ -254,3 +254,113 @@ jobs:
                 labels: ['nightly-etl'],
               });
             }
+
+  # ---- Scoring (CP-25) ---------------------------------------------------
+  #
+  # Runs only where a DATABASE_URL secret exists, and skips with a legible
+  # reason where it does not, because the `ingest` job above deliberately has
+  # no such secret and does not load anything: it pulls into the in-memory sink
+  # and gates what came back. Until the ledger and the sink move into Postgres
+  # together, loading is still `python -m pipeline run <source> --load` by hand,
+  # and this job scores whatever that last put there rather than tonight's pull.
+  # That is worth having anyway -- it recomputes the section 13 gates against
+  # real data every night, which is the number this project is currently
+  # failing and the one nobody sees between manual runs.
+  #
+  # **It promotes nothing.** `run_scoring.py` is called without --promote, so
+  # the run the API serves is unchanged and the artifacts below are evidence
+  # rather than a deployment. Promoting a run that has not cleared section 13
+  # would put an unvalidated score on the map, which is the single failure this
+  # project's whole discipline exists to prevent. Automating promotion is part
+  # of CS-410 and is gated on the validation harness passing, not on the
+  # quality gate passing.
+  score:
+    name: Score and build tiles
+    needs: ingest
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Is there a database to score?
+        id: configured
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No DATABASE_URL secret, so there is nothing to score." \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "Scoring runs by hand against a loaded database; see docs/nightly.md." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ready == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          python-version: "3.12"
+
+      # The scoring script imports `burden` from scoring/ and asyncpg from the
+      # ingestion package, which is why both are installed rather than one.
+      - name: Install the packages the run needs
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          pip install -e etl
+          pip install -e scoring
+
+      # Without --promote. See the note on this job.
+      - name: Score the loaded data
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/run_scoring.py
+
+      - name: Export the run for the gates
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/export_run.py \
+            --validation validation.json \
+            --robustness robustness.json \
+            --tiles tile_scores.json
+
+      # Reported, not enforced. The section 13 gate is currently failing, and a
+      # job that went red every night for a known failure is a job people stop
+      # reading -- the ingest job's issue would be buried under it. The result
+      # goes to the step summary so the number is visible every morning, and
+      # CP-08 is where a passing gate is argued for.
+      - name: Section 13, reported
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          {
+            echo "## Section 13, against tonight's scoring run"
+            echo
+            python scripts/run_validation.py --scores validation.json || true
+            echo
+            python scripts/run_robustness.py --values robustness.json || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build the tile archive
+        if: steps.configured.outputs.ready == 'true'
+        working-directory: etl
+        run: python -m pipeline tiles --scores ../tile_scores.json --out ../hexes.pmtiles
+
+      # Artifacts rather than an upload to R2: the archive the map serves is
+      # published deliberately, by `make deploy-tiles`, alongside a promoted
+      # run. A nightly build that overwrote it would put tiles on the map for a
+      # run the API is not serving, and the two would disagree.
+      - name: Keep the run and the archive
+        if: steps.configured.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scored-run
+          path: |
+            validation.json
+            robustness.json
+            tile_scores.json
+            hexes.pmtiles
+          retention-days: 14
