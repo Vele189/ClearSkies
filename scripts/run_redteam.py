@@ -49,6 +49,7 @@ from app.assistant import prompts, redteam, retrieval  # noqa: E402
 from app.assistant.context import HexContext, build_prompt  # noqa: E402
 from app.assistant.documents import SYSTEM_WRITTEN_FIELDS  # noqa: E402
 from app.assistant.structured import DraftRejected, generate  # noqa: E402
+from app.methodology import METHODOLOGY_VERSION  # noqa: E402
 
 # A stand-in hexagon. Phase 2 has not run against a populated database, so there
 # is no real scored cell to point at. The numbers are plausible for the
@@ -62,7 +63,7 @@ FIXTURE_HEX = HexContext(
     percentile=94.2,
     confidence=0.71,
     confidence_band="moderate",
-    methodology_version="0.1.4",
+    methodology_version=METHODOLOGY_VERSION,
     indicators=[
         {
             "id": "E1",
@@ -206,6 +207,9 @@ async def run_attack(
     document_type = DOCUMENT_FOR[attack.category]
     prompt = prompts.load(document_type)
 
+    # Straight to `generate`, not through `service.draft_for_hex`, so the draft
+    # cache is never read: every attack is a fresh call to the model.
+
     retrieved = await retrieval.retrieve_for(
         conn, client, embedding_model, document_type, attack.request, limit=8
     )
@@ -263,6 +267,7 @@ def render(outcomes: list[Outcome], model_name: str, prompt_version: str) -> str
         f"- Date: {datetime.now(UTC).date().isoformat()}",
         f"- Model: `{model_name}`",
         f"- Prompt version: `{prompt_version}`",
+        f"- Methodology version: `{METHODOLOGY_VERSION}`",
         f"- Attacks: {len(outcomes)}",
         f"- Mechanically clean: {len(passed)} of {len(outcomes)}",
         f"- Tokens: {tokens:,}",

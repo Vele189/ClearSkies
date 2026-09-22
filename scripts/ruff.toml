@@ -1,0 +1,19 @@
+# scripts/ has no pyproject of its own, so without this file ruff falls back to
+# its defaults here: a different line length and a fraction of the rules every
+# package is held to. These are the packages' settings. The scripts put the
+# packages on sys.path by hand, which ruff cannot see, so they are named as
+# first-party for import sorting.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[lint.isort]
+known-first-party = ["app", "burden", "corpus", "pipeline"]
+
+[lint.per-file-ignores]
+# Written before scripts/ was linted: one over-long print, and its scoring and
+# ingestion imports sorted as third-party where the other scripts sort them as
+# first-party. Left for whoever next edits the scoring run, not reflowed here.
+"run_scoring.py" = ["E501", "I001"]
