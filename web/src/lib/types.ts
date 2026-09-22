@@ -247,3 +247,52 @@ export const DOCUMENT_TYPE_BLURBS: Record<DocumentType, string> = {
   community_briefing_sheet: "Plain language, for the people who live here.",
   journalist_fact_sheet: "Checkable figures, each with the record it came from.",
 };
+
+// ---- Provenance (CS-406) -------------------------------------------------
+
+export type PullStatus = "ok" | "partial" | "stale" | "failed";
+
+export type GapScope =
+  | "geographic"
+  | "temporal"
+  | "attribute"
+  | "population"
+  | "methodological";
+
+export interface SourceGap {
+  scope: GapScope;
+  detail: string;
+  /** Indicator ids this gap degrades, e.g. ["E4"]. */
+  affects: string[];
+  since: string | null;
+}
+
+export interface SourceArtifact {
+  url: string;
+  sha256: string;
+  /** First twelve hex characters, as the page prints them. */
+  short_sha: string;
+  retrieved_at: string;
+  /** True when these bytes came from the last good snapshot, not the network. */
+  from_snapshot: boolean;
+}
+
+export interface SourcePull {
+  source: string;
+  title: string;
+  /** Upstream release identifier. Not the download time. */
+  vintage: string;
+  pulled_at: string;
+  status: PullStatus;
+  /** Rows that reached the database. */
+  records: number;
+  rejected: number;
+  run_id: string | null;
+  known_gaps: SourceGap[];
+  artifacts: SourceArtifact[];
+  notes: string[];
+}
+
+export interface Provenance {
+  sources: SourcePull[];
+}

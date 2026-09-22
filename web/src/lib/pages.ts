@@ -5,4 +5,7 @@
  *  apart from `Nav` because a module that exports both a component and a
  *  constant loses fast refresh.
  */
-export const PAGES: { path: string; label: string }[] = [{ path: "/", label: "Map" }];
+export const PAGES: { path: string; label: string }[] = [
+  { path: "/", label: "Map" },
+  { path: "/provenance", label: "Sources" },
+];

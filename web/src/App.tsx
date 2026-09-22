@@ -8,6 +8,7 @@ import { match, useRoute, useScrollReset } from "./lib/router.ts";
 import type { Health } from "./lib/types.ts";
 import MapPage from "./pages/MapPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import ProvenancePage from "./pages/ProvenancePage.tsx";
 
 /** Shown only when this deployment is not serving everything it should.
  *
@@ -49,6 +50,7 @@ function Banner({ health }: { health: Health | null }) {
  */
 function routeTo(path: string) {
   if (match("/", path)) return <MapPage />;
+  if (match("/provenance", path)) return <ProvenancePage />;
   return <NotFound path={path} />;
 }
 

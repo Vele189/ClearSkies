@@ -11,12 +11,17 @@ vi.mock("./components/MapView.tsx", () => ({
 beforeEach(() => {
   vi.stubGlobal(
     "fetch",
-    vi.fn(() =>
+    vi.fn((url: string) =>
       Promise.resolve({
         ok: true,
         status: 200,
         statusText: "",
-        json: () => Promise.resolve({ status: "ok", notes: [] }),
+        json: () =>
+          Promise.resolve(
+            new URL(url).pathname === "/provenance"
+              ? { sources: [] }
+              : { status: "ok", notes: [] },
+          ),
       }),
     ),
   );
@@ -79,5 +84,29 @@ describe("the shell", () => {
 
     expect(await screen.findByTestId("map")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
+  });
+});
+
+describe("the sources page", () => {
+  it("is reachable from the map's navigation", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("link", { name: "Sources" }));
+
+    expect(
+      await screen.findByRole("heading", { name: /where the data comes from/i }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/provenance");
+  });
+
+  it("answers a cold deep link", async () => {
+    // `serve -s` answers every path with index.html, so this is a real case.
+    window.history.replaceState(null, "", "/provenance");
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /where the data comes from/i }),
+    ).toBeInTheDocument();
   });
 });
