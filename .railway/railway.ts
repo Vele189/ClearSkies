@@ -3,8 +3,15 @@
 // STATUS: checked against the railway SDK (npm `railway`, v3.11.0) type
 // definitions on 2026-09-11. It typechecks, and every field below exists in
 // that schema. It has NOT yet been applied to a live Railway project: the
-// three services still have to be created and a deploy confirmed before
+// two services still have to be created and a deploy confirmed before
 // `railway config pull` can regenerate this file from reality.
+//
+// Two services, `web` and `api`. The database is not one of them: it is a Neon
+// branch, which provides PostGIS, h3 and pgvector as managed extensions, so
+// there is no image to build and no volume to look after here. The api reaches
+// it through DATABASE_URL, sealed in the dashboard. infra/postgres still builds
+// the equivalent database as a container, for offline work and for CI, and
+// nothing in this file deploys it.
 //
 // Two things must be done in the dashboard or the CLI, because they are not
 // expressible in the IaC schema at all:
@@ -35,7 +42,7 @@
 // There is no railway.json or railway.toml in this repository, so nothing has
 // to be migrated before the 2026-12-01 cutoff that retires those files.
 
-import { defineRailway, github, preserve, project, service, volume } from "railway/iac";
+import { defineRailway, github, preserve, project, service } from "railway/iac";
 
 const REPO = "Vele189/ClearSkies";
 
@@ -50,28 +57,6 @@ const BRANCH = "master";
 // them this way is what keeps a web-only commit from redeploying the API.
 
 export default defineRailway(() => {
-  // Postgres with PostGIS, h3 and pgvector. Built from infra/postgres/Dockerfile
-  // so the extension set is version-controlled rather than a dashboard click.
-  // dockerfilePath is left unset on purpose: the Dockerfile sits at the default
-  // location inside the root directory, so the DOCKERFILE builder finds it.
-  const db = service("db", {
-    source: github(REPO, { branch: BRANCH, rootDirectory: "/infra/postgres" }),
-    build: {
-      builder: "DOCKERFILE",
-      watchPatterns: ["/infra/postgres/**"],
-    },
-    volumeMounts: {
-      "/var/lib/postgresql/data": volume("pgdata"),
-    },
-    env: {
-      POSTGRES_USER: "clearskies",
-      POSTGRES_DB: "clearskies",
-      // Set once as a sealed variable in the dashboard. preserve() tells an
-      // apply to leave the existing value alone instead of clearing it.
-      POSTGRES_PASSWORD: preserve(),
-    },
-  });
-
   // Railpack installs Python dependencies only when it finds requirements.txt,
   // uv.lock, poetry.lock, pdm.lock or a Pipfile. It detects Python from
   // pyproject.toml alone and sets a start command, but installs nothing, so the
@@ -87,12 +72,13 @@ export default defineRailway(() => {
     healthcheck: "/health",
     healthcheckTimeout: 30,
     env: {
-      // db builds its own image from a Dockerfile, so it is a plain service and
-      // not a Railway managed database. Nothing hands it a DATABASE_URL, so the
-      // DSN is composed here from the private domain. asyncpg takes a plain
-      // postgresql:// DSN.
-      DATABASE_URL:
-        "postgresql://clearskies:${{db.POSTGRES_PASSWORD}}@${{db.RAILWAY_PRIVATE_DOMAIN}}:5432/clearskies",
+      // The Neon branch's POOLED connection string (the `-pooler` hostname),
+      // sealed in the dashboard; preserve() keeps an apply from clearing it. The
+      // API opens many short connections and the pooler is what they are for.
+      // Migrations do not run from this service: `make migrate` takes a
+      // session-level advisory lock, which PgBouncer's transaction mode does
+      // not hold, so it is run with the unpooled URL. See docs/database.md.
+      DATABASE_URL: preserve(),
       // Without this the API falls back to http://localhost:5173 and the
       // deployed frontend is blocked by CORS.
       CORS_ORIGINS: "https://${{web.RAILWAY_PUBLIC_DOMAIN}}",
@@ -152,5 +138,5 @@ export default defineRailway(() => {
     },
   });
 
-  return project("clearskies", { resources: [db, api, web] });
+  return project("clearskies", { resources: [api, web] });
 });

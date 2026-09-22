@@ -13,10 +13,11 @@ node_modules/
 dist/
 .vite/
 
-# Environment
+# Environment. Named rather than `*.local`, which would also hide any source
+# file that happened to end that way.
 .env
 .env.local
-*.local
+.env.*.local
 
 # Neon project link (contains org/project ids)
 .neon

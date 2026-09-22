@@ -361,7 +361,7 @@ in the dashboard. It is not expressible in the IaC schema, so it cannot be
 turned on from `.railway/railway.ts` and has to be a dashboard action.
 
 Two things to check when it is switched on, neither of which has been verified
-against the live project yet, because the project's three services have not been
+against the live project yet, because the project's two services have not been
 created:
 
 1. Service reference variables resolve within the preview environment, so a

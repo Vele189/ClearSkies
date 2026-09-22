@@ -39,7 +39,7 @@ from typing import Any
 
 import asyncpg
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
@@ -334,6 +334,19 @@ async def _ledger_state(dsn: str) -> dict[str, str]:
         await conn.close()
 
 
+def migration_dsn(explicit: str | None, settings: Settings) -> str:
+    """The connection the runner uses: the flag, then the unpooled URL, then the API's.
+
+    The runner holds a session-level advisory lock for the whole run so two
+    runners queue rather than interleave. Behind Neon's pooler, PgBouncer's
+    transaction mode hands each statement whichever server connection is free,
+    so the lock is taken on one connection and the DDL runs on others, and it
+    guards nothing. DATABASE_URL is the pooled URL on Neon, because that is what
+    the API wants, so the direct one is preferred here whenever it is set.
+    """
+    return explicit or settings.database_url_unpooled or settings.database_url
+
+
 async def _run(args: argparse.Namespace) -> int:
     if args.command == "new":
         up_path, down_path = new(args.slug)
@@ -342,7 +355,7 @@ async def _run(args: argparse.Namespace) -> int:
         return 0
 
     migrations = discover()
-    dsn: str = args.database_url or get_settings().database_url
+    dsn = migration_dsn(args.database_url, get_settings())
 
     if args.command == "status":
         applied = await _ledger_state(dsn)
@@ -395,7 +408,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--database-url",
         default=None,
-        help="Overrides DATABASE_URL. Defaults to the setting the API itself uses.",
+        help=(
+            "Overrides DATABASE_URL_UNPOOLED and DATABASE_URL. Defaults to the "
+            "first of those that is set."
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
