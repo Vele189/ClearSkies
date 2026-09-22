@@ -84,15 +84,28 @@ Implemented, each on its own branch, none pushed:
 | CP-20 | `plan/cp-20-safe-language` | CS-407, with the scan committed |
 | CP-21 | `plan/cp-21-read-rate-limits` | CS-402 on the read endpoints |
 | CP-25 | `plan/cp-25-nightly-scoring` | The scoring job, and `export_run.py --tiles` |
+| CP-26 | `plan/integration-check` | The parish table, the backfill command, and the panel heading |
 
 Stacking, where it matters: CP-16 is on CP-05, CP-17 on CP-16, CP-18 on CP-17,
 CP-19 on CP-18, CP-20 on CP-19 — they touch the same files in that order. CP-02,
 CP-03, CP-21 and CP-25 are independent of that chain and of each other.
 
-Not started, and why: **CP-04** pushes to `origin`. **CP-06 to CP-09** need a
-loaded database and produce a result nobody can predict. **CP-10 to CP-14** are
-gated on CP-09 and carry decisions that are the Lead's. **CP-15** spends real
-money. **CP-22**, **CP-23** and **CP-24** need results that do not exist yet.
+**Migrations are applied.** `production` was at 0022 and `dev-seed` at 0023, so
+they had drifted; both are at 0027, verified, after a throwaway fork took them
+up, down and up again against 173,424 real rows.
+
+**CP-19 is complete except for what needs a person.** Contrast is measured from
+Tailwind's shipped palette in `web/src/contrast.test.ts`, because axe cannot
+compute it in jsdom, and the three pairs that failed are fixed. What is left is
+a screen-reader pass and a judgement about whether the low-confidence hatch
+stays distinguishable from the ramp on a rendered map. Neither is reachable
+from an assertion.
+
+Not started, and why: **CP-04** pushes to `origin`, which this environment
+refuses without the owner's say-so. **CP-06 to CP-09** are in progress against a
+fork of `dev-seed`. **CP-10 to CP-14** are gated on CP-09 and carry decisions
+that are the Lead's. **CP-15** spends real money. **CP-22**, **CP-23** and
+**CP-24** need results that do not exist yet.
 
 ---
 
