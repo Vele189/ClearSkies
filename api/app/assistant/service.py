@@ -302,12 +302,17 @@ async def draft_for_hex(
     # 1. Before anything is spent.
     check_band(h3, hex_context.confidence_band)
 
-    corpus_version = await retrieval.active_version(conn)
-    if corpus_version is None:
+    corpus = await retrieval.active(conn)
+    if corpus is None:
         raise NoCorpus(
             "No sealed statute corpus is loaded, so no citation could be verified. "
             "Run the corpus ingestion before enabling drafting."
         )
+    # Before the cache, because a mismatch means every draft this deployment
+    # would produce is retrieved from vectors that do not share a coordinate
+    # space with the query's. Serving a cached one instead would hide it.
+    retrieval.check_embedding_model(corpus, embedding_model)
+    corpus_version = corpus.version
 
     # 2. Cache. A context no run produced -- the citation audit's fixtures --
     # cannot be keyed on a run, so it neither reads nor writes the cache.
@@ -344,7 +349,7 @@ async def draft_for_hex(
 
     # 3. Retrieve.
     try:
-        passages = await retrieval.retrieve_for(
+        retrieved = await retrieval.retrieve_for(
             conn, client, embedding_model, document_type, request_text
         )
     except Exception as exc:
@@ -352,13 +357,25 @@ async def draft_for_hex(
             raise ProviderUnavailable(str(exc)) from exc
         raise
 
+    # One request embeds several queries, and none of them were on the bill.
+    usd = await cost.record(
+        conn,
+        purpose="embedding",
+        model=embedding_model,
+        request_tokens=retrieved.request_tokens,
+        response_tokens=0,
+        outcome="retrieved",
+        h3=h3,
+        document_type=document_type,
+    )
+
     # 4. Generate.
     try:
         result = await generate(
             document_type,
             draft_model,
             prompt.text,
-            build_prompt(hex_context, retrieval.as_context(passages), request_text),
+            build_prompt(hex_context, retrieval.as_context(retrieved.passages), request_text),
         )
     except DraftRejected as exc:
         await cost.record(
@@ -389,7 +406,7 @@ async def draft_for_hex(
             raise ProviderUnavailable(str(exc)) from exc
         raise
 
-    usd = await cost.record(
+    usd += await cost.record(
         conn,
         purpose="generation",
         model=model_name,
@@ -443,20 +460,26 @@ async def draft_for_hex(
             detail=f"judge failed: {type(exc).__name__}: {exc}"[:500],
         )
         raise VerificationFailed(f"{type(exc).__name__}: {exc}") from exc
+    # The judge is a second model run per claim, and it was recorded as zero
+    # tokens whether the draft passed or failed, which understated the bill by
+    # the part that scales with how much a draft cites.
+    usd += await cost.record(
+        conn,
+        purpose="verification",
+        model=model_name,
+        request_tokens=verification.request_tokens,
+        response_tokens=verification.response_tokens,
+        outcome="verified" if verification.verified else "unverifiable",
+        h3=h3,
+        document_type=document_type,
+        detail=(
+            "" if verification.verified else f"{len(verification.failures)} citation(s) failed"
+        ),
+    )
+
     if not verification.verified:
         await verifier.log_rejections(
             conn, verification, h3, document_type, corpus_version, prompt_version, model_name
-        )
-        await cost.record(
-            conn,
-            purpose="verification",
-            model=model_name,
-            request_tokens=0,
-            response_tokens=0,
-            outcome="unverifiable",
-            h3=h3,
-            document_type=document_type,
-            detail=f"{len(verification.failures)} citation(s) failed",
         )
         raise verifier.DraftUnverifiable(verification)
 

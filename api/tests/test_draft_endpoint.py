@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.assistant import cost, prompts, service
+from app.assistant import cost, prompts, retrieval, service
 from app.assistant.context import HexContext
 from app.assistant.documents import (
     GeneratedDraft,
@@ -27,6 +28,8 @@ from app.assistant.guardrails import InsufficientConfidence
 from app.assistant.service import DEFAULT_REQUESTS, default_request
 from app.config import get_settings
 from app.main import app
+
+MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
 
 CITATION = StatuteCitation(
     section="42 U.S.C. § 7661a",
@@ -153,7 +156,9 @@ class FakeConn:
         row: dict[str, Any] | None = None,
         corpus: str | None = "corpus-1",
         key: tuple[Any, ...] | None = None,
+        embedding_model: str = "text-embedding-3-small",
     ) -> None:
+        self.embedding_model = embedding_model
         self.rows: dict[tuple[Any, ...], dict[str, Any]] = {}
         if row is not None:
             self.rows[key if key is not None else cache_key()] = row
@@ -163,7 +168,13 @@ class FakeConn:
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
         if "statute_corpus_version" in query:
-            return None if self.corpus is None else {"version": self.corpus}
+            if self.corpus is None:
+                return None
+            return {
+                "version": self.corpus,
+                "embedding_model": self.embedding_model,
+                "chunk_count": 100,
+            }
         if "FROM draft" in query:
             self.looked_up.append(args)
             return self.rows.get(args)
@@ -436,7 +447,103 @@ def test_an_ordinary_bug_is_not_mistaken_for_an_outage() -> None:
     assert not service.is_provider_outage(ValueError("bad input"))
 
 
+# ---- What the calls cost -------------------------------------------------
+
+
+def purposes(conn: FakeConn) -> list[tuple[str, int, int]]:
+    """(purpose, request tokens, response tokens) for every usage row written."""
+    return [(args[0], args[4], args[5]) for query, args in conn.executed if "llm_usage" in query]
+
+
+async def test_every_paid_call_is_on_the_bill(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Embedding and verification were recorded as zero tokens, or not at all,
+    so the spend report understated the bill by the two parts that scale with
+    how much a draft retrieves and how much it cites."""
+    reaches_verification(monkeypatch)
+    verified(monkeypatch, request_tokens=300, response_tokens=40)
+    conn = FakeConn()
+
+    await draft(conn)
+
+    assert purposes(conn) == [
+        ("embedding", 7, 0),
+        ("generation", 10, 20),
+        ("verification", 300, 40),
+    ]
+
+
+async def test_the_purposes_are_the_ones_the_migration_documents() -> None:
+    """Migration 0021 names three: generation, verification and embedding. A
+    fourth spelling would be invisible in a report grouped by purpose."""
+    sql = (MIGRATIONS / "0021_draft_cache.up.sql").read_text()
+
+    assert "generation, verification, or embedding" in sql
+
+
+async def test_a_draft_thrown_away_by_the_verifier_is_still_charged_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reaches_verification(monkeypatch)
+    verified(monkeypatch, request_tokens=120, response_tokens=8, ok=False)
+    conn = FakeConn()
+
+    with pytest.raises(Exception, match="unverifiable"):
+        await draft(conn)
+
+    assert ("verification", 120, 8) in purposes(conn)
+
+
+# ---- The corpus and the query have to share a coordinate space -----------
+
+
+async def test_a_corpus_embedded_with_another_model_is_refused() -> None:
+    """Nothing fails loudly on a mismatch: the query returns passages, they are
+    plausible text, and the model drafts from whatever arrived."""
+    conn = FakeConn(embedding_model="text-embedding-3-large")
+
+    with pytest.raises(retrieval.EmbeddingModelMismatch, match="text-embedding-3-large"):
+        await draft(conn)
+
+
+async def test_the_mismatch_is_caught_before_the_cache_is_read() -> None:
+    """Serving a cached draft would hide a deployment that cannot retrieve."""
+    conn = FakeConn(row=cached_row(), embedding_model="text-embedding-3-large")
+
+    with pytest.raises(retrieval.EmbeddingModelMismatch):
+        await draft(conn)
+
+    assert conn.looked_up == []
+
+
 # ---- A judge that cannot be asked ----------------------------------------
+
+
+def verified(
+    monkeypatch: pytest.MonkeyPatch,
+    request_tokens: int = 0,
+    response_tokens: int = 0,
+    ok: bool = True,
+) -> None:
+    """Stand in for the judge, with the tokens asking it cost."""
+    from app.assistant import verifier
+
+    async def verify(*args: Any, **kwargs: Any) -> Any:
+        return verifier.Verification(
+            checks=[
+                verifier.CitationCheck(
+                    citation=CITATION,
+                    verdict="verified" if ok else "unsupported",
+                    request_tokens=request_tokens,
+                    response_tokens=response_tokens,
+                )
+            ]
+        )
+
+    async def executemany(query: str, rows: list[Any]) -> None:
+        return None
+
+    monkeypatch.setattr(verifier, "verify_document", verify)
+    monkeypatch.setattr(FakeConn, "executemany", staticmethod(executemany), raising=False)
 
 
 def reaches_verification(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -447,8 +554,8 @@ def reaches_verification(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     from types import SimpleNamespace
 
-    async def retrieve(*args: Any, **kwargs: Any) -> list[Any]:
-        return []
+    async def retrieve(*args: Any, **kwargs: Any) -> Any:
+        return retrieval.Retrieved(passages=[], request_tokens=7)
 
     async def generated(*args: Any, **kwargs: Any) -> Any:
         return SimpleNamespace(

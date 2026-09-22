@@ -76,6 +76,7 @@ function hex(over: Partial<HexDetail> = {}): HexDetail {
     },
     demographics: { population: 1240 },
     facilities: [],
+    facility_count: 0,
     no_score_reason: null,
     methodology_version: "0.1.1",
     data_vintage: {},

@@ -47,6 +47,11 @@ class HexContext:
     # the run. Not rendered: what a reader of the draft can act on is the
     # methodology version, which is printed above.
     run_id: int | None = None
+    # Facilities within the interaction radius, which is not the length of the
+    # list below: that is capped, and the cap was being printed as the total.
+    # None means nobody counted, and the context then says how many it holds
+    # rather than claiming a total it does not have.
+    facility_count: int | None = None
     indicators: list[dict[str, Any]] = field(default_factory=list)
     demographics: dict[str, Any] = field(default_factory=dict)
     facilities: list[dict[str, Any]] = field(default_factory=list)
@@ -114,7 +119,8 @@ class HexContext:
         for key, value in self.demographics.items():
             lines.append(f"- {key}: {_number(value) if isinstance(value, float) else value}")
 
-        lines += ["", f"## Contributing facilities ({len(self.facilities)})"]
+        total = len(self.facilities) if self.facility_count is None else self.facility_count
+        lines += ["", f"## Contributing facilities ({total})"]
         if not self.facilities:
             lines.append(
                 "None within the 10 km interaction radius. Do not refer to any "
@@ -127,9 +133,10 @@ class HexContext:
                 f"{_number(facility.get('distance_km'))} km, "
                 f"program {facility.get('program')}"
             )
-        if len(self.facilities) > MAX_FACILITIES:
+        listed = min(len(self.facilities), MAX_FACILITIES)
+        if total > listed:
             lines.append(
-                f"...and {len(self.facilities) - MAX_FACILITIES} more not listed here. "
+                f"...and {total - listed} more not listed here. "
                 "Do not state a total you have not been given."
             )
 

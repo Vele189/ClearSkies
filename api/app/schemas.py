@@ -106,6 +106,13 @@ class HexDetail(BaseModel):
     confidence: Confidence
     demographics: Demographics
     facilities: list[Facility]
+    facility_count: int = Field(
+        default=0,
+        description=(
+            "Facilities within the 10 km interaction radius. The list above is "
+            "capped at the nearest 50; this is how many there are."
+        ),
+    )
 
     no_score_reason: NoScoreReason | None = None
     methodology_version: str

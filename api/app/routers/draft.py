@@ -30,7 +30,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app import db, hex_detail, llm, rate_limit, runs
-from app.assistant import cost, service, verifier
+from app.assistant import cost, retrieval, service, verifier
 from app.assistant.context import HexContext
 from app.assistant.documents import DOCUMENT_MODELS, DocumentType, GeneratedDraft
 from app.assistant.guardrails import InsufficientConfidence, Refusal
@@ -200,6 +200,20 @@ async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
             raise HTTPException(status_code=409, detail=exc.explanation) from exc
         except service.NoCorpus as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except retrieval.EmbeddingModelMismatch as exc:
+            # A deployment fault, not a bad request: every draft it produced
+            # would be retrieved from vectors in a different coordinate space
+            # from the corpus's, which fails quietly rather than loudly.
+            log.error("corpus and query embedding models disagree: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The drafting assistant is misconfigured on this deployment: the "
+                    "statute corpus was embedded with a different model from the one "
+                    "configured here, so retrieval cannot be trusted. Everything else "
+                    "in the API works normally."
+                ),
+            ) from exc
         except service.ProviderUnavailable as exc:
             raise HTTPException(
                 status_code=503,
@@ -311,5 +325,6 @@ async def load_hex_context(conn: Any, h3: str) -> HexContext:
         indicators=[i.model_dump() for i in detail.indicators],
         demographics=detail.demographics.model_dump(),
         facilities=[f.model_dump() for f in detail.facilities],
+        facility_count=detail.facility_count,
         data_vintage=detail.data_vintage,
     )

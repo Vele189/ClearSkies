@@ -354,7 +354,12 @@ a legible "try later" belonged.
 ### The spend cap is not in this repository
 
 `llm_usage` records every call, including the refused, the rejected and the
-failed, because cost is incurred by attempts and not by successes. `GET
+failed, because cost is incurred by attempts and not by successes. Every call
+means all three purposes the table documents: the embeddings that retrieval asks
+(one per standing question plus the user's) and the judge that reads every
+claim, not only the generation. Both were recorded as zero tokens, which
+understated the bill by the parts that scale with how much a draft retrieves and
+how much it cites. `GET
 /draft/spend` reports the month to date. Both are **indicative**: the prices are
 a table in an application that the provider can change without telling it.
 

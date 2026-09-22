@@ -84,6 +84,7 @@ from app.assistant.documents import (
     RecordCitation,
     StatuteCitation,
 )
+from app.assistant.structured import token_counts
 
 log = logging.getLogger(__name__)
 
@@ -234,6 +235,10 @@ class CitationCheck:
     verdict: Verdict
     detail: str = ""
     near_misses: list[str] = field(default_factory=list)
+    # What asking the judge cost. Zero for a citation decided without one: a
+    # record, or a section that is not in the corpus at all.
+    request_tokens: int = 0
+    response_tokens: int = 0
 
     @property
     def ok(self) -> bool:
@@ -255,6 +260,14 @@ class Verification:
     """The verdict on a whole draft."""
 
     checks: list[CitationCheck] = field(default_factory=list)
+
+    @property
+    def request_tokens(self) -> int:
+        return sum(c.request_tokens for c in self.checks)
+
+    @property
+    def response_tokens(self) -> int:
+        return sum(c.response_tokens for c in self.checks)
 
     @property
     def failures(self) -> list[CitationCheck]:
@@ -320,12 +333,19 @@ async def check_statute(
         f"PASSAGE ({citation.section}):\n{passage}\n\nPROPOSITION:\n{citation.proposition}"
     )
     judgement = result.output
-    if judgement.verdict == "supported":
-        return CitationCheck(citation=citation, verdict="verified", detail=judgement.reason)
+    request_tokens, response_tokens = token_counts(result)
     return CitationCheck(
         citation=citation,
-        verdict="unsupported" if judgement.verdict == "not_supported" else "unclear",
+        verdict=(
+            "verified"
+            if judgement.verdict == "supported"
+            else "unsupported"
+            if judgement.verdict == "not_supported"
+            else "unclear"
+        ),
         detail=judgement.reason,
+        request_tokens=request_tokens,
+        response_tokens=response_tokens,
     )
 
 
