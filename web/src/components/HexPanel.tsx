@@ -15,6 +15,7 @@ import {
 } from "../lib/score.ts";
 import { BAND_LABELS, GROUP_LABELS } from "../lib/types.ts";
 import DraftPanel from "./DraftPanel.tsx";
+import Link from "./Link.tsx";
 import type { ComponentScore, HexDetail, IndicatorValue } from "../lib/types.ts";
 
 function Bar({ percentile, observed }: { percentile: number | null; observed: boolean }) {
@@ -180,7 +181,21 @@ function ConfidenceBreakdown({ hex }: { hex: HexDetail }) {
   );
 }
 
-export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: () => void }) {
+export default function HexPanel({
+  hex,
+  onClose,
+  /** Offer a link to this hexagon's own page.
+   *
+   *  Set on the map, where the panel is a transient thing over a canvas and the
+   *  reader has no address for what they are reading. Left off on the page
+   *  itself, where a link to the page you are on is noise.
+   */
+  standalone = false,
+}: {
+  hex: HexDetail;
+  onClose: () => void;
+  standalone?: boolean;
+}) {
   const groups = Object.keys(GROUP_LABELS) as (keyof typeof GROUP_LABELS)[];
   const dropped = hex.indicators.filter((i) => !i.observed).length;
   const product = productOfComponents(hex.components);
@@ -212,6 +227,18 @@ export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: ()
             <h2 className="text-lg font-semibold text-slate-900">
               {hex.parish ? `${hex.parish} Parish` : hex.state}
             </h2>
+            {standalone && (
+              // A map click is not an address. This gives the reader one they
+              // can send to somebody, return to, or open without a map --
+              // which is also the non-map path CS-401 asks for.
+              <Link
+                to={`/hex/${hex.h3}`}
+                className="text-xs text-sky-800 underline focus-visible:outline-2
+                           focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              >
+                Open on its own page
+              </Link>
+            )}
           </div>
           <button
             onClick={onClose}

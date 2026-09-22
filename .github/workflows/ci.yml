@@ -168,6 +168,11 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
+      # Already covered by `npm run test`, and run again on its own so that an
+      # accessibility regression fails a step that says so, rather than being
+      # one red assertion among two hundred (CS-401).
+      - name: Accessibility (axe)
+        run: npm run test:a11y
       - run: npm run build
 
   database:

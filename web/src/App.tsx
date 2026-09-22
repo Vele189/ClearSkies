@@ -7,6 +7,7 @@ import { getHealth } from "./lib/api.ts";
 import { match, useRoute, useScrollReset } from "./lib/router.ts";
 import type { Health } from "./lib/types.ts";
 import AboutPage from "./pages/AboutPage.tsx";
+import HexPage from "./pages/HexPage.tsx";
 import MapPage from "./pages/MapPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import ModelCardPage from "./pages/ModelCardPage.tsx";
@@ -54,6 +55,12 @@ function Banner({ health }: { health: Health | null }) {
 function routeTo(path: string) {
   if (match("/", path)) return <MapPage />;
   if (match("/provenance", path)) return <ProvenancePage />;
+
+  // The non-map path to a hexagon (CS-401). Not in the navigation: it is
+  // somewhere a search or a shared link arrives, not a section of the site.
+  const hex = match("/hex/:h3", path);
+  if (hex) return <HexPage key={hex.h3} h3={hex.h3} />;
+
   if (match("/methodology", path)) return <MethodologyPage />;
   if (match("/model-card", path)) return <ModelCardPage />;
   if (match("/about", path)) return <AboutPage />;

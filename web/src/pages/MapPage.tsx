@@ -72,7 +72,7 @@ export default function MapPage() {
               // Keyed on the hexagon so that everything under the panel starts
               // again for a new one. A draft written about the last hex must not
               // stay on screen under this one's heading.
-              <HexPanel key={hex.h3} hex={hex} onClose={close} />
+              <HexPanel key={hex.h3} hex={hex} onClose={close} standalone />
             ) : (
               <aside className="h-full bg-white p-5 md:border-l md:border-slate-200">
                 {loading ? (
