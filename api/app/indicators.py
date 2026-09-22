@@ -84,7 +84,11 @@ INDICATORS: tuple[Indicator, ...] = (
         "E3",
         "Toxic release proximity",
         Group.EXPOSURES,
-        "weighted lb/km2",
+        # Per square metre, not per square kilometre: the decay kernel is
+        # 1 / max(d_m, 250)^2 with the distance in metres, so a value here is
+        # toxicity-weighted pounds over metres squared and reads six orders of
+        # magnitude smaller than a reader expecting km2 would assume.
+        "weighted lb/m2",
         "EPA TRI",
         "Toxicity-weighted on-site air releases, inverse-square distance decay, 10 km cutoff.",
     ),
@@ -118,7 +122,8 @@ INDICATORS: tuple[Indicator, ...] = (
         Group.ENVIRONMENTAL_EFFECTS,
         "weighted count",
         "EPA ECHO",
-        "Distance-decayed formal enforcement actions over 5 years, log-scaled penalties.",
+        "Distance-decayed formal enforcement actions over 5 years, "
+        "each counted as one and scaled by its log penalty above that floor.",
     ),
     Indicator(
         "F4",

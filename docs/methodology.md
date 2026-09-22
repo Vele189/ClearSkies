@@ -440,6 +440,99 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 
 ## 18. Changelog
 
+### Runs and fixes under v0.2.0 — recorded 2026-09-22
+
+§13.7 requires every validation run, passing or failing, to be recorded here
+with the version of this document it was run against. Three runs and four code
+fixes had gone unrecorded. None of them changes an indicator definition, a
+weight, a normalization rule or an aggregation formula, so under §17.1 none of
+them moves the version; they are code and data-handling defects of the kind
+§13.7 names as the permitted response to a failing criterion. The validation set
+is untouched.
+
+**The three runs, all against v0.2.0 and all on 2026-09-21.**
+
+| Run | What changed before it | Primary sites | Negative controls | Confident hexes | Outcome |
+|---|---|---|---|---|---|
+| 6 | 13 indicators; E1 and E2 absent | 7 of 10 | 1 of 4 | 4,793 | FAIL |
+| 7 | all fifteen computed, `f2005b7` | 6 of 10 | 1 of 4 | 6,093 | FAIL |
+| 11 | recency term fixed, `f0ad181` | 7 of 10 | 2 of 4 | 17,263 | FAIL |
+
+Eight of ten primary sites and four of four negative controls are required, so
+all three fail. The full reports are `docs/validation/site-validation.md` for
+§13.2 to §13.4, `docs/validation/robustness.md` for §13.5 and
+`docs/validation/disparity.md` for §13.6, each regenerated at run 11 and each
+reporting the same version. Two findings in them are §8 questions rather than
+defects and are left here as such: two affluent negative controls rank in or
+near the top decile on an Environmental Effects group that reaches every
+neighbourhood of a city, and either indicator of the two-indicator Sensitive
+Populations group moves more than a quarter of the state on its own.
+
+**The four fixes, and why none of them is a revision.**
+
+- `8623959` implements the F3 reading this version fixed, in the run. The
+  revision is the entry below; this is the code catching up to it.
+- `f2005b7` computes all fifteen indicators. The ACS recipes name base variable
+  ids and the run was querying them unsuffixed, so every demographic lookup
+  returned nothing; E3 and E4 were declared unavailable for reasons that had
+  stopped being true; E1 and E2 were not interpolated at all; and the monitor
+  distance behind `c_monitor` was hardcoded to `None`, which under §12's
+  geometric mean capped every hex's confidence near 0.55. Run 6 to run 7.
+- `f0ad181` fixes §12's recency term, which was looking vintages up by source
+  where `confidence` keys them by indicator. Every lookup missed, so the term
+  was zero for every hex in the state and, floored and raised to its 0.20 share,
+  held confidence down everywhere. The same commit starts writing the §9
+  indicator distributions, which the table had held none of. No percentile
+  moved; the confident universe went from 6,093 hexes to 17,263. Run 7 to run 11.
+- `AUD-05`, 2026-09-22, corrects five things the run was doing between the
+  database and the scorer: E3 and F1 to F4 were missing rather than zero for a
+  hex with no qualifying facility, against §9; F2 counted ECHO's `unknown`
+  quarters as violations, so an uninspected facility scored the maximum;
+  `c_spatial` was handed a coefficient of variation where §12 asks for a
+  population share; the mean source block area came from one arbitrary tract per
+  hex; and recency dated the newest snapshot in the database rather than the one
+  the run read. Unobserved indicators are now written to `hex_indicator` as
+  §11 rule 5 requires.
+
+**Run 12 has not been produced.** The §13 protocol has not been run against a
+run built by the corrected code, and §13.7 and §17.6 both require it before any
+score produced by it is published. The numbers above are the record as it
+stands, not a prediction of what the next run will show.
+
+**Correction to the v0.2.0 entry below.** It was written on 2026-09-12 and says
+that all four Exposures indicators are absent, that four indicators remain
+absent for want of source data, and that §12 assigns every scored cell the
+insufficient band. That was true when it was written and stopped being true on
+2026-09-21: `f2005b7` computed all fifteen, and after `f0ad181` 17,263 hexes sit
+above the insufficient band. §17.3 keeps a published entry as it was written
+rather than editing it under a later state of the world, so the entry stands and
+this is the correction.
+
+**Two open questions, recorded and not decided here.** Both are §8 or §11
+changes and neither can be settled in code; each needs its own entry under §17.2
+and, under §17.6, a full re-run of §13 before scores produced under it are
+published.
+
+1. **The §11 fallback penalty is computed and never applied.** Rules 3 and 4 say
+   a component falling back to one subgroup penalizes the hex's confidence
+   heavily. The scoring package computes that penalty per hex and nothing reads
+   it, so a hex whose Pollution Burden rests on Environmental Effects alone is at
+   present as confident as one with both groups, less whatever §12's coverage
+   term already takes. What "heavily" is, and whether it belongs as a fifth term
+   in §12's geometric mean or as a multiplier on the combined value, is a
+   question for this document. The quantity is also named backwards in the code,
+   where a lower number means a heavier loss.
+2. **P5 is computed at a 30% housing-cost cut and §8.4 defines it at 50%.**
+   §8.4 and the indicator registry both say more than 50% of income on housing
+   for low-income households. The ACS publishes no low-income-by-severe-cost
+   cross tabulation at tract level, so the adapter keeps the low-income half of
+   the definition and takes the 30% cut that B25106 does publish, and records the
+   gap. The published 50% tables it does store are renter and owner totals
+   without the income restriction. Either §8.4 moves to 30% for low-income
+   households, or P5 moves to the 50% cut without the income restriction, or the
+   gap is accepted and documented in §8.4. Whichever way it goes is a change to
+   an indicator definition, so §17.1 sets a minor version bump as the floor.
+
 ### v0.2.0 — 2026-09-12 — F3 fixed: a penalty-free formal action counts as one
 
 §8.2 defined F3 as a "distance-decayed count of formal enforcement actions over
