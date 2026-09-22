@@ -76,7 +76,7 @@ from pipeline.adapters.echo import (
 )
 from pipeline.adapters.registry import register
 from pipeline.context import RunContext
-from pipeline.errors import PermanentSourceError, RecordRejected
+from pipeline.errors import PermanentSourceError, RecordRejected, TransientSourceError
 from pipeline.geo import Geocode, classify, containing_cell
 from pipeline.metadata import KnownGap, SourceSpec
 from pipeline.policy import RateLimit, SourcePolicy
@@ -135,6 +135,20 @@ ECHO_MAX_PAGES = 20
 # whether F4 saw the site. Columns 25 and 26 are RCRA_UNIVERSE and TSDF, which is
 # all the screen needs.
 RCRA_SCREEN_COLUMNS = "8,25,26"
+
+
+def _as_count(value: object) -> int:
+    """A row count ECHO reported, or 0 when it reported none we can read.
+
+    0 means "the service did not say", and every caller treats that as "page
+    until a page comes back empty" rather than as "there are no rows". A count
+    we cannot parse must not look like a complete pull of nothing.
+    """
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return 0
 
 
 class TriRelease(NormalizedRecord):
@@ -402,43 +416,93 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
         ids expire, so the query is created and paged immediately, exactly as the
         ECHO adapter does.
         """
-        artifacts = []
-        opened = await ctx.http.get(GET_FACILITIES, params={"output": "JSON", "p_st": state})
-        artifacts.append(opened.artifact)
+        rows, artifacts, _ = await self._page_echo_query(
+            ctx,
+            GET_FACILITIES,
+            GET_QID,
+            state=state,
+            columns=ECHO_REGISTRY_COLUMN,
+            what="air facilities",
+        )
+        ids = {rid for row in rows if (rid := str(row.get("RegistryID") or "").strip())}
+        if not ids:
+            # An empty page one is an expired query id rather than a state with no
+            # air facilities, and every release would be reported unmatched.
+            raise PermanentSourceError(f"{GET_QID}: qid returned no registry ids")
+        return ids, artifacts
+
+    async def _page_echo_query(
+        self,
+        ctx: RunContext,
+        register: str,
+        pages: str,
+        *,
+        state: str,
+        columns: str,
+        what: str,
+    ) -> tuple[list[Mapping[str, Any]], list[Any], int]:
+        """Register an ECHO query and page every facility row it reports.
+
+        The ECHO adapter's `_paged_query` in the same shape, and for the same
+        three reasons AUD-08 found there and AUD-17 found here.
+
+        `responseset` goes on the **registering** call. ECHO fixes the page size
+        when the query is registered and `get_qid` serves that size whatever it
+        is later asked for, so a page size sent only with the pages is ignored
+        and the server's own default decides how much arrives. Sending it only
+        on the pages, as this adapter did, left the size unset on registration.
+
+        Paging stops on `QueryRows`, not on a short page. With the size fixed
+        elsewhere, a page shorter than `ECHO_PAGE_SIZE` says nothing about
+        whether it is the last one, so the old `len(batch) < ECHO_PAGE_SIZE`
+        break could stop on page one and silently return a fraction of the
+        state. Every facility missed here reads as a TRI release that matched
+        no ECHO facility, which the manifest reports as an upstream gap rather
+        than as the paging bug it would be.
+
+        The page number is part of the URL rather than a parameter, because the
+        URL is the snapshot key: a stale night has to replay each page, not
+        replay page one twenty times.
+        """
+        opened = await ctx.http.get(
+            register,
+            params={"output": "JSON", "p_st": state, "responseset": str(ECHO_PAGE_SIZE)},
+        )
+        artifacts: list[Any] = [opened.artifact]
         try:
             results = json.loads(opened.content)["Results"]
             qid = str(results["QueryID"]).strip()
         except (ValueError, KeyError, TypeError):
-            raise PermanentSourceError(f"{GET_FACILITIES}: no QueryID in the response") from None
+            raise PermanentSourceError(f"{register}: no QueryID in the response") from None
         if not qid:
-            raise PermanentSourceError(f"{GET_FACILITIES}: no QueryID in the response")
+            raise PermanentSourceError(f"{register}: no QueryID in the response")
+        expected = _as_count(results.get("QueryRows"))
 
-        ids: set[str] = set()
+        rows: list[Mapping[str, Any]] = []
         for page in range(1, ECHO_MAX_PAGES + 1):
             download = await ctx.http.get(
-                GET_QID,
+                f"{pages}?pageno={page}",
                 params={
                     "output": "JSON",
                     "qid": qid,
-                    "pageno": str(page),
                     "responseset": str(ECHO_PAGE_SIZE),
-                    "qcolumns": ECHO_REGISTRY_COLUMN,
+                    "qcolumns": columns,
                 },
             )
             artifacts.append(download.artifact)
             document = json.loads(download.content)
             batch = document.get("Results", {}).get("Facilities") or []
-            for row in batch:
-                if isinstance(row, dict) and (rid := (row.get("RegistryID") or "").strip()):
-                    ids.add(rid)
-            if len(batch) < ECHO_PAGE_SIZE:
+            rows.extend(row for row in batch if isinstance(row, Mapping))
+            if not batch or len(rows) >= expected > 0:
                 break
 
-        if not ids:
-            # An empty page one is an expired query id rather than a state with no
-            # air facilities, and every release would be reported unmatched.
-            raise PermanentSourceError(f"{GET_QID}: qid {qid} returned no registry ids")
-        return ids, artifacts
+        if expected > 0 and len(rows) < expected:
+            # Transient rather than permanent: an expired qid partway through is
+            # the likeliest cause and tomorrow's fresh query may page fine.
+            raise TransientSourceError(
+                f"{pages}: qid {qid} reported {expected} {what}, {len(rows)} were paged"
+            )
+        return rows, artifacts, expected
 
     async def _rcra_registry_ids(self, ctx: RunContext, state: str) -> tuple[set[str], list[Any]]:
         """The FRS ids of the hazardous-waste sites the ECHO adapter loads.
@@ -447,44 +511,20 @@ class EpaTriAdapter(SourceAdapter[TriSite]):
         query parameter: the RCRA service ignores parameters it does not recognise
         and answers a generator-status filter with every handler in the state.
         """
-        artifacts = []
-        opened = await ctx.http.get(RCRA_GET_FACILITIES, params={"output": "JSON", "p_st": state})
-        artifacts.append(opened.artifact)
-        try:
-            results = json.loads(opened.content)["Results"]
-            qid = str(results["QueryID"]).strip()
-        except (ValueError, KeyError, TypeError):
-            raise PermanentSourceError(
-                f"{RCRA_GET_FACILITIES}: no QueryID in the response"
-            ) from None
-        if not qid:
-            raise PermanentSourceError(f"{RCRA_GET_FACILITIES}: no QueryID in the response")
-
-        ids: set[str] = set()
-        for page in range(1, ECHO_MAX_PAGES + 1):
-            download = await ctx.http.get(
-                RCRA_GET_QID,
-                params={
-                    "output": "JSON",
-                    "qid": qid,
-                    "pageno": str(page),
-                    "responseset": str(ECHO_PAGE_SIZE),
-                    "qcolumns": RCRA_SCREEN_COLUMNS,
-                },
-            )
-            artifacts.append(download.artifact)
-            document = json.loads(download.content)
-            batch = document.get("Results", {}).get("Facilities") or []
-            for row in batch:
-                if not isinstance(row, dict):
-                    continue
-                if not (rid := (row.get("RegistryID") or "").strip()):
-                    continue
-                if is_large_quantity_generator(row) or is_tsd_facility(row):
-                    ids.add(rid)
-            if len(batch) < ECHO_PAGE_SIZE:
-                break
-
+        rows, artifacts, _ = await self._page_echo_query(
+            ctx,
+            RCRA_GET_FACILITIES,
+            RCRA_GET_QID,
+            state=state,
+            columns=RCRA_SCREEN_COLUMNS,
+            what="hazardous-waste handlers",
+        )
+        ids = {
+            rid
+            for row in rows
+            if (rid := str(row.get("RegistryID") or "").strip())
+            and (is_large_quantity_generator(row) or is_tsd_facility(row))
+        }
         # Unlike the air query, an empty result is a legitimate answer: a state
         # need not hold a single large-quantity generator or TSD facility. The
         # expired-qid case is caught on the air side, which runs first against the

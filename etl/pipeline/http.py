@@ -8,8 +8,11 @@ failure specified once" stays true as sources are added.
 
 Two behaviours worth knowing about:
 
-- Every successful download is written to the snapshot store. That is what makes
-  the stale fallback possible on a later night when upstream is gone.
+- Every download is staged, and a run that succeeds writes what it staged to the
+  snapshot store. That is what makes the stale fallback possible on a later
+  night when upstream is gone. A run that fails writes nothing, so the copy the
+  fallback would serve is the last one that was actually good rather than the
+  one that just failed to validate.
 - In offline mode the fetcher serves those snapshots instead of the network, so
   an adapter's `fetch` runs unmodified during a fallback and simply produces
   artifacts flagged `from_snapshot`.
@@ -120,6 +123,9 @@ class HttpFetcher:
         self.requests = 0
         self.retries = 0
         self.urls: list[str] = []
+        #: Snapshots this run downloaded, held until the run is known to have
+        #: succeeded. See `promote_snapshots`.
+        self._staged: list[Snapshot] = []
 
     async def get(
         self,
@@ -192,9 +198,13 @@ class HttpFetcher:
         digest = hashlib.sha256(content).hexdigest()
         retrieved_at = self._now()
         if self._snapshots is not None:
-            await self._snapshots.put(
-                self._source,
-                Snapshot(url=url, content=content, retrieved_at=retrieved_at, sha256=digest),
+            # Staged, not stored. A 200 is not a successful pull: the response
+            # still has to validate, and AUD-16 is what happens when the two are
+            # confused. Writing here would replace the last good copy with the
+            # bytes that are about to be rejected, and the stale fallback would
+            # then serve exactly the response that failed.
+            self._staged.append(
+                Snapshot(url=url, content=content, retrieved_at=retrieved_at, sha256=digest)
             )
         artifact = Artifact(
             url=url,
@@ -205,10 +215,24 @@ class HttpFetcher:
         )
         return Download(artifact=artifact, content=content)
 
+    def _staged_for(self, url: str) -> Snapshot | None:
+        """What this run downloaded for `url`, before it was promoted.
+
+        Staged bytes are readable inside the run that fetched them even though
+        they are not durable until it succeeds. Without this, an adapter that
+        paged successfully and then hit a failure would lose access to its own
+        earlier pages the moment the run went offline, and the stale fallback
+        would refuse a night the old code could serve.
+        """
+        for snapshot in reversed(self._staged):
+            if snapshot.url == url:
+                return snapshot
+        return None
+
     async def _from_snapshot(self, url: str) -> Download:
         if self._snapshots is None:
             raise PermanentSourceError(f"{url}: offline with no snapshot store configured")
-        snapshot = await self._snapshots.get(self._source, url)
+        snapshot = self._staged_for(url) or await self._snapshots.get(self._source, url)
         if snapshot is None:
             raise PermanentSourceError(f"{url}: unavailable and no snapshot was ever taken")
         artifact = Artifact(
@@ -220,11 +244,43 @@ class HttpFetcher:
         )
         return Download(artifact=artifact, content=snapshot.content)
 
+    async def promote_snapshots(self) -> int:
+        """Write what this run staged, once the run is known to have succeeded.
+
+        Called by the runner on the paths that end in a manifest other than
+        `failed`. A run that fails promotes nothing, so the store still holds
+        the last copy that was good, which is the copy the stale fallback is
+        for. Returns how many were written, for the caller's log.
+
+        Promoting is not itself allowed to fail the run: the pull worked and the
+        records are loaded, and a store that will not take the bytes costs the
+        next night its fallback rather than costing this one its data. It is
+        logged at warning and swallowed.
+        """
+        if self._snapshots is None or not self._staged:
+            return 0
+        written = 0
+        for snapshot in self._staged:
+            try:
+                await self._snapshots.put(self._source, snapshot)
+            except Exception:  # noqa: BLE001 - see the docstring
+                log.warning("%s: could not store snapshot for %s", self._source, snapshot.url)
+                continue
+            written += 1
+        self._staged.clear()
+        return written
+
+    def discard_snapshots(self) -> None:
+        """Drop what this run staged. The store keeps whatever it had."""
+        self._staged.clear()
+
     async def can_serve_offline(self) -> bool:
         """True when every URL this run has asked for has a snapshot behind it."""
         if self._snapshots is None or not self.urls:
             return False
         for url in self.urls:
+            if self._staged_for(url) is not None:
+                continue
             if await self._snapshots.get(self._source, url) is None:
                 return False
         return True

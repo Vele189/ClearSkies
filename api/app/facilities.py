@@ -34,7 +34,7 @@ INTERACTION_RADIUS_M = 10_000.0
 PANEL_LIMIT = 50
 
 NEARBY = """
-SELECT * FROM facilities_near_hex($1, $2, $3) LIMIT $4
+SELECT * FROM facilities_near_hex($1, $2, $3, $4) LIMIT $5
 """
 
 # How many there are, which is not how many are listed. The panel shows the
@@ -42,7 +42,7 @@ SELECT * FROM facilities_near_hex($1, $2, $3) LIMIT $4
 # that cap as the total: a hexagon with 120 facilities within 10 km reported
 # 50, in a drill-down whose purpose is to say what produced the score.
 NEARBY_COUNT = """
-SELECT count(*) FROM facilities_near_hex($1, $2, $3)
+SELECT count(*) FROM facilities_near_hex($1, $2, $3, $4)
 """
 
 
@@ -90,9 +90,10 @@ async def count_contributing(
     *,
     radius_m: float = INTERACTION_RADIUS_M,
     actions_since: date | None = None,
+    quarters_since: date | None = None,
 ) -> int:
     """How many facilities are within the interaction radius, uncapped."""
-    return int(await conn.fetchval(NEARBY_COUNT, h3, radius_m, actions_since))
+    return int(await conn.fetchval(NEARBY_COUNT, h3, radius_m, actions_since, quarters_since))
 
 
 async def contributing(
@@ -101,17 +102,21 @@ async def contributing(
     *,
     radius_m: float = INTERACTION_RADIUS_M,
     actions_since: date | None = None,
+    quarters_since: date | None = None,
     limit: int = PANEL_LIMIT,
 ) -> list[Facility]:
     """Facilities within the interaction radius of one hexagon, nearest first.
 
-    `actions_since` bounds the formal enforcement count, and defaults in the
-    database to five years before today, which is section 8.2's window. A caller
-    rendering a stored run should pass that run's date instead, so the count
-    matches the score rather than the calendar.
+    `actions_since` bounds the formal enforcement count and `quarters_since`
+    bounds the non-compliance count, and both default in the database to the
+    windows section 8.2 gives F3 and F2 — five years and twelve quarters, ending
+    today. A caller rendering a stored run should pass that run's date instead,
+    so both counts match the score rather than the calendar. AUD-18: before
+    0027 the quarter count had no window at all and could disagree with F2 as
+    soon as ECHO's history ran deeper than twelve quarters.
 
     Quarantined facilities are absent: section 6 keeps them in the table and out
     of the indicators, and the panel shows what produced the score.
     """
-    rows = await conn.fetch(NEARBY, h3, radius_m, actions_since, limit)
+    rows = await conn.fetch(NEARBY, h3, radius_m, actions_since, quarters_since, limit)
     return [to_facility(row) for row in rows]

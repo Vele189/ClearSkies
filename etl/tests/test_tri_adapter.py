@@ -32,6 +32,7 @@ from pipeline.adapters.echo import (
 )
 from pipeline.adapters.tri import (
     BASIC_FILE,
+    ECHO_PAGE_SIZE,
     GRAMS_PER_POUND,
     TRI_FACILITY,
     EpaTriAdapter,
@@ -112,10 +113,26 @@ def tri_transport(
     rcra_handlers: tuple[tuple[str, str], ...] = RCRA_HANDLERS,
     years: tuple[int, ...] = (FIXTURE_YEAR,),
     fail: set[str] | None = None,
+    page_size: int | None = None,
+    seen: list[httpx.Request] | None = None,
 ) -> httpx.MockTransport:
     down = fail or set()
 
+    def paged[T](rows: list[T], request: httpx.Request) -> list[T]:
+        """The server's own page size, which need not be the one we asked for.
+
+        ECHO fixes the size when the query is registered. `page_size=None`
+        keeps the old fixture behaviour of everything on page one.
+        """
+        page = int(request.url.params.get("pageno", "1"))
+        if page_size is None:
+            return rows if page == 1 else []
+        start = (page - 1) * page_size
+        return rows[start : start + page_size]
+
     def handler(request: httpx.Request) -> httpx.Response:
+        if seen is not None:
+            seen.append(request)
         url = str(request.url).split("?")[0]
         if url in down:
             return httpx.Response(503)
@@ -133,21 +150,18 @@ def tri_transport(
             opened = {"Results": {"QueryID": "777", "QueryRows": len(registry_ids)}}
             return httpx.Response(200, text=json.dumps(opened))
         if url == GET_QID:
-            page = request.url.params.get("pageno", "1")
-            rows = [{"RegistryID": rid} for rid in registry_ids] if page == "1" else []
+            rows = paged([{"RegistryID": rid} for rid in registry_ids], request)
             return httpx.Response(200, text=json.dumps({"Results": {"Facilities": rows}}))
         if url == RCRA_GET_FACILITIES:
             opened = {"Results": {"QueryID": "778", "QueryRows": len(rcra_handlers)}}
             return httpx.Response(200, text=json.dumps(opened))
         if url == RCRA_GET_QID:
-            page = request.url.params.get("pageno", "1")
-            handlers = (
+            handlers = paged(
                 [
                     {"RegistryID": rid, "RCRAUniverse": universe, "Tsdf": None}
                     for rid, universe in rcra_handlers
-                ]
-                if page == "1"
-                else []
+                ],
+                request,
             )
             return httpx.Response(200, text=json.dumps({"Results": {"Facilities": handlers}}))
         if url == GAZETTEER_URL:
@@ -673,3 +687,71 @@ async def test_an_unavailable_envirofacts_falls_back_to_the_last_snapshot(
     assert result.vintage == str(FIXTURE_YEAR)
     assert all(a.from_snapshot for a in result.artifacts)
     assert stale_sink.count(TriRelease.table) == sink.count(TriRelease.table)
+
+
+# --- AUD-17: the ECHO paging bug, repeated here --------------------------
+
+
+async def test_the_page_size_is_sent_when_the_echo_query_is_registered(
+    sink: InMemorySink,
+) -> None:
+    """ECHO fixes the page size at registration and ignores it on get_qid.
+
+    AUD-08 fixed this in the ECHO adapter; AUD-17 found this adapter sending
+    `responseset` only with the pages, which leaves the size unset on the call
+    that decides it.
+    """
+    seen: list[httpx.Request] = []
+    await run(sink, transport=tri_transport(seen=seen))
+
+    registrations = [
+        r for r in seen if str(r.url).split("?")[0] in (GET_FACILITIES, RCRA_GET_FACILITIES)
+    ]
+    assert len(registrations) == 2
+    assert all(r.url.params.get("responseset") == str(ECHO_PAGE_SIZE) for r in registrations)
+
+
+async def test_echo_paging_continues_past_short_pages_until_the_count_is_reached(
+    sink: InMemorySink,
+) -> None:
+    """A server page smaller than ours is not the last page.
+
+    The old loop broke on `len(batch) < ECHO_PAGE_SIZE`, so a query ECHO
+    registered at its own default size matched one page of facilities and
+    reported every release beyond it as unmatched — an upstream gap in the
+    manifest, where it was really a paging bug.
+    """
+    one_page = await run(InMemorySink(), transport=tri_transport())
+    many_pages = await run(sink, transport=tri_transport(page_size=1))
+
+    # Paging changes how the facilities arrive and nothing about the result.
+    assert many_pages.status == one_page.status
+    assert many_pages.counts.loaded == one_page.counts.loaded
+    assert gaps_text(many_pages) == gaps_text(one_page)
+
+    pages = [a.url for a in many_pages.artifacts if a.url.startswith(f"{GET_QID}?")]
+    assert pages == [f"{GET_QID}?pageno={n}" for n in range(1, len(ECHO_REGISTRY_IDS) + 1)]
+
+
+async def test_an_echo_pull_that_ends_short_of_the_reported_count_fails(
+    sink: InMemorySink,
+) -> None:
+    """A truncated ECHO list would silently become unmatched TRI releases."""
+    result = await run(sink, transport=tri_transport(registry_ids=ECHO_REGISTRY_IDS, page_size=0))
+
+    assert result.status == "failed"
+
+
+async def test_a_stale_night_replays_every_echo_page_rather_than_the_last(
+    sink: InMemorySink,
+) -> None:
+    """The URL is the snapshot key, so each page needs its own URL.
+
+    With `pageno` as a parameter every page shared one snapshot, and a stale
+    night replayed page one for all of them.
+    """
+    store = InMemorySnapshotStore()
+    await run(sink, snapshots=store, transport=tri_transport(page_size=1))
+
+    for page in range(1, len(ECHO_REGISTRY_IDS) + 1):
+        assert await store.get("epa_tri", f"{GET_QID}?pageno={page}") is not None
