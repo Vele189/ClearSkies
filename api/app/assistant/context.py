@@ -46,6 +46,19 @@ class HexContext:
     facilities: list[dict[str, Any]] = field(default_factory=list)
     data_vintage: dict[str, str] = field(default_factory=dict)
 
+    def facility_ids(self) -> set[str]:
+        """The record ids of the facilities the model is shown, and no others.
+
+        What a facility citation has to be one of. The ones past the listing
+        limit are real and nearby, but the model was never given them, so a
+        citation to one came from somewhere other than the supplied data.
+        """
+        return {
+            str(facility["registry_id"])
+            for facility in self.facilities[:MAX_FACILITIES]
+            if facility.get("registry_id")
+        }
+
     def render(self) -> str:
         lines: list[str] = [
             "# Hexagon data",

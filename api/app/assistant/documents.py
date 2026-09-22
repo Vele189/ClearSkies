@@ -193,28 +193,59 @@ class DraftDocument(BaseModel):
         """
         return self.model_dump_json(exclude=set(type(self).model_computed_fields))
 
+    def cited(self) -> list[Citation]:
+        """Every citation the document makes, in order, with nothing removed.
+
+        Paragraph citations first, then whatever a document type carries outside
+        its paragraphs: a complaint's legal basis, a fact sheet's key figures. A
+        type that adds a place to put a citation adds it here, and that is the
+        only way a citation reaches the verifier, so a field left out of this
+        list is a field whose citations nobody checks. That was a live bug: the
+        complaint's `legal_basis` was not in it, and a fabricated statute there
+        verified.
+        """
+        return [citation for paragraph in self.paragraphs for citation in paragraph.citations]
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def citations(self) -> list[Citation]:
-        """Every citation in the document, deduplicated, in order of first use.
+        """Every source the document cites, deduplicated, in order of first use.
 
         Computed rather than supplied. The ticket asks for a required, non-empty
-        citations field on each type, and this is it: a reader and the verifier
-        both get one list, while the model is never asked to keep two in step.
+        citations field on each type, and this is it: a reader gets one list,
+        while the model is never asked to keep two in step.
+
+        **This list is for display, not for verification.** It keeps one entry
+        per section or record, and a section cited twice for two different
+        claims is still one source to a reader. It is two claims to a verifier,
+        and judging only the first let a second, false proposition on an
+        already-cited section through unexamined. The verifier reads `claims()`.
         """
         seen: set[tuple[str, ...]] = set()
         out: list[Citation] = []
-        for paragraph in self.paragraphs:
-            for citation in paragraph.citations:
-                key = (
-                    (citation.kind, citation.section, citation.document_id)
-                    if isinstance(citation, StatuteCitation)
-                    else (citation.kind, citation.record_id, citation.dataset)
-                )
-                if key in seen:
-                    continue
-                seen.add(key)
-                out.append(citation)
+        for citation in self.cited():
+            key = _key(citation)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(citation)
+        return out
+
+    def claims(self) -> list[Citation]:
+        """Every distinct (source, proposition) pair, which is what gets verified.
+
+        Only exact repeats are collapsed, where the same source is cited for the
+        same words twice, because judging those again can only give the same
+        answer. Anything else is a separate claim and is judged separately.
+        """
+        seen: set[tuple[str, ...]] = set()
+        out: list[Citation] = []
+        for citation in self.cited():
+            key = (*_key(citation), citation.proposition)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(citation)
         return out
 
     @model_validator(mode="after")
@@ -287,6 +318,15 @@ class AgencyComplaintDraft(DraftDocument):
     relief_sought: str = Field(
         min_length=1, description="What the complainant asks the office to do."
     )
+
+    def cited(self) -> list[Citation]:
+        """Paragraph citations, then the provisions the complaint proceeds under.
+
+        The legal basis is the part of a complaint an office reads first and the
+        part a fabricated section does most damage in, so it is verified like
+        every other citation.
+        """
+        return [*super().cited(), *self.legal_basis]
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -366,22 +406,14 @@ class JournalistFactSheet(DraftDocument):
         ),
     )
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def citations(self) -> list[Citation]:
+    def cited(self) -> list[Citation]:
         """Paragraph citations plus the source of every key figure.
 
         A figure cited only in the table would otherwise never reach the
         verifier, and the figures are the part of this document most likely to
         be reprinted without the surrounding prose.
         """
-        out = list(DraftDocument.citations.fget(self))  # type: ignore[attr-defined]
-        seen = {_key(c) for c in out}
-        for figure in self.key_figures:
-            if _key(figure.citation) not in seen:
-                seen.add(_key(figure.citation))
-                out.append(figure.citation)
-        return out
+        return [*super().cited(), *(figure.citation for figure in self.key_figures)]
 
 
 def _key(citation: Citation) -> tuple[str, ...]:

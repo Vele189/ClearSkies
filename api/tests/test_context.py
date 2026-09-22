@@ -100,6 +100,18 @@ def test_a_truncated_facility_list_says_it_was_truncated() -> None:
     assert "Do not state a total you have not been given" in rendered
 
 
+def test_the_citable_facilities_are_the_ones_the_model_was_shown() -> None:
+    """A facility past the listing limit is real and nearby, but a citation to
+    it did not come from the supplied data."""
+    many = [
+        {"name": f"F{i}", "registry_id": str(i), "distance_km": 1.0, "program": "TRI"}
+        for i in range(MAX_FACILITIES + 5)
+    ]
+
+    assert hexagon(facilities=many).facility_ids() == {str(i) for i in range(MAX_FACILITIES)}
+    assert hexagon(facilities=[]).facility_ids() == set()
+
+
 def test_demographics_are_marked_as_never_scored() -> None:
     """Section 14. They may be reported as facts about the population and may
     not be the basis of an inference about why anything was built."""

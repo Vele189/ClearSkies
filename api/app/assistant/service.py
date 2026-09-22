@@ -280,7 +280,9 @@ async def draft_for_hex(
     assert isinstance(document, DraftDocument)
 
     # 5. Verify. Nothing that fails here is ever rendered.
-    verification = await verifier.verify_document(conn, draft_model, document, h3)
+    verification = await verifier.verify_document(
+        conn, draft_model, document, h3, hex_context.facility_ids()
+    )
     if not verification.verified:
         await verifier.log_rejections(
             conn, verification, h3, document_type, corpus_version, prompt_version, model_name

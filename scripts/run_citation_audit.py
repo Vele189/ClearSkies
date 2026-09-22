@@ -214,7 +214,10 @@ async def audit_one(
     # failing must cost one draft.
     try:
         recheck = await with_backoff(
-            "re-check", lambda: verifier.verify_document(conn, model, document, context.h3)
+            "re-check",
+            lambda: verifier.verify_document(
+                conn, model, document, context.h3, context.facility_ids()
+            ),
         )
     except Exception as exc:  # noqa: BLE001 - see above
         return AuditedDraft(
