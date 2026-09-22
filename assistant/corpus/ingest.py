@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -88,17 +89,25 @@ class Build:
         same. What it covers is the text the model can be shown, which is what a
         reader of a draft would want to know had not changed underneath them.
         """
-        digest = hashlib.sha256()
-        rows = sorted(
+        return content_sha256(
             (d.document_id, c.section_label, c.ordinal, c.text)
             for d in self.documents
             for c in d.chunks
         )
-        for document_id, label, ordinal, text in rows:
-            digest.update(f"{document_id}\x1f{label}\x1f{ordinal}\x1f".encode())
-            digest.update(text.encode("utf-8"))
-            digest.update(b"\x1e")
-        return digest.hexdigest()
+
+
+def content_sha256(rows: Iterable[tuple[str, str, int, str]]) -> str:
+    """The content hash over (document, label, ordinal, text) rows, in any order.
+
+    Separate from `Build` so the seal can compute it over what the database
+    holds and compare, rather than trusting the build it was handed.
+    """
+    digest = hashlib.sha256()
+    for document_id, label, ordinal, text in sorted(rows):
+        digest.update(f"{document_id}\x1f{label}\x1f{ordinal}\x1f".encode())
+        digest.update(text.encode("utf-8"))
+        digest.update(b"\x1e")
+    return digest.hexdigest()
 
 
 # ---- Citation labels ----------------------------------------------------
@@ -128,12 +137,17 @@ async def ingest_authority(
     if isinstance(plan, USCodeUnit):
         sections = parse.us_code(fetched)
         if authority.sections:
+            # Every listed section, not merely some of them. An authority that
+            # names § 2000d to § 2000d-7 and arrives with three of them would
+            # otherwise be counted present, and the coverage check that decides
+            # whether a corpus may be sealed would never hear about the rest.
             wanted = set(authority.sections)
             sections = tuple(s for s in sections if s.number in wanted)
-            if not sections:
+            missing = wanted - {s.number for s in sections}
+            if missing:
                 raise FetchError(
-                    f"{authority.document_id}: none of the sections "
-                    f"{sorted(wanted)} are in {plan.url}"
+                    f"{authority.document_id}: sections {sorted(missing)} "
+                    f"of {sorted(wanted)} are not in {plan.url}"
                 )
         title = plan.title
 
@@ -220,9 +234,17 @@ async def build(
 def version_label(build_result: Build, prefix: str) -> str:
     """A version name that identifies what is in it.
 
-    The manifest hash, short, rather than a date or a counter. Two builds of the
-    same manifest are the same corpus and should collide rather than accumulate;
-    a build of a changed manifest gets a different name without anybody choosing
-    one, which is the failure mode versioning schemes usually have.
+    The manifest hash and the content hash, both short, rather than a date or a
+    counter. Two builds that produced the same text are the same corpus and
+    should collide rather than accumulate; a build of a changed manifest gets a
+    different name without anybody choosing one, which is the failure mode
+    versioning schemes usually have.
+
+    The content hash is there because the manifest alone does not decide what
+    is in a corpus. The parser does too. A parser fix changes the labels and
+    the text of the chunks without touching the manifest, and a name derived
+    from the manifest alone lands that rebuild on a version that is already
+    sealed, where it is refused, so the fix could only ship under a name
+    somebody made up. Same manifest and same content still means the same name.
     """
-    return f"{prefix}-{manifest_sha256()[:12]}"
+    return f"{prefix}-{manifest_sha256()[:12]}-{build_result.content_sha256()[:12]}"

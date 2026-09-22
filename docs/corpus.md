@@ -95,6 +95,14 @@ exactly that failure and both looked fine in passing:
   § 7412(c)(9)(B)(i) came out labelled § 7412(i), which is a real subsection
   about a different subject. Depth is now decided by sequence — (i) follows (h),
   and (i) does not follow (c) — not by style.
+- **Sequence is not enough for (i) and (I) either.** The CFR nests (h)(1)(i),
+  so a clause of (h)(1) is also the letter that follows (h), and reading it as
+  the subsection produced § 7.35(i) and pushed the subsection that really is
+  (i) down to § 7.35(ii)(i). The US Code has the same shape the other way
+  round: § 7412(h)(1) to (h)(5) are followed by subsection (i). What decides is
+  the marker that comes next — (ii) means a roman sequence has started, (j) or
+  the (1) a subsection opens with means the letters have carried on. Where
+  nothing decides, the marker delimits its text and is not citable.
 
 Where the publisher marks a subdivision explicitly, its letter can appear in a
 citation. Where the depth had to be inferred from body text, the marker still
@@ -226,6 +234,7 @@ document and chunk belongs to one. A version is open while it is being built and
 | Delete a chunk or document | Refused |
 | Move a row to another version | Refused at both ends |
 | Modify or delete the version row | Refused |
+| `TRUNCATE` any of the three tables | Refused, while any version is sealed |
 
 The claim this project makes is that the assistant cannot cite anything outside
 the corpus. That claim is worth as much as the weakest thing standing between a
@@ -234,10 +243,23 @@ script is not that. The triggers fail the same way for the ingestion script, for
 `psql`, and for the API service — which is the point, since the API has no
 business writing here at all and now provably cannot.
 
-Version names are derived from the manifest hash, so two builds of the same
-manifest collide rather than accumulate and a changed manifest gets a new name
-without anybody choosing one. The content hash is computed over every chunk at
-seal time, so "is this the corpus that draft cited" is a string comparison.
+The row triggers are per row, and `TRUNCATE` visits no rows, so it went round
+all of them and emptied a sealed corpus while the version row went on reporting
+the hash and the counts of text that was no longer there. Migration `0026` adds
+the statement-level guard that TRUNCATE does have. It cannot be per version —
+TRUNCATE is not — so it refuses whenever any version is sealed, which is the
+right reading anyway: a TRUNCATE on a database holding a sealed corpus is a
+TRUNCATE of that corpus.
+
+Version names are derived from the manifest hash **and the content hash**, so
+two builds that produced the same text collide rather than accumulate and a
+changed manifest gets a new name without anybody choosing one. The manifest is
+not the only thing that decides what is in a corpus: a parser fix changes the
+chunks without touching the manifest, and under a manifest-only name that
+rebuild lands on a version that is already sealed, where it is refused. The
+content hash is computed over every chunk at seal time, from the rows the
+database holds rather than from the build in memory, so "is this the corpus
+that draft cited" is a string comparison.
 
 Retrieval reads `statute_corpus_active`, a view over the newest sealed version.
 Forgetting to filter by version is a syntax error rather than a draft generated

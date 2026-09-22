@@ -47,6 +47,40 @@ class RetrievalError(RuntimeError):
     """Retrieval could not run. Never a reason to draft without context."""
 
 
+class EmbeddingModelMismatch(RetrievalError):
+    """The corpus was embedded with one model and the query with another.
+
+    Vectors from two models share a coordinate space only by coincidence, so
+    the nearest neighbours come back in an order that means nothing. Nothing
+    fails loudly: the query returns passages, they are plausible text, and the
+    model drafts from whatever arrived. That is the worst available failure,
+    and it is why this is an error rather than a warning.
+    """
+
+
+@dataclass(frozen=True)
+class ActiveCorpus:
+    """The sealed corpus version retrieval is reading."""
+
+    version: str
+    embedding_model: str
+    chunk_count: int
+
+
+@dataclass(frozen=True)
+class Retrieved:
+    """Passages, and what the embedding calls that found them cost.
+
+    The tokens are here rather than counted upstream because this is the only
+    place that knows how many queries were asked: one per standing question
+    plus the user's, so a request costs several embedding calls and the spend
+    report said zero for all of them.
+    """
+
+    passages: list[Passage]
+    request_tokens: int
+
+
 @dataclass(frozen=True)
 class Passage:
     """One retrieved chunk, with everything a citation to it needs."""
@@ -107,18 +141,42 @@ def to_pgvector(values: list[float]) -> str:
     return "[" + ",".join(repr(float(v)) for v in values) + "]"
 
 
+async def active(conn: Any) -> ActiveCorpus | None:
+    """The sealed corpus retrieval is reading, or None if nothing is sealed."""
+    row = await conn.fetchrow(ACTIVE_VERSION)
+    if row is None:
+        return None
+    return ActiveCorpus(
+        version=str(row["version"]),
+        embedding_model=str(row["embedding_model"]),
+        chunk_count=int(row["chunk_count"] or 0),
+    )
+
+
 async def active_version(conn: Any) -> str | None:
     """The corpus version retrieval is reading, or None if nothing is sealed.
 
     Stamped onto every generated draft. A draft that cannot say which corpus it
     was written against is a draft nobody can re-verify later.
     """
-    row = await conn.fetchrow(ACTIVE_VERSION)
-    return None if row is None else str(row["version"])
+    corpus = await active(conn)
+    return None if corpus is None else corpus.version
 
 
-async def embed_query(client: Any, model: str, text: str) -> list[float]:
-    """One vector for the question being asked.
+def check_embedding_model(corpus: ActiveCorpus, model: str) -> None:
+    """Refuse to query a corpus embedded with a different model."""
+    if corpus.embedding_model != model:
+        raise EmbeddingModelMismatch(
+            f"corpus version {corpus.version!r} was embedded with "
+            f"{corpus.embedding_model!r}, but this deployment is configured to embed "
+            f"queries with {model!r}. Re-embed the corpus or configure the model it "
+            "was built with; retrieval across two embedding models returns passages "
+            "that are not the nearest ones."
+        )
+
+
+async def embed_query(client: Any, model: str, text: str) -> tuple[list[float], int]:
+    """One vector for the question being asked, and the tokens it cost.
 
     The same model the corpus was embedded with, which is not a detail: vectors
     from two models share a coordinate space only by coincidence, and a mismatch
@@ -132,7 +190,9 @@ async def embed_query(client: Any, model: str, text: str) -> list[float]:
         raise RetrievalError(
             f"{model} returned {len(values)} dimensions, expected {EMBEDDING_DIMENSIONS}"
         )
-    return values
+    usage = getattr(response, "usage", None)
+    tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+    return values, tokens
 
 
 async def search(
@@ -154,10 +214,10 @@ async def retrieve(
     query: str,
     limit: int = DEFAULT_LIMIT,
     max_distance: float = MAX_DISTANCE,
-) -> list[Passage]:
+) -> Retrieved:
     """Embed a question and return the passages that answer it.
 
-    An empty list is a real and useful answer. It means the corpus has nothing
+    No passages is a real and useful answer. It means the corpus has nothing
     close to the question, and the right response upstream is to draft without
     that claim, or not to draft at all, rather than to proceed on whatever the
     nearest unrelated section happened to be.
@@ -165,7 +225,7 @@ async def retrieve(
     if not query.strip():
         raise RetrievalError("cannot retrieve on an empty query")
 
-    vector = await embed_query(client, model, query)
+    vector, tokens = await embed_query(client, model, query)
     passages = await search(conn, vector, limit=limit, max_distance=max_distance)
     log.info(
         "retrieval: %d passages for %r (closest %.3f)",
@@ -173,7 +233,7 @@ async def retrieve(
         query[:60],
         passages[0].distance if passages else float("nan"),
     )
-    return passages
+    return Retrieved(passages=passages, request_tokens=tokens)
 
 
 # What each document type always needs to have in front of it, whatever the
@@ -214,7 +274,7 @@ async def retrieve_for(
     request: str,
     limit: int = DEFAULT_LIMIT,
     max_distance: float = MAX_DISTANCE,
-) -> list[Passage]:
+) -> Retrieved:
     """Passages for one drafting request: the user's question and the standing ones.
 
     Merged and deduplicated by section label, nearest first. Asking several
@@ -228,10 +288,13 @@ async def retrieve_for(
     queries = [request, *STANDING_QUERIES.get(document_type, ())]
     seen: set[tuple[str, str]] = set()
     merged: list[Passage] = []
+    tokens = 0
     for query in queries:
-        for passage in await retrieve(
+        retrieved = await retrieve(
             conn, client, model, query, limit=limit, max_distance=max_distance
-        ):
+        )
+        tokens += retrieved.request_tokens
+        for passage in retrieved.passages:
             key = (passage.section_label, passage.text)
             if key in seen:
                 continue
@@ -239,7 +302,7 @@ async def retrieve_for(
             merged.append(passage)
 
     merged.sort(key=lambda p: p.distance)
-    return merged[: limit * 2]
+    return Retrieved(passages=merged[: limit * 2], request_tokens=tokens)
 
 
 def as_context(passages: list[Passage]) -> str:

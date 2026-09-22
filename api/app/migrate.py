@@ -39,7 +39,7 @@ from typing import Any
 
 import asyncpg
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
@@ -225,9 +225,28 @@ async def _revert(conn: Any, migration: Migration) -> None:
         await conn.execute("DELETE FROM schema_migration WHERE version = $1", migration.version)
 
 
+def _target(migrations: tuple[Migration, ...], to: str | None) -> str | None:
+    """`to` as a version that exists, or a `MigrationError` saying why not.
+
+    Both comparisons against it are string comparisons -- the versions are
+    zero-padded so that they sort correctly -- and a target that is not in that
+    form compares in ways nobody intends: `up --to 7` applied everything,
+    because "0024" < "7" in every string comparison there is. A typo'd version
+    is worse than an error, so the target has to name a migration that exists.
+    """
+    if to is None:
+        return None
+    if not re.fullmatch(r"\d{4}", to):
+        raise MigrationError(f"--to {to!r} must be a four-digit version, e.g. 0007")
+    if to not in {m.version for m in migrations}:
+        raise MigrationError(f"--to {to!r} is not a migration in {MIGRATIONS_DIR}")
+    return to
+
+
 async def up(
     conn: Any, migrations: tuple[Migration, ...], to: str | None = None
 ) -> list[Migration]:
+    to = _target(migrations, to)
     await _ensure_ledger(conn)
     applied = await _applied(conn)
 
@@ -255,8 +274,18 @@ async def down(
     conn: Any, migrations: tuple[Migration, ...], to: str | None = None
 ) -> list[Migration]:
     """Revert down to but not including ``to``; with no target, revert one."""
+    to = _target(migrations, to)
     await _ensure_ledger(conn)
     applied = await _applied(conn)
+
+    # The same drift check `up` runs, for a stronger reason: reverting runs the
+    # .down.sql that sits beside the .up.sql on disk, and drift means the file
+    # that was applied is not the file on disk. Its down is then a reversal of
+    # something else.
+    problems = drift(migrations, applied)
+    if problems:
+        raise MigrationError("\n".join(problems))
+
     known = {m.version: m for m in migrations}
 
     order = sorted(applied, reverse=True)
@@ -305,6 +334,19 @@ async def _ledger_state(dsn: str) -> dict[str, str]:
         await conn.close()
 
 
+def migration_dsn(explicit: str | None, settings: Settings) -> str:
+    """The connection the runner uses: the flag, then the unpooled URL, then the API's.
+
+    The runner holds a session-level advisory lock for the whole run so two
+    runners queue rather than interleave. Behind Neon's pooler, PgBouncer's
+    transaction mode hands each statement whichever server connection is free,
+    so the lock is taken on one connection and the DDL runs on others, and it
+    guards nothing. DATABASE_URL is the pooled URL on Neon, because that is what
+    the API wants, so the direct one is preferred here whenever it is set.
+    """
+    return explicit or settings.database_url_unpooled or settings.database_url
+
+
 async def _run(args: argparse.Namespace) -> int:
     if args.command == "new":
         up_path, down_path = new(args.slug)
@@ -313,7 +355,7 @@ async def _run(args: argparse.Namespace) -> int:
         return 0
 
     migrations = discover()
-    dsn: str = args.database_url or get_settings().database_url
+    dsn = migration_dsn(args.database_url, get_settings())
 
     if args.command == "status":
         applied = await _ledger_state(dsn)
@@ -366,7 +408,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--database-url",
         default=None,
-        help="Overrides DATABASE_URL. Defaults to the setting the API itself uses.",
+        help=(
+            "Overrides DATABASE_URL_UNPOOLED and DATABASE_URL. Defaults to the "
+            "first of those that is set."
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

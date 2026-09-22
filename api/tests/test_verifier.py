@@ -20,6 +20,7 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from app.assistant.documents import (
+    AgencyComplaintDraft,
     Paragraph,
     PublicCommentLetter,
     RecordCitation,
@@ -33,12 +34,15 @@ from app.assistant.verifier import (
     build_judge,
     check_record,
     check_statute,
+    like_literal,
     verify_document,
 )
 
 REAL_SECTION = "42 U.S.C. § 7412(b)"
 H3 = "884446007dfffff"
 PASSAGE = "The Congress establishes a list of hazardous air pollutants."
+# The facilities the draft's hexagon context listed.
+NEARBY = {"110000350053"}
 
 
 def judge_model(verdict: str, reason: str = "because") -> FunctionModel:
@@ -97,7 +101,9 @@ class FakeConn:
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
         name = self.facilities.get(args[0])
-        return None if name is None else {"facility_id": args[0], "name": name}
+        if name is None:
+            return None
+        return {"facility_id": f"fac-{args[0]}", "registry_id": args[0], "name": name}
 
     async def executemany(self, query: str, rows: list[tuple[Any, ...]]) -> None:
         self.logged.extend(rows)
@@ -251,11 +257,64 @@ async def test_a_section_split_across_chunks_is_judged_whole() -> None:
     assert "Second half." in joined
 
 
+def like(pattern: str, text: str) -> bool:
+    """Postgres LIKE with a backslash escape, as the lookup query uses it."""
+    import re
+
+    out, chars = "", iter(pattern)
+    for ch in chars:
+        if ch == "\\":
+            out += re.escape(next(chars))
+        elif ch == "%":
+            out += ".*"
+        elif ch == "_":
+            out += "."
+        else:
+            out += re.escape(ch)
+    return re.fullmatch(out, text, flags=re.DOTALL) is not None
+
+
+def test_like_wildcards_in_a_section_label_are_escaped() -> None:
+    """The label is the model's text. Unescaped, `4_` matched `42` and a bare
+    `%` matched every subdivided section in the corpus."""
+    corpus = "42 U.S.C. § 7410(a)"
+
+    # What the query used to build, to show the test can tell the difference.
+    assert like("4_ U.S.C. § 7410" + "(%", corpus)
+    assert like("%" + "(%", corpus)
+
+    assert not like(like_literal("4_ U.S.C. § 7410") + "(%", corpus)
+    assert not like(like_literal("%") + "(%", corpus)
+    assert like(like_literal("42 U.S.C. § 7410") + "(%", corpus)
+
+
+def test_like_literal_escapes_the_escape_character_first() -> None:
+    assert like_literal("a\\b") == "a\\\\b"
+    assert like_literal("50%_x") == "50\\%\\_x"
+    assert like(like_literal("a\\%"), "a\\%")
+    assert not like(like_literal("a\\%"), "a\\bc")
+
+
+async def test_the_lookup_is_given_the_escaped_pattern() -> None:
+    seen: list[tuple[Any, ...]] = []
+
+    class Recording(FakeConn):
+        async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
+            seen.append(args)
+            return []
+
+    await check_statute(
+        Recording(), build_judge(judge_model("supported")), statute("4_ U.S.C. § 7410")
+    )
+
+    assert seen[0] == ("4_ U.S.C. § 7410", "4\\_ U.S.C. § 7410")
+
+
 # ---- Records ------------------------------------------------------------
 
 
 async def test_a_real_facility_verifies() -> None:
-    check = await check_record(FakeConn(), record())
+    check = await check_record(FakeConn(), record(), facility_ids=NEARBY)
 
     assert check.ok
     assert "NUCOR" in check.detail
@@ -321,9 +380,41 @@ async def test_a_hexagon_citation_needs_to_know_which_hexagon() -> None:
 
 
 async def test_a_facility_citation_is_unaffected_by_the_subject_hexagon() -> None:
-    check = await check_record(FakeConn(), record(), subject_h3=H3)
+    check = await check_record(FakeConn(), record(), subject_h3=H3, facility_ids=NEARBY)
 
     assert check.ok
+
+
+async def test_a_real_facility_from_somewhere_else_is_rejected() -> None:
+    """Existence alone passed a correct registry id for a plant nowhere near the
+    hexagon. The record is real; it is not one the draft was given."""
+    conn = FakeConn(facilities={"110000350053": "NUCOR", "110000999999": "ELSEWHERE"})
+
+    check = await check_record(conn, record(record_id="110000999999"), facility_ids=NEARBY)
+
+    assert check.verdict == "not_in_dataset"
+    assert "not one of the facilities this draft was given" in check.detail
+
+
+async def test_a_facility_cited_by_its_internal_id_matches_the_listed_registry_id() -> None:
+    """The context lists a registry id; the row carries both ids, and a
+    citation by either names the same facility."""
+    check = await check_record(FakeConn(), record(record_id="110000350053"), facility_ids=NEARBY)
+    assert check.ok
+
+    by_internal = await check_record(
+        FakeConn(), record(record_id="110000350053"), facility_ids={"fac-110000350053"}
+    )
+    assert by_internal.ok
+
+
+async def test_a_facility_citation_needs_to_know_which_facilities_were_given() -> None:
+    """Like a hexagon citation without its subject: checking it would pass
+    anything that exists."""
+    check = await check_record(FakeConn(), record())
+
+    assert check.verdict == "not_in_dataset"
+    assert "without knowing which facilities" in check.detail
 
 
 # ---- Whole documents ----------------------------------------------------
@@ -331,7 +422,7 @@ async def test_a_facility_citation_is_unaffected_by_the_subject_hexagon() -> Non
 
 async def test_a_document_whose_citations_all_verify_passes() -> None:
     verification = await verify_document(
-        FakeConn(), judge_model("supported"), letter(statute(), record())
+        FakeConn(), judge_model("supported"), letter(statute(), record()), H3, NEARBY
     )
 
     assert verification.verified
@@ -363,9 +454,89 @@ async def test_every_failure_is_reported_not_just_the_first() -> None:
             statute("42 U.S.C. § 9999"),
             record(record_id="000000000000"),
         ),
+        H3,
+        NEARBY,
     )
 
     assert len(verification.failures) == 3
+
+
+def judge_by_proposition(false_words: str) -> FunctionModel:
+    """A judge that rejects any proposition containing `false_words`."""
+
+    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        import json
+
+        assert info.output_tools
+        prompt = "\n".join(
+            str(getattr(part, "content", ""))
+            for message in messages
+            for part in getattr(message, "parts", [])
+        )
+        verdict = "not_supported" if false_words in prompt else "supported"
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    info.output_tools[0].name,
+                    json.dumps({"verdict": verdict, "reason": "judged"}),
+                )
+            ]
+        )
+
+    return FunctionModel(respond)
+
+
+async def test_a_second_false_claim_on_an_already_cited_section_fails() -> None:
+    """The display list keeps one entry per section. Verifying from it judged
+    only the first claim, so a false one cited to the same section was never
+    read by anything."""
+    document = PublicCommentLetter(
+        recipient="LDEQ",
+        subject="Comment",
+        requested_action="Hold a hearing.",
+        paragraphs=[
+            Paragraph(text="A.", citations=[statute(proposition="Congress listed pollutants.")]),
+            Paragraph(
+                text="B.",
+                citations=[statute(proposition="Facility X violated this section.")],
+            ),
+        ],
+    )
+
+    verification = await verify_document(
+        FakeConn(), judge_by_proposition("Facility X"), document, H3, NEARBY
+    )
+
+    assert len(verification.checks) == 2
+    assert not verification.verified
+    assert [c.citation.proposition for c in verification.failures] == [
+        "Facility X violated this section."
+    ]
+
+
+async def test_a_fabricated_statute_in_a_complaints_legal_basis_fails() -> None:
+    """The legal basis was outside the verified list, so a statute invented for
+    it verified and was cached."""
+    complaint = AgencyComplaintDraft(
+        recipient_office="U.S. EPA External Civil Rights Compliance Office",
+        relief_sought="Open an investigation.",
+        legal_basis=[statute("99 U.S.C. § 1", proposition="An invented right.")],
+        paragraphs=[
+            Paragraph(
+                text="The hexagon.",
+                citations=[record(record_id=H3, dataset="hex")],
+            )
+        ],
+    )
+
+    verification = await verify_document(
+        FakeConn(), judge_model("supported"), complaint, H3, NEARBY
+    )
+
+    assert not verification.verified
+    assert [(c.reference, c.verdict) for c in verification.failures] == [
+        ("99 U.S.C. § 1", "not_in_corpus")
+    ]
 
 
 def test_a_document_with_no_checks_does_not_count_as_verified() -> None:

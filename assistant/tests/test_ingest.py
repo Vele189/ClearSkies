@@ -7,13 +7,15 @@ and that is what `python -m corpus build` is for in CI.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import httpx
 import pytest
 
+from corpus.chunking import Chunk
 from corpus.fetch import FetchError
 from corpus.ingest import Build, Document, build, ingest_authority, version_label
 from corpus.manifest import MANIFEST, by_id
-from corpus.store import SealError
 from tests.conftest import CASELAW_OPINION, ECFR_PART, US_CODE_CHAPTER
 
 
@@ -62,8 +64,20 @@ async def test_a_subentry_takes_only_its_own_sections() -> None:
 
 async def test_a_subentry_whose_sections_are_absent_is_an_error() -> None:
     async with stub_client(FIXTURES) as client:
-        with pytest.raises(FetchError, match="none of the sections"):
+        with pytest.raises(FetchError, match="are not in"):
             await ingest_authority(client, by_id("usc-42-7470-7492"), cache=None)
+
+
+async def test_a_subentry_missing_one_of_its_sections_is_an_error() -> None:
+    """Partial coverage is the dangerous case, because it looks like coverage.
+    An authority that arrived with half its sections would pass the manifest
+    check that decides whether the corpus may be sealed, and the missing half
+    would be discoverable only by asking a question nobody thought to ask."""
+    authority = replace(by_id("usc-42-7412"), sections=("7412", "7413"))
+
+    async with stub_client(FIXTURES) as client:
+        with pytest.raises(FetchError, match=r"sections \['7413'\]"):
+            await ingest_authority(client, authority, cache=None)
 
 
 async def test_case_law_carries_the_reporter_citation_as_its_label() -> None:
@@ -132,14 +146,39 @@ def test_the_content_hash_does_not_depend_on_build_order() -> None:
     )
 
 
-def test_the_version_name_is_derived_from_the_manifest() -> None:
-    """Two builds of the same manifest collide rather than accumulate, and a
-    changed manifest gets a new name without anybody choosing one."""
+def test_the_version_name_is_derived_from_the_manifest_and_the_content() -> None:
+    """Two builds that produced the same text collide rather than accumulate,
+    and a changed manifest gets a new name without anybody choosing one."""
     name = version_label(Build(), "appendix-b")
 
     assert name.startswith("appendix-b-")
     assert version_label(Build(), "appendix-b") == name
 
 
-def test_seal_error_is_raised_rather_than_a_partial_corpus_published() -> None:
-    assert issubclass(SealError, RuntimeError)
+def test_a_rebuild_whose_content_changed_gets_a_new_name() -> None:
+    """A parser fix changes the chunks without touching the manifest. Named
+    from the manifest alone it would land on the version that is already
+    sealed, be refused there, and could only ship under a name somebody made
+    up."""
+    document = Document(
+        document_id="a",
+        authority="A",
+        citation="1",
+        jurisdiction="federal",
+        edition="e",
+        source_url="u",
+        retrieved_at=None,  # type: ignore[arg-type]
+        full_text="t",
+        may_reason_from=True,
+        chunks=[Chunk(section_label="42 U.S.C. § 7412(i)", ordinal=0, text="text")],
+    )
+    fixed = Document(
+        **{
+            **document.__dict__,
+            "chunks": [Chunk(section_label="42 U.S.C. § 7412(h)(1)", ordinal=0, text="text")],
+        }
+    )
+
+    assert version_label(Build(documents=[document]), "appendix-b") != version_label(
+        Build(documents=[fixed]), "appendix-b"
+    )

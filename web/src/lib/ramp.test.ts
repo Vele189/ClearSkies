@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   FILL_COLOR,
+  FILL_OPACITY,
+  HATCH_ANGLE_DEG,
   LEGEND_CLASSES,
   NO_SCORE_COLOR,
   RAMP_BREAKS,
   RAMP_COLORS,
+  blendOnWhite,
   hatchFilter,
   hatchImage,
   visibilityFilter,
@@ -79,15 +82,18 @@ function matches(filter: FilterSpecification, properties: Record<string, unknown
 /** The band cut points are methodology, not styling. These values sit either
  *  side of each boundary in section 12's table. */
 const SAMPLES = {
-  high: { confidence: 0.95 },
-  highEdge: { confidence: 0.8 },
-  moderate: { confidence: 0.7 },
-  moderateEdge: { confidence: 0.6 },
-  low: { confidence: 0.5 },
-  lowEdge: { confidence: 0.4 },
-  insufficient: { confidence: 0.39 },
-  unknown: {},
-  labelled: { confidence_band: "insufficient", confidence: 0.95 },
+  high: { percentile: 62, confidence: 0.95 },
+  highEdge: { percentile: 62, confidence: 0.8 },
+  moderate: { percentile: 62, confidence: 0.7 },
+  moderateEdge: { percentile: 62, confidence: 0.6 },
+  low: { percentile: 62, confidence: 0.5 },
+  lowEdge: { percentile: 62, confidence: 0.4 },
+  insufficient: { percentile: 62, confidence: 0.39 },
+  /** Scored, but the archive states no confidence for it: a defect. */
+  unknown: { percentile: 62 },
+  /** Not scored at all, so it has neither a percentile nor a confidence. */
+  unscored: { no_score_reason: "low_population" },
+  labelled: { percentile: 62, confidence_band: "insufficient", confidence: 0.95 },
 };
 
 describe("confidence filters", () => {
@@ -124,11 +130,21 @@ describe("confidence filters", () => {
     expect(matches(filter, SAMPLES.high)).toBe(false);
   });
 
-  it("hatches a tile that carries no confidence attribute at all", () => {
+  it("hatches a scored tile that carries no confidence attribute at all", () => {
     // An archive missing the attribute is a defect, and drawing those hexes as
     // confident is the failure section 12 exists to prevent.
     expect(matches(hatchFilter(false), SAMPLES.unknown)).toBe(true);
     expect(matches(visibilityFilter(false), SAMPLES.unknown)).toBe(true);
+  });
+
+  it("draws an unscored hex solid, as the legend's Not scored swatch is drawn", () => {
+    // An unscored hex has no confidence either, so it would otherwise be
+    // hatched — which would say its score is poorly supported, of a hex that
+    // has no score. Unscored and uncertain are different claims, and the legend
+    // shows this one as a solid grey swatch.
+    expect(matches(hatchFilter(false), SAMPLES.unscored)).toBe(false);
+    expect(matches(hatchFilter(true), SAMPLES.unscored)).toBe(false);
+    expect(matches(visibilityFilter(false), SAMPLES.unscored)).toBe(true);
   });
 
   it("hatches insufficient hexes once they are revealed", () => {
@@ -201,6 +217,25 @@ describe("hatchImage", () => {
     expect(opaque / (8 * 8)).toBeLessThan(0.5);
   });
 
+  it("leans the way the legend's rotation leans", () => {
+    // The map draws the hatch as pixels, the legend as an SVG pattern rotated
+    // by HATCH_ANGLE_DEG. They are only one appearance if the pixels run along
+    // the anti-diagonal, which is what a clockwise 45° rotation of a vertical
+    // line gives in screen coordinates.
+    const size = 8;
+    const image = hatchImage(size);
+    const alpha = (x: number, y: number) => image.data[(y * size + x) * 4 + 3];
+
+    expect(HATCH_ANGLE_DEG).toBe(45);
+    // Lit: x + y is a multiple of the cell, running from lower left to upper right.
+    expect(alpha(0, 0)).toBeGreaterThan(0);
+    expect(alpha(1, size - 1)).toBeGreaterThan(0);
+    expect(alpha(size - 1, 1)).toBeGreaterThan(0);
+    // Dark: the other diagonal, which is what the opposite rotation would draw.
+    expect(alpha(0, size / 2)).toBe(0);
+    expect(alpha(size / 2, 0)).toBe(0);
+  });
+
   it("tiles seamlessly across the cell edge", () => {
     // A line entering the right edge at row y has to leave the left edge at
     // row y+1, or the pattern shows a seam at every tile boundary.
@@ -209,6 +244,27 @@ describe("hatchImage", () => {
     const alpha = (x: number, y: number) => image.data[(y * size + x) * 4 + 3];
     for (let y = 0; y < size - 1; y++) {
       expect(alpha(size - 1, y)).toBe(alpha(size - 2, y + 1));
+    }
+  });
+});
+
+describe("swatch blending", () => {
+  it("shows a swatch as the fill is actually painted", () => {
+    // The fill is drawn at FILL_OPACITY so the basemap reads through it. An
+    // opaque swatch of the same hex is darker than every hexagon it labels,
+    // which sends a reader to the wrong class.
+    expect(FILL_OPACITY).toBeLessThan(1);
+    expect(blendOnWhite(RAMP_COLORS[5])).not.toBe(RAMP_COLORS[5]);
+    expect(blendOnWhite(RAMP_COLORS[0], 1)).toBe(RAMP_COLORS[0]);
+    expect(blendOnWhite("#ffffff")).toBe("#ffffff");
+  });
+
+  it("keeps the ramp monotone in lightness after blending", () => {
+    // However the swatches are blended, the legend has to stay readable in
+    // greyscale, which is the ramp's whole colourblind-safety argument.
+    const lums = RAMP_COLORS.map((c) => luminance(blendOnWhite(c)));
+    for (let i = 1; i < lums.length; i++) {
+      expect(lums[i]).toBeLessThan(lums[i - 1]);
     }
   });
 });

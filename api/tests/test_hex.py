@@ -14,9 +14,12 @@ def test_wrong_resolution_is_rejected_with_an_explanation(client: TestClient) ->
 
 
 def test_valid_cell_reports_no_data_rather_than_guessing(client: TestClient) -> None:
+    """503, because the fixture's deployment has no database at all. Accepting
+    200 as well made this test pass whatever the endpoint did."""
     r = client.get("/hex/88444600ddfffff")
-    # 503 while the pipeline has not run, 404 once it has but the cell is unscored.
-    assert r.status_code in {404, 503}
+
+    assert r.status_code == 503
+    assert "/health" in r.json()["detail"]
 
 
 def test_indicators_endpoint_publishes_the_running_configuration(client: TestClient) -> None:

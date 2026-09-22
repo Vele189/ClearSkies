@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.assistant import cost, service
+from app.assistant import cost, prompts, retrieval, service
 from app.assistant.context import HexContext
 from app.assistant.documents import (
     GeneratedDraft,
@@ -24,9 +25,11 @@ from app.assistant.documents import (
     StatuteCitation,
 )
 from app.assistant.guardrails import InsufficientConfidence
+from app.assistant.service import DEFAULT_REQUESTS, default_request
 from app.config import get_settings
 from app.main import app
-from app.routers.draft import DEFAULT_REQUESTS, default_request
+
+MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
 
 CITATION = StatuteCitation(
     section="42 U.S.C. § 7661a",
@@ -44,7 +47,7 @@ def letter() -> PublicCommentLetter:
     )
 
 
-def hexagon(band: str = "moderate") -> HexContext:
+def hexagon(band: str = "moderate", run_id: int | None = 11) -> HexContext:
     return HexContext(
         h3="88444600ddfffff",
         parish="St. James",
@@ -53,6 +56,7 @@ def hexagon(band: str = "moderate") -> HexContext:
         confidence=0.71,
         confidence_band=band,
         methodology_version="0.1.4",
+        run_id=run_id,
     )
 
 
@@ -141,18 +145,39 @@ def test_every_document_type_has_a_default_request() -> None:
 
 
 class FakeConn:
-    """The cache and the usage log, as far as the service reads them."""
+    """The cache and the usage log, as far as the service reads them.
 
-    def __init__(self, row: dict[str, Any] | None = None, corpus: str | None = "corpus-1") -> None:
-        self.row = row
+    The cache is a dictionary on the real key, because half of what is under
+    test here is which requests share a row.
+    """
+
+    def __init__(
+        self,
+        row: dict[str, Any] | None = None,
+        corpus: str | None = "corpus-1",
+        key: tuple[Any, ...] | None = None,
+        embedding_model: str = "text-embedding-3-small",
+    ) -> None:
+        self.embedding_model = embedding_model
+        self.rows: dict[tuple[Any, ...], dict[str, Any]] = {}
+        if row is not None:
+            self.rows[key if key is not None else cache_key()] = row
         self.corpus = corpus
         self.executed: list[tuple[str, tuple[Any, ...]]] = []
+        self.looked_up: list[tuple[Any, ...]] = []
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
         if "statute_corpus_version" in query:
-            return None if self.corpus is None else {"version": self.corpus}
+            if self.corpus is None:
+                return None
+            return {
+                "version": self.corpus,
+                "embedding_model": self.embedding_model,
+                "chunk_count": 100,
+            }
         if "FROM draft" in query:
-            return self.row
+            self.looked_up.append(args)
+            return self.rows.get(args)
         if "llm_usage" in query:
             return {"usd": 0.0, "tokens": 0, "calls": 0}
         return None
@@ -161,26 +186,73 @@ class FakeConn:
         self.executed.append((query, args))
 
 
-async def test_a_repeat_request_is_served_from_the_cache() -> None:
-    conn = FakeConn(
-        row={
-            "document": json.loads(letter().stored_json()),
-            "model": "gpt-4o",
-            "confidence_band": "moderate",
-            "generated_at": datetime(2026, 9, 11, tzinfo=UTC),
-        }
+def cache_key(
+    request: str = "Draft it.",
+    run_id: int = 11,
+    h3: str = "88444600ddfffff",
+    document_type: str = "public_comment_letter",
+) -> tuple[Any, ...]:
+    """The lookup's arguments, in the order the query takes them."""
+    return (
+        h3,
+        document_type,
+        run_id,
+        service.request_digest(request),
+        "0.1.4",
+        "corpus-1",
+        prompts.CURRENT_VERSION,
     )
 
-    outcome = await service.draft_for_hex(
+
+def cached_row() -> dict[str, Any]:
+    return {
+        "document": json.loads(letter().stored_json()),
+        "model": "gpt-4o",
+        "confidence_band": "moderate",
+        "generated_at": datetime(2026, 9, 11, tzinfo=UTC),
+    }
+
+
+class Embedded(Exception):
+    """Retrieval was reached, which means the cache missed.
+
+    The service embeds the request before anything else it could do, so a
+    client that raises here marks the miss without needing a model, a vector
+    index or a corpus.
+    """
+
+
+class FakeClient:
+    class embeddings:
+        @staticmethod
+        async def create(**kwargs: Any) -> Any:
+            raise Embedded
+
+
+async def draft(conn: FakeConn, request: str = "Draft it.", **overrides: Any) -> Any:
+    return await service.draft_for_hex(
         conn,
-        None,
+        overrides.pop("client", FakeClient()),
         "gpt-4o",
         "text-embedding-3-small",
-        hexagon(),
+        overrides.pop("hex_context", hexagon()),
         "public_comment_letter",
-        "Draft it.",
-        "0.1.4",
+        request,
+        **overrides,
     )
+
+
+async def missed(conn: FakeConn, request: str = "Draft it.", **overrides: Any) -> bool:
+    """Whether this request went past the cache and on to retrieval."""
+    with pytest.raises(Embedded):
+        await draft(conn, request, **overrides)
+    return True
+
+
+async def test_a_repeat_request_is_served_from_the_cache() -> None:
+    conn = FakeConn(row=cached_row())
+
+    outcome = await draft(conn)
 
     assert outcome.from_cache
     assert outcome.draft is not None
@@ -191,25 +263,9 @@ async def test_a_repeat_request_is_served_from_the_cache() -> None:
 
 async def test_a_cache_hit_is_still_recorded_as_a_call() -> None:
     """Zero tokens, but the fact that somebody asked is worth having."""
-    conn = FakeConn(
-        row={
-            "document": json.loads(letter().stored_json()),
-            "model": "gpt-4o",
-            "confidence_band": "moderate",
-            "generated_at": datetime(2026, 9, 11, tzinfo=UTC),
-        }
-    )
+    conn = FakeConn(row=cached_row())
 
-    await service.draft_for_hex(
-        conn,
-        None,
-        "gpt-4o",
-        "text-embedding-3-small",
-        hexagon(),
-        "public_comment_letter",
-        "Draft it.",
-        "0.1.4",
-    )
+    await draft(conn)
 
     logged = [args for query, args in conn.executed if "llm_usage" in query]
     assert logged
@@ -220,16 +276,7 @@ async def test_an_insufficient_hexagon_never_reaches_the_cache_or_the_model() ->
     conn = FakeConn()
 
     with pytest.raises(InsufficientConfidence):
-        await service.draft_for_hex(
-            conn,
-            None,
-            "gpt-4o",
-            "text-embedding-3-small",
-            hexagon(band="insufficient"),
-            "public_comment_letter",
-            "Draft it.",
-            "0.1.4",
-        )
+        await draft(conn, hex_context=hexagon(band="insufficient"))
 
     assert conn.executed == []
 
@@ -239,16 +286,66 @@ async def test_no_sealed_corpus_is_refused_before_anything_is_spent() -> None:
     conn = FakeConn(corpus=None)
 
     with pytest.raises(service.NoCorpus, match="No sealed statute corpus"):
-        await service.draft_for_hex(
-            conn,
-            None,
-            "gpt-4o",
-            "text-embedding-3-small",
-            hexagon(),
-            "public_comment_letter",
-            "Draft it.",
-            "0.1.4",
-        )
+        await draft(conn)
+
+
+# ---- What the cache is keyed on ------------------------------------------
+
+
+async def test_two_different_requests_do_not_share_a_cache_row() -> None:
+    """The request steers retrieval and generation, so a draft written for one
+    is an answer to a question the next requester did not ask. Under the old
+    key the first person's free text was served to everybody after them."""
+    conn = FakeConn(row=cached_row(), key=cache_key("Write about the flare."))
+
+    assert (await draft(conn, "Write about the flare.")).from_cache
+    assert await missed(conn, "Write about the odour complaints.")
+
+
+async def test_the_same_request_typed_untidily_still_hits() -> None:
+    """Whitespace is not a different question, and a key that thought so would
+    miss often enough to be no cache at all."""
+    conn = FakeConn(row=cached_row(), key=cache_key("Write about the flare."))
+
+    assert (await draft(conn, "  Write about\n  the flare. ")).from_cache
+
+
+async def test_no_request_is_keyed_on_the_empty_string() -> None:
+    conn = FakeConn(row=cached_row(), key=cache_key(""))
+
+    assert (await draft(conn, "")).from_cache
+    assert service.request_digest("") == service.request_digest("   ")
+
+
+async def test_a_new_run_misses_the_cache() -> None:
+    """A re-run under the same methodology version produces new scores for the
+    same hexagon, and a draft describing the old ones is about figures the map
+    no longer shows."""
+    conn = FakeConn(row=cached_row(), key=cache_key(run_id=11))
+
+    assert (await draft(conn, hex_context=hexagon(run_id=11))).from_cache
+    assert await missed(conn, hex_context=hexagon(run_id=12))
+
+
+async def test_a_context_no_run_produced_is_not_cached_at_all() -> None:
+    """The citation audit drafts from fixtures. There is no run to key them on,
+    and keying them on nothing would let a fixture's draft be served for a real
+    hexagon."""
+    conn = FakeConn(row=cached_row(), key=cache_key())
+
+    assert await missed(conn, hex_context=hexagon(run_id=None))
+    assert conn.looked_up == []
+
+
+def test_the_draft_is_stamped_with_the_runs_methodology_version() -> None:
+    """Not the application's constant. They differ exactly when the code has
+    moved on from the run it is serving, and the draft describes the run."""
+    from app.methodology import METHODOLOGY_VERSION
+
+    context = hexagon()
+
+    assert context.methodology_version == "0.1.4"
+    assert context.methodology_version != METHODOLOGY_VERSION
 
 
 # ---- Cost ----------------------------------------------------------------
@@ -324,6 +421,193 @@ def test_a_provider_limit_is_recognised_without_importing_the_sdk(exc: Exception
 def test_an_ordinary_bug_is_not_mistaken_for_a_provider_limit() -> None:
     assert not service.is_provider_limit(KeyError("h3"))
     assert not service.is_provider_limit(ValueError("bad input"))
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        type("APIConnectionError", (Exception,), {})("connection error"),
+        type("APITimeoutError", (Exception,), {})("request timed out"),
+        TimeoutError(),
+        RuntimeError("Error code: 502 - bad gateway"),
+        RuntimeError("Error code: 500 - internal server error"),
+        type("AuthenticationError", (Exception,), {})("incorrect api key provided"),
+    ],
+)
+def test_a_provider_outage_is_recognised_too(exc: Exception) -> None:
+    """A connection failure, a timeout, the provider's own 5xx and a rejected
+    key all came back as 500s: the server reporting a fault in itself over
+    something the caller can do nothing about."""
+    assert service.is_provider_outage(exc)
+    assert service.provider_failure(exc)
+
+
+def test_an_ordinary_bug_is_not_mistaken_for_an_outage() -> None:
+    assert not service.is_provider_outage(KeyError("h3"))
+    assert not service.is_provider_outage(ValueError("bad input"))
+
+
+# ---- What the calls cost -------------------------------------------------
+
+
+def purposes(conn: FakeConn) -> list[tuple[str, int, int]]:
+    """(purpose, request tokens, response tokens) for every usage row written."""
+    return [(args[0], args[4], args[5]) for query, args in conn.executed if "llm_usage" in query]
+
+
+async def test_every_paid_call_is_on_the_bill(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Embedding and verification were recorded as zero tokens, or not at all,
+    so the spend report understated the bill by the two parts that scale with
+    how much a draft retrieves and how much it cites."""
+    reaches_verification(monkeypatch)
+    verified(monkeypatch, request_tokens=300, response_tokens=40)
+    conn = FakeConn()
+
+    await draft(conn)
+
+    assert purposes(conn) == [
+        ("embedding", 7, 0),
+        ("generation", 10, 20),
+        ("verification", 300, 40),
+    ]
+
+
+async def test_the_purposes_are_the_ones_the_migration_documents() -> None:
+    """Migration 0021 names three: generation, verification and embedding. A
+    fourth spelling would be invisible in a report grouped by purpose."""
+    sql = (MIGRATIONS / "0021_draft_cache.up.sql").read_text()
+
+    assert "generation, verification, or embedding" in sql
+
+
+async def test_a_draft_thrown_away_by_the_verifier_is_still_charged_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reaches_verification(monkeypatch)
+    verified(monkeypatch, request_tokens=120, response_tokens=8, ok=False)
+    conn = FakeConn()
+
+    with pytest.raises(Exception, match="unverifiable"):
+        await draft(conn)
+
+    assert ("verification", 120, 8) in purposes(conn)
+
+
+# ---- The corpus and the query have to share a coordinate space -----------
+
+
+async def test_a_corpus_embedded_with_another_model_is_refused() -> None:
+    """Nothing fails loudly on a mismatch: the query returns passages, they are
+    plausible text, and the model drafts from whatever arrived."""
+    conn = FakeConn(embedding_model="text-embedding-3-large")
+
+    with pytest.raises(retrieval.EmbeddingModelMismatch, match="text-embedding-3-large"):
+        await draft(conn)
+
+
+async def test_the_mismatch_is_caught_before_the_cache_is_read() -> None:
+    """Serving a cached draft would hide a deployment that cannot retrieve."""
+    conn = FakeConn(row=cached_row(), embedding_model="text-embedding-3-large")
+
+    with pytest.raises(retrieval.EmbeddingModelMismatch):
+        await draft(conn)
+
+    assert conn.looked_up == []
+
+
+# ---- A judge that cannot be asked ----------------------------------------
+
+
+def verified(
+    monkeypatch: pytest.MonkeyPatch,
+    request_tokens: int = 0,
+    response_tokens: int = 0,
+    ok: bool = True,
+) -> None:
+    """Stand in for the judge, with the tokens asking it cost."""
+    from app.assistant import verifier
+
+    async def verify(*args: Any, **kwargs: Any) -> Any:
+        return verifier.Verification(
+            checks=[
+                verifier.CitationCheck(
+                    citation=CITATION,
+                    verdict="verified" if ok else "unsupported",
+                    request_tokens=request_tokens,
+                    response_tokens=response_tokens,
+                )
+            ]
+        )
+
+    async def executemany(query: str, rows: list[Any]) -> None:
+        return None
+
+    monkeypatch.setattr(verifier, "verify_document", verify)
+    monkeypatch.setattr(FakeConn, "executemany", staticmethod(executemany), raising=False)
+
+
+def reaches_verification(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for retrieval and generation, so a test can reach step 5.
+
+    Neither is what is under test here: what is, is what the service does with
+    a judge that does not answer.
+    """
+    from types import SimpleNamespace
+
+    async def retrieve(*args: Any, **kwargs: Any) -> Any:
+        return retrieval.Retrieved(passages=[], request_tokens=7)
+
+    async def generated(*args: Any, **kwargs: Any) -> Any:
+        return SimpleNamespace(
+            document=letter(),
+            refused=False,
+            refusal=None,
+            request_tokens=10,
+            response_tokens=20,
+        )
+
+    from app.assistant import retrieval
+
+    monkeypatch.setattr(retrieval, "retrieve_for", retrieve)
+    monkeypatch.setattr(service, "generate", generated)
+
+
+async def test_a_judge_that_fails_discards_the_draft_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A judge that could not be asked is not a judge that said yes, and the
+    failure belongs to the verification rather than to the server."""
+    from pydantic_ai import UnexpectedModelBehavior
+
+    from app.assistant import verifier
+
+    async def unusable(*args: Any, **kwargs: Any) -> Any:
+        raise UnexpectedModelBehavior("exceeded maximum retries")
+
+    reaches_verification(monkeypatch)
+    monkeypatch.setattr(verifier, "verify_document", unusable)
+    conn = FakeConn()
+
+    with pytest.raises(service.VerificationFailed, match="UnexpectedModelBehavior"):
+        await draft(conn)
+
+    recorded = [args for query, args in conn.executed if "llm_usage" in query]
+    assert recorded and recorded[-1][7] == "unverifiable"
+
+
+async def test_a_judge_that_cannot_be_reached_is_the_providers_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.assistant import verifier
+
+    async def unreachable(*args: Any, **kwargs: Any) -> Any:
+        raise type("APIConnectionError", (Exception,), {})("connection error")
+
+    reaches_verification(monkeypatch)
+    monkeypatch.setattr(verifier, "verify_document", unreachable)
+
+    with pytest.raises(service.ProviderUnavailable):
+        await draft(FakeConn())
 
 
 # ---- The draft that is thrown away ---------------------------------------

@@ -1,4 +1,5 @@
-# Local development only. Railway builds infra/postgres/Dockerfile directly.
+# The optional local database, for offline work; CI builds the same image. The
+# deployed database is a Neon branch, and nothing deploys this container.
 services:
   db:
     build:

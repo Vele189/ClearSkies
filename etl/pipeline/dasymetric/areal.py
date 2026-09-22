@@ -87,6 +87,11 @@ def areal_counterpart(crosswalk: Crosswalk) -> Crosswalk:
     identically — and returns the crosswalk simple areal weighting would have
     produced from the same geometry.
 
+    The crosswalk's `area_only` rows are part of the input: they are the
+    tract's area that held no 2020 block population, and uniform density puts
+    people there. The returned crosswalk has none of its own, since under areal
+    weighting every overlap of a populated tract holds someone.
+
     `pop_weight_from_area` is set on every row. That flag already means "this
     weight is an area share rather than a population share", which is exactly
     what is true here, so a consumer that already distinguishes the two needs no
@@ -111,7 +116,10 @@ def areal_counterpart(crosswalk: Crosswalk) -> Crosswalk:
             mean_block_area_m2=row.mean_block_area_m2,
             pop_weight_from_area=True,
         )
-        for row in crosswalk.weights
+        # `area_only` too: cells holding none of a populated tract's block
+        # population are exactly where uniform density puts people the block
+        # layer does not, and a counterpart without them is not the whole tract.
+        for row in (*crosswalk.weights, *crosswalk.area_only)
     )
 
     return crosswalk_from_weights(rows)
@@ -135,7 +143,7 @@ def divergence(dasymetric: Crosswalk, areal: Crosswalk) -> Mapping[str, float]:
 
 def _require_complete(crosswalk: Crosswalk) -> None:
     shares: dict[str, float] = {}
-    for row in crosswalk.weights:
+    for row in (*crosswalk.weights, *crosswalk.area_only):
         shares[row.tract_geoid] = shares.get(row.tract_geoid, 0.0) + row.area_weight
 
     for tract, total in sorted(shares.items()):

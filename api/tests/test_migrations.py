@@ -11,13 +11,18 @@ from pathlib import Path
 
 import pytest
 
+from app.config import Settings
 from app.migrate import (
+    Migration,
     MigrationError,
     discover,
+    down,
     drift,
+    migration_dsn,
     new,
     out_of_order,
     parse_args,
+    up,
 )
 
 SHIPPED = discover()
@@ -43,8 +48,9 @@ def ddl_only(sql: str) -> str:
 
     One pass rather than two regexes, because comments hold apostrophes and
     literals could hold a double dash, so whichever pattern ran first would
-    swallow the rest of the file. Dollar quoting is not handled; no migration
-    uses it, and one that did would need a real parser anyway.
+    swallow the rest of the file. Dollar quoting is not handled: 0024's DO
+    block is the only use of it and holds no DDL this reads, and a migration
+    that put DDL inside one would need a real parser.
     """
     out: list[str] = []
     i = 0
@@ -271,6 +277,97 @@ def test_new_rejects_a_slug_that_would_not_parse_back(tmp_path: Path) -> None:
         new("Add Facility NAICS", tmp_path)
 
 
+# ---- --to names a migration ---------------------------------------------
+
+
+class FakeConn:
+    """The ledger, as far as the runner reads and writes it."""
+
+    def __init__(self, applied: dict[str, str] | None = None) -> None:
+        self.applied = applied or {}
+        self.executed: list[str] = []
+
+    async def execute(self, query: str, *args: object) -> None:
+        self.executed.append(query)
+
+    async def fetch(self, query: str, *args: object) -> list[dict[str, str]]:
+        return [{"version": v, "checksum": c} for v, c in self.applied.items()]
+
+    def transaction(self) -> object:
+        class Transaction:
+            async def __aenter__(self) -> None:
+                return None
+
+            async def __aexit__(self, *exc: object) -> None:
+                return None
+
+        return Transaction()
+
+
+def pair(tmp_path: Path, version: str, slug: str = "thing") -> Migration:
+    write(tmp_path, f"{version}_{slug}.up.sql")
+    write(tmp_path, f"{version}_{slug}.down.sql")
+    return discover(tmp_path)[-1]
+
+
+async def test_up_to_a_target_that_is_not_four_digits_is_refused(tmp_path: Path) -> None:
+    """`up --to 7` applied everything: the versions are compared as strings, so
+    "0024" < "7", and a typo'd target silently meant "all of them"."""
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+
+    with pytest.raises(MigrationError, match="four-digit"):
+        await up(FakeConn(), migrations, to="7")
+
+
+async def test_up_to_a_version_that_does_not_exist_is_refused(tmp_path: Path) -> None:
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+
+    with pytest.raises(MigrationError, match="not a migration"):
+        await up(FakeConn(), migrations, to="0099")
+
+
+async def test_up_to_a_real_version_stops_there(tmp_path: Path) -> None:
+    pair(tmp_path, "0001")
+    pair(tmp_path, "0002")
+    migrations = discover(tmp_path)
+
+    applied = await up(FakeConn(), migrations, to="0001")
+
+    assert [m.version for m in applied] == ["0001"]
+
+
+async def test_down_checks_its_target_the_same_way(tmp_path: Path) -> None:
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+
+    with pytest.raises(MigrationError, match="four-digit"):
+        await down(FakeConn(), migrations, to="1")
+
+
+async def test_down_refuses_to_revert_a_migration_that_was_edited(tmp_path: Path) -> None:
+    """Reverting runs the .down.sql beside the .up.sql on disk. Drift means the
+    file that was applied is not that file, so its down reverses something
+    else."""
+    migration = pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+    conn = FakeConn({migration.version: "a checksum from a different file"})
+
+    with pytest.raises(MigrationError, match="edited after it was applied"):
+        await down(conn, migrations)
+
+
+async def test_down_reverts_the_last_one_when_nothing_has_drifted(tmp_path: Path) -> None:
+    migration = pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+    conn = FakeConn({migration.version: migration.checksum})
+
+    reverted = await down(conn, migrations)
+
+    assert [m.version for m in reverted] == ["0001"]
+
+
 # ---- argument parsing ---------------------------------------------------
 
 
@@ -284,6 +381,30 @@ def test_database_url_overrides_the_api_setting() -> None:
 
     assert args.database_url == "postgresql://localhost/other"
     assert args.command == "status"
+
+
+# ---- which connection migrates ------------------------------------------
+
+POOLED = "postgresql://u:p@ep-x-pooler.neon.tech/neondb"
+DIRECT = "postgresql://u:p@ep-x.neon.tech/neondb"
+
+
+def test_the_unpooled_url_is_preferred_over_the_pooled_one() -> None:
+    settings = Settings(database_url=POOLED, database_url_unpooled=DIRECT)
+
+    assert migration_dsn(None, settings) == DIRECT
+
+
+def test_without_an_unpooled_url_the_api_setting_is_used() -> None:
+    settings = Settings(database_url=POOLED, database_url_unpooled="")
+
+    assert migration_dsn(None, settings) == POOLED
+
+
+def test_the_flag_beats_both_settings() -> None:
+    settings = Settings(database_url=POOLED, database_url_unpooled=DIRECT)
+
+    assert migration_dsn("postgresql://localhost/other", settings) == "postgresql://localhost/other"
 
 
 def test_a_command_is_required() -> None:

@@ -24,8 +24,12 @@ Everything else is not yours to write:
 - **Retries.** `ctx.http` retries transient failures with exponential backoff and
   full jitter, honours `Retry-After`, and never retries a 404.
 - **Rate limiting.** A token bucket shared by every request the run makes.
-- **Checksums and snapshots.** Every download is hashed and stored, which is what
-  makes the stale fallback possible.
+- **Checksums and snapshots.** Every download is hashed and written to the
+  snapshot store, which is what makes the stale fallback possible. From the
+  command line that store is a directory -- `pipeline-snapshots/` by default,
+  `--snapshots` or `PIPELINE_SNAPSHOTS` to move it -- because a fallback is
+  between two nights, and bytes held only in memory do not survive the first
+  one.
 - **Stale fallback.** If upstream is unreachable, the runner re-runs `fetch`
   against the last good snapshot, reports `stale`, and lets the recency term in
   the confidence score degrade. It never substitutes a different source.
@@ -212,7 +216,13 @@ python -m pipeline sources              # what the registry knows about
 python -m pipeline run fake             # the reference adapter, no network needed
 python -m pipeline run fake --json      # the full manifest
 python -m pipeline run fake --dry-run   # fetch and normalize, write nothing
+python -m pipeline run epa_echo --load  # write to Postgres via DATABASE_URL
+python -m pipeline run fake --snapshots /var/lib/clearskies/snapshots
 ```
+
+`--load` is the only way a pull reaches the database. Without it a run, a check
+and a night all write to an in-memory sink and are exercising the adapters and
+the gate rather than loading anything, which is what the nightly workflow does.
 
 The data quality gate (CS-108), which runs the adapters and then judges the
 night as a whole:

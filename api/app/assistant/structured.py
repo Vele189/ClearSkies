@@ -40,6 +40,22 @@ log = logging.getLogger(__name__)
 MAX_SCHEMA_ATTEMPTS = 3
 
 
+def token_counts(result: Any) -> tuple[int, int]:
+    """(request, response) tokens for one agent run.
+
+    `usage` is a property on Pydantic AI 2.x and a method on 1.x. Accepting
+    both keeps a minor upgrade from turning cost logging into a 500, and this
+    is the one place that knows it: the verifier reads it too.
+    """
+    usage = getattr(result, "usage", None)
+    if callable(usage):  # pragma: no cover - one branch per installed version
+        usage = usage()
+    return (
+        int(getattr(usage, "input_tokens", 0) or 0),
+        int(getattr(usage, "output_tokens", 0) or 0),
+    )
+
+
 def model_label(model: Model | str) -> str:
     """What to record as the model that produced a draft.
 
@@ -164,15 +180,11 @@ async def generate(
             f"the model returned {type(output).__name__}, not a draft document",
         )
 
-    # A property on Pydantic AI 2.x, a method on 1.x. Accepting both keeps a
-    # minor upgrade from turning cost logging into a 500.
-    usage = result.usage
-    if callable(usage):  # pragma: no cover - one branch per installed version
-        usage = usage()
+    request_tokens, response_tokens = token_counts(result)
     return DraftResult(
         document=document,
         refusal=refusal,
-        request_tokens=getattr(usage, "input_tokens", 0) or 0,
-        response_tokens=getattr(usage, "output_tokens", 0) or 0,
+        request_tokens=request_tokens,
+        response_tokens=response_tokens,
         model_name=model_label(model),
     )

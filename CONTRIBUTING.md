@@ -8,25 +8,40 @@ methodology and the validation set will not be.
 ## Getting set up
 
 ```bash
-cp .env.example .env
-make up        # Postgres with PostGIS, h3 and pgvector; builds from source
-make migrate   # create the schema
-make install   # Python venv and npm dependencies
-make check     # everything CI runs
+cp .env.example .env   # DATABASE_URL and DATABASE_URL_UNPOOLED from your Neon branch
+make migrate           # create the schema
+make install           # Python venvs and npm dependencies
+make check             # the local half of CI
 ```
 
-`make up` compiles h3-pg and takes several minutes the first time. If port 5432
-is already in use, set `POSTGRES_PORT` in `.env`.
+The database is a [Neon](https://neon.com) branch, which ships PostGIS, h3 and
+pgvector as managed extensions, so there is nothing to build. Take a branch of
+your own rather than sharing one. Neon gives two connection strings: the pooled
+one is `DATABASE_URL`, which the API and the pipeline use, and the direct one is
+`DATABASE_URL_UNPOOLED`, which `make migrate` prefers because the runner holds a
+session-level advisory lock that PgBouncer's transaction mode does not keep.
+
+Offline, or if you would rather not depend on a branch being up, `make up`
+builds the equivalent container from `infra/postgres`; it compiles h3-pg and
+takes several minutes the first time. CI uses the same image. Point
+`DATABASE_URL` at it, leave `DATABASE_URL_UNPOOLED` empty, and every command
+below is identical. If port 5432 is already in use, set `POSTGRES_PORT` in
+`.env`.
+
+[docs/database.md](docs/database.md) has both paths in full.
 
 ## What CI enforces
 
 | Check | Command |
 |---|---|
-| Python lint and format | `ruff check`, `ruff format --check`, in `api`, `etl` and `scoring` |
-| Python types | `mypy` in strict mode, in `api`, `etl` and `scoring` |
-| Python tests | `pytest`, in `api`, `etl` and `scoring` |
+| Python lint and format | `ruff check`, `ruff format --check`, in `api`, `etl`, `scoring` and `assistant` |
+| Python types | `mypy` in strict mode, in the same four packages |
+| Python tests | `pytest`, in the same four packages |
 | Adapter contract | `python -m pipeline run fake`, the reference source end to end |
 | Tile build | `python -m pipeline tiles` over a fixture, no database needed |
+| Nightly plan | `python -m pipeline plan`, which resolves the schedule and pulls nothing |
+| Corpus manifest | `python -m corpus check`, Appendix B against the code |
+| Frontend build | `npm run build` |
 | Frontend lint | `eslint` |
 | Frontend types | `tsc --noEmit` |
 | Frontend tests | `vitest run` |
@@ -35,8 +50,13 @@ is already in use, set `POSTGRES_PORT` in `.env`.
 | Validation set | pre-registration ordering, and internal consistency |
 | Validation gate | `scripts/run_validation.py` over the harness fixture |
 
-`make check` runs everything above except the database image build. Run it
-before opening a pull request.
+`make check` runs most of that locally: the lint, typecheck and test suites for
+all four Python packages and the frontend, the adapter contract, the corpus
+manifest, the validation-set guards and both gate harnesses. What is left to CI
+is the database image, the migration round-trip and the two PostGIS-backed API
+test files it runs against that image, the frontend production build, the
+nightly plan, and the fixture tile build. Run `make check` before opening a pull
+request.
 
 ## The three rules that are not about code
 
@@ -78,7 +98,7 @@ one adding the validation set. CI checks commit ancestry for this.
 
 ### Schema changes only ever land as a migration
 
-No `CREATE TABLE` typed into psql, no column added by hand on Railway. Every
+No `CREATE TABLE` typed into psql, no column added by hand in the Neon console. Every
 change is a numbered pair of files in `api/migrations`, written with
 `make migrate-new name=...` and applied with `make migrate`.
 
@@ -115,6 +135,14 @@ zero or to the median would systematically pull unmonitored high-burden areas
 toward the middle. That is the failure this project exists to avoid. The
 `Measurement` type makes the second rule hard to break by accident: an absent
 measurement cannot carry a value, and an observed one cannot be empty.
+
+## The vendored skills
+
+`.claude/skills/` holds Neon's published skill documents, vendored so that an
+assistant working in this repository reads the same version everyone else does,
+and `skills-lock.json` pins what was fetched. They are reference material and
+nothing in the build reads them; update them by re-fetching rather than by
+editing in place, and commit the lock file with the change.
 
 ## Style
 

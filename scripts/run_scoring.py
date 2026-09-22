@@ -16,12 +16,19 @@ The order is section 10's:
                        -> score = PB x PC (step 4)
                        -> confidence (section 12)
 
-**What is missing is missing, not zero.** Four indicators have no source data
-in this database, and every one of them is left out rather than filled in.
-`component.compute` drops an absent indicator, re-weights the groups that
-survive, and records the loss as a confidence penalty. A zero would instead say
-"measured, and there is none", which for an unmonitored place is the exact
-failure this project exists to avoid.
+**What is missing is missing, and what is zero is zero.** An indicator whose
+source this run did not read is left out rather than filled in:
+`component.compute` drops it, re-weights the groups that survive, and records
+the loss as a confidence penalty. A zero would instead say "measured, and there
+is none", which for an unmonitored place is the exact failure this project
+exists to avoid. The proximity indicators run the other way. Section 9 says E3
+and F1 to F4 *are* zero for a hex with no qualifying facility within 10 km, and
+a query over the links relation cannot return a row for a hex that has none, so
+the zeros are filled in here over the scored universe rather than lost.
+
+The decisions in that paragraph, and the four others this script used to make
+inline, are in `burden.inputs`, which has no database dependency and is tested.
+This file is the SQL and the ordering.
 
 Run it under the ingestion environment, which carries asyncpg and the
 dasymetric code:
@@ -37,7 +44,7 @@ import math
 import os
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -53,6 +60,19 @@ import asyncpg  # noqa: E402
 from burden.component import compute  # noqa: E402
 from burden.confidence import HexEvidence, confidence_for_run  # noqa: E402
 from burden.eligibility import eligible  # noqa: E402
+from burden.inputs import (  # noqa: E402
+    COMPLIANCE_QUARTERS,
+    INDICATOR_IDS,
+    compliance_window,
+    high_cv_population_share,
+    indicator_rows,
+    indicator_vintages,
+    loaded_indicators,
+    mean_block_area_m2,
+    noncompliant_quarters,
+    proximity_values,
+    source_vintages,
+)
 from burden.methodology import METHODOLOGY_VERSION  # noqa: E402
 from burden.percentile import rank_indicators  # noqa: E402
 from burden.pollution import POLLUTION_BURDEN  # noqa: E402
@@ -61,9 +81,13 @@ from burden.score import burden_score  # noqa: E402
 from pipeline.adapters.census_acs import INDICATORS as ACS_RECIPES  # noqa: E402
 from pipeline.dasymetric import postgis  # noqa: E402
 from pipeline.dasymetric.interpolate import (  # noqa: E402
-    derive_rate,
     interpolate,
+    interpolate_rate,
     max_coefficient_variation,
+)
+from pipeline.dasymetric.quantities import (  # noqa: E402
+    coefficient_of_variation,
+    proportion_moe,
 )
 
 ACS_VINTAGE = "2020-2024"
@@ -92,8 +116,9 @@ TOTAL_POPULATION = _stored("B01003_001")
 # Section 8.2: the same inverse-square decay and 10 km cutoff as E3.
 INTERACTION_RADIUS_M = 10_000.0
 
-# The trailing windows section 8.2 names.
-COMPLIANCE_QUARTERS = 12
+# The trailing enforcement window section 8.2 names. F2's twelve quarters are
+# `burden.inputs.COMPLIANCE_QUARTERS`, because which quarters they are is a
+# decision rather than a number.
 ENFORCEMENT_YEARS = 5
 
 # Indicators this run cannot produce, and why. Named rather than silently
@@ -171,7 +196,7 @@ def git_sha() -> str:
 
 
 async def hex_population(
-    conn: asyncpg.Connection, crosswalk: Any
+    conn: asyncpg.Connection, crosswalk: Any, *, acs_vintage: str
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Total population per hex, and the worst ACS uncertainty behind each.
 
@@ -180,7 +205,7 @@ async def hex_population(
     the survey's, and every other indicator in this run is on the same release.
     """
     estimates = await postgis.load_tract_estimates(
-        conn, variable=TOTAL_POPULATION, acs_vintage=ACS_VINTAGE
+        conn, variable=TOTAL_POPULATION, acs_vintage=acs_vintage
     )
     values = interpolate(crosswalk, estimates)[TOTAL_POPULATION]
     population = {h3: v.value for h3, v in values.items() if v.value is not None}
@@ -193,13 +218,20 @@ async def hex_population(
 
 
 async def acs_indicators(
-    conn: asyncpg.Connection, crosswalk: Any
-) -> dict[str, dict[str, float | None]]:
+    conn: asyncpg.Connection, crosswalk: Any, *, acs_vintage: str
+) -> tuple[dict[str, dict[str, float | None]], dict[str, list[float | None]]]:
     """S1, S2 and P1 to P5, each a rate formed once at the end.
 
-    Section 7's rule, and the reason this goes through `derive_rate` rather
-    than dividing per tract: both parts are interpolated as extensive counts
-    and the division happens after, on the hex.
+    Section 7's rule, and the reason this goes through `interpolate_rate`
+    rather than dividing per tract: both parts are interpolated as extensive
+    counts and the division happens after, on the hex. Only the tracts that
+    published both parts are interpolated, so a missing numerator cannot act
+    as a zero over a denominator that counted everybody.
+
+    Returns the hex values and, per tract, the coefficient of variation of each
+    of these seven estimates where it has one. The second is section 12's first
+    c_spatial input, which needs the uncertainty of the estimates the score is
+    drawn from and not only that of the population count.
     """
     wanted: set[str] = set()
     for recipe in ACS_RECIPES:
@@ -209,31 +241,65 @@ async def acs_indicators(
     for variable in sorted(wanted):
         loaded.extend(
             await postgis.load_tract_estimates(
-                conn, variable=_stored(variable), acs_vintage=ACS_VINTAGE
+                conn, variable=_stored(variable), acs_vintage=acs_vintage
             )
         )
 
     out: dict[str, dict[str, float | None]] = {}
+    tract_cvs: dict[str, list[float | None]] = {}
     for recipe in ACS_RECIPES:
         # Both sides are folded the same way. P5's denominator is four
         # published income-by-cost brackets rather than one total, so a rate
         # whose denominator is a single variable is the special case here, not
         # the rule.
-        numerator, numerator_name = _summed(
-            loaded, recipe.numerator, f"{recipe.id}_numerator"
-        )
-        denominator, denominator_name = _summed(
-            loaded, recipe.denominator, f"{recipe.id}_denominator"
-        )
-        interpolated = interpolate(crosswalk, [*numerator, *denominator])
-        rate = derive_rate(
-            interpolated.get(numerator_name, {}),
-            interpolated.get(denominator_name, {}),
+        numerator, _ = _summed(loaded, recipe.numerator, f"{recipe.id}_numerator")
+        denominator, _ = _summed(loaded, recipe.denominator, f"{recipe.id}_denominator")
+        rate = interpolate_rate(
+            crosswalk,
+            numerator,
+            denominator,
             variable=recipe.id,
             scale=100.0,
         )
         out[recipe.id] = {h3: value.value for h3, value in rate.items()}
-    return out
+        for tract, cv in _tract_rate_cvs(numerator, denominator).items():
+            tract_cvs.setdefault(tract, []).append(cv)
+    return out, tract_cvs
+
+
+def _tract_rate_cvs(
+    numerator: Sequence[Any], denominator: Sequence[Any]
+) -> dict[str, float | None]:
+    """The coefficient of variation of one ACS rate, tract by tract.
+
+    The same division section 7 performs on the hex, performed on the tract:
+    the published margins are combined by the Census Bureau's proportion
+    formula and divided by the rate. It is done here rather than read off the
+    interpolated hex value because section 12 asks which *estimates* a hex's
+    population was drawn from, which is a fact about the tracts underneath it.
+
+    None where the ratio has no coefficient of variation: a tract that reported
+    no margin, or a rate of zero, whose CV is undefined rather than infinite.
+    """
+    bottom = {e.tract_geoid: e for e in denominator}
+    cvs: dict[str, float | None] = {}
+    for top in numerator:
+        below = bottom.get(top.tract_geoid)
+        if below is None or below.estimate is None or float(below.estimate) == 0.0:
+            continue
+        if top.margin_of_error is None or below.margin_of_error is None:
+            cvs[top.tract_geoid] = None
+            continue
+        margin, _ = proportion_moe(
+            float(top.estimate),
+            float(top.margin_of_error),
+            float(below.estimate),
+            float(below.margin_of_error),
+        )
+        cvs[top.tract_geoid] = coefficient_of_variation(
+            float(top.estimate) / float(below.estimate), margin
+        )
+    return cvs
 
 
 def _summed(
@@ -294,6 +360,14 @@ def _summed(
 # adapter from RCRA (CS-116); before that they were false for every row, which is
 # why this indicator was listed unavailable rather than computed as zero.
 #
+# F2's twelve quarters are counted in Python, by `burden.inputs`, and handed back
+# to this query as two arrays. The count used to be `row_number() OVER (... ORDER
+# BY quarter DESC) <= 12` over rows in any status but `in_compliance`, which was
+# wrong twice: an `unknown` quarter is an unmonitored one and counted as a
+# violation, so a facility nobody inspected scored the maximum 12 of 12; and the
+# last twelve *rows* are the last twelve quarters only while one program is
+# loaded, because the table is keyed by facility, quarter and program.
+#
 # F3 weights each formal action by `1 + log10(1 + penalty)`, which is section 8.2
 # as revised by CS-214: the count is the floor and the penalty is the increment
 # above it, so an action settled without a monetary assessment contributes one
@@ -304,7 +378,11 @@ def _summed(
 # trailing five years of section 8.2, taken from the run's own as-of date rather
 # than from `current_date`, for the reason `facilities_near_hex` takes it as a
 # parameter: a run scoring last night's data should ask about that night's five
-# years, not about whenever the query happens to execute.
+# years, not about whenever the query happens to execute. It is bounded at both
+# ends for the same reason. An action dated after the run is either a clock
+# problem upstream or a scheduled future settlement, and neither belongs in a
+# trailing window; unbounded above, a re-run of an old as-of date would quietly
+# include everything since.
 FACILITY_INDICATORS = """
 SELECT l.h3::text AS h3,
        sum(l.decay_weight) FILTER (WHERE f.is_major_source OR f.has_title_v) AS f1,
@@ -313,55 +391,67 @@ SELECT l.h3::text AS h3,
        sum(l.decay_weight) FILTER (WHERE f.is_rcra_lqg OR f.is_rcra_tsdf)     AS f4
   FROM hex_facility_links_all($1) l
   JOIN facility f ON f.facility_id = l.facility_id
-  LEFT JOIN (
-      SELECT facility_id, count(*) AS bad_quarters
-        FROM (
-            SELECT facility_id, status,
-                   row_number() OVER (PARTITION BY facility_id ORDER BY quarter DESC) AS recency
-              FROM facility_compliance_quarter
-        ) ranked
-       WHERE recency <= $2 AND status <> 'in_compliance'
-       GROUP BY facility_id
-  ) q ON q.facility_id = f.facility_id
+  LEFT JOIN unnest($2::text[], $3::int[]) AS q(facility_id, bad_quarters)
+         ON q.facility_id = f.facility_id
   LEFT JOIN (
       SELECT facility_id,
              sum(1.0 + log(10.0, 1.0 + COALESCE(penalty_usd, 0)))::float8 AS action_weight
         FROM enforcement_action
        WHERE is_formal
          AND settled_on IS NOT NULL
-         AND settled_on >= ($3::date - make_interval(years => $4))::date
+         AND settled_on >= ($4::date - make_interval(years => $5))::date
+         AND settled_on <= $4::date
        GROUP BY facility_id
   ) e ON e.facility_id = f.facility_id
  GROUP BY l.h3
 """
 
+#: The quarters F2 reads, in the window and in every status. Which of them count
+#: is `burden.inputs.noncompliant_quarters`, not this query.
+COMPLIANCE_ROWS = """
+SELECT facility_id, quarter, status
+  FROM facility_compliance_quarter
+ WHERE quarter BETWEEN $1 AND $2
+"""
+
 
 async def facility_indicators(
-    conn: asyncpg.Connection, *, as_of: date
+    conn: asyncpg.Connection, *, as_of: date, hexes: Collection[str], loaded: bool
 ) -> dict[str, dict[str, float | None]]:
+    """F1 to F4 over the scored hexes, zero where no facility qualifies.
+
+    `loaded` says whether ECHO is in this database at all. Without it there is
+    nothing to count and every hex is absent; with it, a hex the links relation
+    never mentions has no facility within 10 km and is a zero.
+    """
+    names = ("F1", "F2", "F3", "F4")
+    if not loaded:
+        return {name: dict.fromkeys(hexes) for name in names}
+
+    window = compliance_window(as_of, quarters=COMPLIANCE_QUARTERS)
+    bad_quarters = noncompliant_quarters(
+        (
+            (str(row["facility_id"]), row["quarter"], str(row["status"]))
+            for row in await conn.fetch(COMPLIANCE_ROWS, window[0], window[-1])
+        ),
+        as_of=as_of,
+    )
+    facility_ids = sorted(bad_quarters)
+
     rows = await conn.fetch(
         FACILITY_INDICATORS,
         INTERACTION_RADIUS_M,
-        COMPLIANCE_QUARTERS,
+        facility_ids,
+        [bad_quarters[facility_id] for facility_id in facility_ids],
         as_of,
         ENFORCEMENT_YEARS,
     )
-    f1: dict[str, float | None] = {}
-    f2: dict[str, float | None] = {}
-    f3: dict[str, float | None] = {}
-    f4: dict[str, float | None] = {}
+    sums: dict[str, dict[str, float | None]] = {name: {} for name in names}
     for row in rows:
-        # A null sum means no facility within the radius matched the filter, which
-        # for a proximity count is an observed zero rather than an absence: the
-        # facilities were looked for and there are none. An absence here would be a
-        # hex the links relation says nothing about, and those get no row at all.
-        # F3 reads the same way: nearby facilities with no formal action in the
-        # window is a measured absence of enforcement, not an unasked question.
-        f1[row["h3"]] = float(row["f1"]) if row["f1"] is not None else 0.0
-        f2[row["h3"]] = float(row["f2"]) if row["f2"] is not None else 0.0
-        f3[row["h3"]] = float(row["f3"]) if row["f3"] is not None else 0.0
-        f4[row["h3"]] = float(row["f4"]) if row["f4"] is not None else 0.0
-    return {"F1": f1, "F2": f2, "F3": f3, "F4": f4}
+        for name in names:
+            value = row[name.lower()]
+            sums[name][row["h3"]] = None if value is None else float(value)
+    return {name: proximity_values(sums[name], hexes=hexes, loaded=True) for name in names}
 
 
 # Section 8.1. The numerator is `facility_release_toxicity.toxicity_weighted_lb`,
@@ -452,29 +542,36 @@ async def modelled_exposure(
 
 
 async def exposure_indicators(
-    conn: asyncpg.Connection, *, tri_year: int
+    conn: asyncpg.Connection, *, tri_year: int, hexes: Collection[str], e3_loaded: bool
 ) -> dict[str, dict[str, float | None]]:
-    """E3 and E4, the two Exposures indicators this database can support.
+    """E3 and E4, the two point-source Exposures indicators.
 
-    E1 and E2 stay in `UNAVAILABLE`: AirToxScreen publishes on 2010 tracts and
-    273 of Louisiana's do not exist in the 2020 set the rest of this run is
-    keyed to, which is a crosswalk decision and not this script's to make.
+    E3 is a proximity indicator and reads like F1 to F4: a hexagon with no
+    reporting facility within 10 km is a zero, because the facilities were
+    looked for. The query inner-joins the toxicity view, so a hexagon with
+    nothing near it and a hexagon near a facility that reported no weighted
+    release are the same missing row, and both are that zero. Only TRI or the
+    RSEI weights being absent from this database makes E3 an absence, and
+    `e3_loaded` is that question: without the weights the view's sum is zero for
+    every facility, which is an indicator carrying no information rather than a
+    state with no toxic releases.
 
-    Without these two the whole Exposures group falls below the section 11
-    minimum of 2 and drops out, taking half the Pollution Burden component with
-    it and leaving every scored hexagon on an `insufficient` confidence band.
+    E4 is the opposite and section 8.1 is emphatic about it: a hexagon with no
+    monitor within 25 km has no value and never a zero, so nothing is filled in
+    here.
     """
-    e3: dict[str, float | None] = {}
-    for row in await conn.fetch(RELEASE_PROXIMITY, INTERACTION_RADIUS_M, tri_year):
-        # Null means no facility within the radius reported a weighted release.
-        # An observed zero: the facilities were looked for. A hexagon the links
-        # relation never mentions gets no row here at all, which is the absence.
-        e3[row["h3"]] = float(row["e3"]) if row["e3"] is not None else 0.0
+    e3_sums: dict[str, float | None] = {}
+    if e3_loaded:
+        for row in await conn.fetch(RELEASE_PROXIMITY, INTERACTION_RADIUS_M, tri_year):
+            e3_sums[row["h3"]] = None if row["e3"] is None else float(row["e3"])
 
     e4: dict[str, float | None] = {
         row["h3"]: float(row["e4"]) for row in await conn.fetch(MEASURED_PM25)
     }
-    return {"E3": e3, "E4": e4}
+    return {
+        "E3": proximity_values(e3_sums, hexes=hexes, loaded=e3_loaded),
+        "E4": e4,
+    }
 
 
 # ---- writing the three tables ------------------------------------------
@@ -514,60 +611,49 @@ VALUES ($1, $2::h3_cell, $3::float8::numeric, $4::float8::numeric,
 """
 
 
-#: Which loaded sources each indicator's value depends on, by the names
-#: `source_snapshot.source` uses.
+#: The snapshots this run read, one row per source and snapshot.
 #:
-#: E3 names two: TRI publishes the released quantities and RSEI the toxicity
-#: weights that scale them, and a score built from a 2024 extract and a 2012
-#: weighting table is as old as the older half.
-INDICATOR_SOURCES: Mapping[str, tuple[str, ...]] = {
-    "E1": ("airtoxscreen",),
-    "E2": ("airtoxscreen",),
-    "E3": ("tri", "rsei"),
-    "E4": ("openaq",),
-    "F1": ("echo",),
-    "F2": ("echo",),
-    "F3": ("echo",),
-    "F4": ("echo",),
-    "S1": ("acs",),
-    "S2": ("acs",),
-    "P1": ("acs",),
-    "P2": ("acs",),
-    "P3": ("acs",),
-    "P4": ("acs",),
-    "P5": ("acs",),
-}
+#: Not `max(vintage_end)` per source, which is what this used to be. The run
+#: pins the ACS release, the AirToxScreen year and the TRI reporting year, so
+#: the newest snapshot of a source is frequently not the one it scored, and
+#: section 12's recency term is then measuring a dataset nobody used. Each
+#: branch below names the rows the run actually reads.
+#:
+#: `s.source = c.source` is not decoration either: TRI creates `facility` rows
+#: for reporters ECHO has never seen, so the facility table alone would date the
+#: TRI snapshot from whenever those facilities were last written.
+SNAPSHOTS_READ = """
+WITH consulted(source, snapshot_id) AS (
+    SELECT 'acs', snapshot_id FROM tract_demographics WHERE acs_vintage = $1
+    UNION
+    SELECT 'airtoxscreen', snapshot_id FROM tract_exposure WHERE vintage_year = $2
+    UNION
+    SELECT 'tri', snapshot_id FROM tri_release WHERE reporting_year = $3
+    UNION
+    SELECT 'rsei', w.snapshot_id
+      FROM chemical_toxicity_weight w
+     WHERE w.cas_number IN (SELECT cas_number FROM tri_release WHERE reporting_year = $3)
+    UNION
+    SELECT 'openaq', snapshot_id FROM hex_air_quality WHERE parameter = 'pm25'
+    UNION
+    SELECT 'echo', snapshot_id FROM facility
+    UNION
+    SELECT 'echo', snapshot_id FROM facility_compliance_quarter
+    UNION
+    SELECT 'echo', snapshot_id FROM enforcement_action
+)
+SELECT s.source, s.vintage_end
+  FROM consulted c
+  JOIN source_snapshot s
+    ON s.snapshot_id = c.snapshot_id AND s.source = c.source
+"""
 
 
-async def source_vintages(conn: asyncpg.Connection) -> dict[str, date]:
-    """The newest vintage_end per source."""
-    rows = await conn.fetch(
-        "SELECT source, max(vintage_end) AS vintage_end FROM source_snapshot GROUP BY source"
-    )
-    return {row["source"]: row["vintage_end"] for row in rows}
-
-
-def indicator_vintages(per_source: Mapping[str, date]) -> dict[str, date]:
-    """The vintage_end behind each indicator, keyed the way section 12 asks.
-
-    `confidence._recency` looks these up by *indicator*, and this was previously
-    handed the per-source mapping. Every lookup missed, the contributing weight
-    summed to zero, and the recency term returned 0.0 for every hexagon in the
-    state -- which, floored at 0.05 and raised to its 0.20 share of a geometric
-    mean, quietly held every confidence value down. It does not raise, and a
-    score whose age is unknown is indistinguishable in the output from one that
-    is genuinely stale, so it is written out here rather than left to be
-    rediscovered.
-
-    The oldest contributing source wins: an indicator is no fresher than the
-    stalest thing it is built from.
-    """
-    out: dict[str, date] = {}
-    for indicator, sources in INDICATOR_SOURCES.items():
-        dates = [per_source[name] for name in sources if name in per_source]
-        if dates:
-            out[indicator] = min(dates)
-    return out
+async def snapshots_read(
+    conn: asyncpg.Connection, *, acs_vintage: str, exposure_year: int, tri_year: int
+) -> list[tuple[str, date]]:
+    rows = await conn.fetch(SNAPSHOTS_READ, acs_vintage, exposure_year, tri_year)
+    return [(str(row["source"]), row["vintage_end"]) for row in rows]
 
 
 WRITE_DISTRIBUTION = """
@@ -597,26 +683,42 @@ async def main() -> int:
 
     conn = await asyncpg.connect(url, command_timeout=1800)
     try:
-        return await score_run(conn, promote=args.promote)
+        return await score_run(conn, promote=args.promote, acs_vintage=args.acs_vintage)
     finally:
         await conn.close()
 
 
-async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
+async def score_run(
+    conn: asyncpg.Connection, *, promote: bool, acs_vintage: str = ACS_VINTAGE
+) -> int:
     # One as-of date for the whole run. Section 12's recency term and section
     # 8.2's trailing enforcement window are both measured from it, and a run that
     # asked the clock twice could straddle midnight and date them differently.
     as_of = datetime.now(UTC).date()
 
-    missing = sorted({**UNAVAILABLE, **UNDEFINED})
+    # Which sources this database holds, read before anything is computed: it
+    # decides both what an indicator's vintage is and whether an indicator with
+    # no nearby facility is a zero or an absence.
+    per_source = source_vintages(
+        await snapshots_read(
+            conn,
+            acs_vintage=acs_vintage,
+            exposure_year=EXPOSURE_VINTAGE_YEAR,
+            tri_year=TRI_REPORTING_YEAR,
+        )
+    )
+    vintages = indicator_vintages(per_source)
+    loaded = loaded_indicators(per_source)
+    missing = sorted(set(INDICATOR_IDS) - loaded)
     print(
-        f"methodology {METHODOLOGY_VERSION}; {len(missing)} indicators unavailable: {', '.join(missing)}"
+        f"methodology {METHODOLOGY_VERSION}; ACS {acs_vintage}; "
+        f"{len(missing)} indicators have no source loaded: {', '.join(missing) or 'none'}"
     )
     for indicator, reason in sorted({**UNAVAILABLE, **UNDEFINED}.items()):
         print(f"  {indicator}: {reason}")
 
     crosswalk = await postgis.load_crosswalk(conn)
-    population, worst_cv = await hex_population(conn, crosswalk)
+    population, worst_cv = await hex_population(conn, crosswalk, acs_vintage=acs_vintage)
     print(f"population interpolated onto {len(population)} hexes")
 
     # The whole grid, not just the hexes with people: a cell the run knows
@@ -638,27 +740,43 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
         return 1
 
     values: dict[str, dict[str, float | None]] = {}
-    values.update(await acs_indicators(conn, crosswalk))
-    values.update(await facility_indicators(conn, as_of=as_of))
-    values.update(await exposure_indicators(conn, tri_year=TRI_REPORTING_YEAR))
+    acs_values, tract_cvs = await acs_indicators(conn, crosswalk, acs_vintage=acs_vintage)
+    values.update(acs_values)
+    values.update(
+        await facility_indicators(
+            conn, as_of=as_of, hexes=scored, loaded="F1" in loaded
+        )
+    )
+    values.update(
+        await exposure_indicators(
+            conn, tri_year=TRI_REPORTING_YEAR, hexes=scored, e3_loaded="E3" in loaded
+        )
+    )
     values.update(
         await modelled_exposure(conn, crosswalk, vintage_year=EXPOSURE_VINTAGE_YEAR)
     )
-    present = sorted(values)
+    present = sorted(
+        indicator
+        for indicator, row in values.items()
+        if any(row.get(h3) is not None for h3 in scored)
+    )
     print(f"{len(present)} indicators computed: {', '.join(present)}")
 
     rankings = rank_indicators(values, scored=scored)
     pollution = compute(POLLUTION_BURDEN, rankings, scored=scored)
     characteristics = compute(POPULATION_CHARACTERISTICS, rankings, scored=scored)
 
-    vintages = indicator_vintages(await source_vintages(conn))
     observed_by_hex = {
         h3: frozenset(i for i in present if values[i].get(h3) is not None)
         for h3 in scored
     }
-    mean_block_area = {
-        h3: area
-        for h3, area in ((w.h3, w.mean_block_area_m2) for w in crosswalk.weights)
+    # Section 12's two spatial inputs, both over the tracts that actually meet
+    # this hex. `mean_block_area` used to be a dict comprehension over every
+    # crosswalk row, which kept whichever tract came last for each hex and so
+    # scored a hex split between a town and a marsh on one of the two at random.
+    mean_block_area = {h3: mean_block_area_m2(crosswalk.for_hex(h3)) for h3 in scored}
+    high_cv_share = {
+        h3: high_cv_population_share(crosswalk.for_hex(h3), tract_cvs) for h3 in scored
     }
     # Section 12's c_monitor term. The OpenAQ adapter already computed the
     # distance to the nearest monitor for every hexagon, including the ones it
@@ -673,9 +791,9 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
         HexEvidence(
             h3=h3,
             observed_indicators=observed_by_hex[h3],
-            high_cv_population_share=min(worst_cv.get(h3, 0.0), 1.0),
+            high_cv_population_share=high_cv_share[h3],
             mean_block_area_km2=(
-                mean_block_area[h3] / 1e6 if mean_block_area.get(h3) else None
+                area / 1e6 if (area := mean_block_area.get(h3)) else None
             ),
             nearest_monitor_km=nearest_monitor.get(h3),
         )
@@ -694,7 +812,7 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
         OPEN_RUN,
         git_sha(),
         METHODOLOGY_VERSION,
-        f"{len(present)} of 15 indicators; missing {', '.join(missing)}",
+        f"{len(present)} of 15 indicators; no source loaded for {', '.join(missing) or 'none'}",
     )
 
     try:
@@ -708,6 +826,7 @@ async def score_run(conn: asyncpg.Connection, *, promote: bool) -> int:
                 population,
                 worst_cv,
                 mean_block_area,
+                acs_vintage,
             )
             await _write_distributions(conn, run_id, rankings, vintages)
         await conn.execute(CLOSE_RUN, run_id, "succeeded", len(scored))
@@ -776,7 +895,8 @@ async def _write(
     values: Mapping[str, Mapping[str, float | None]],
     population: Mapping[str, float],
     worst_cv: Mapping[str, float],
-    mean_block_area: Mapping[str, float],
+    mean_block_area: Mapping[str, float | None],
+    acs_vintage: str,
 ) -> None:
     scored = {row.h3 for row in run.hexes if row.score is not None}
 
@@ -800,30 +920,27 @@ async def _write(
                 rates["P5"].get(h3),
                 worst_cv.get(h3),
                 mean_block_area.get(h3),
-                ACS_VINTAGE,
+                acs_vintage,
             )
             for h3 in sorted(scored)
         ],
     )
 
-    percentiles = {
+    # All fifteen for every scored hex, observed or not. Section 11 rule 5 asks
+    # for every dropped indicator to be recorded per hex, and the panel already
+    # renders an absent one; writing only the observed rows left `observed =
+    # false` a state no run could produce.
+    percentiles: Mapping[str, Mapping[str, float | None]] = {
         indicator: {row.h3: row.percentile for row in ranking.hexes}
         for indicator, ranking in rankings.items()
     }
     await conn.executemany(
         WRITE_INDICATOR,
         [
-            (
-                run_id,
-                h3,
-                indicator,
-                value,
-                percentiles[indicator].get(h3),
-                value is not None,
+            (run_id, h3, indicator, value, percentile, observed)
+            for h3, indicator, value, percentile, observed in indicator_rows(
+                values, percentiles, hexes=scored
             )
-            for indicator in sorted(values)
-            for h3 in sorted(scored)
-            if (value := values[indicator].get(h3)) is not None
         ],
     )
 

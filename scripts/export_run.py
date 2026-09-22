@@ -15,9 +15,15 @@ last.
 
 **No `areal` block.** Section 13.5's third check wants the same run interpolated
 a second time by area share, and `dasymetric.areal_counterpart` produces it from
-the block layer. CS-112 discards the blocks once the crosswalk is built, so that
-block is absent and the check reports that it did not run -- which is a
-different statement from finding no divergence, and is the honest one.
+`tract_hex_weight` rather than from the block layer: it needs each tract's area
+shares, which the crosswalk stores. What it needs and did not have is the whole
+of each tract, and until migration 0025 the cells holding none of a tract's
+block population were not stored at all, so the counterpart refused every tract
+that had one. A crosswalk rebuilt under 0025 carries them, which does mean
+reloading the blocks once. This script still exports no `areal` block, because
+producing one means scoring the counterpart as a second run, and the check
+reports that it did not run -- which is a different statement from finding no
+divergence, and is the honest one.
 """
 
 from __future__ import annotations

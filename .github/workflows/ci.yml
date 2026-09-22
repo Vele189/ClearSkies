@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, project-setup]
+    branches: [master]
   pull_request:
 
 jobs:
@@ -17,7 +17,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install h3 pyyaml
+      # Pinned, because a guard that installs whatever is newest on the day is
+      # a guard whose result can change without a commit. These are the
+      # versions api/pyproject.toml's floors (h3>=4.1, pyyaml>=6.0) resolve to;
+      # move them together with those.
+      - run: pip install h3==4.5.0 pyyaml==6.0.3
       - name: Validation set is internally consistent
         run: python scripts/check_validation_set.py
       - name: Anchors match the external evidence
@@ -57,6 +61,11 @@ jobs:
       - run: ruff format --check .
       - run: mypy app tests
       - run: python -m pytest -q
+      # scripts/ has no package of its own, so it borrows this job's ruff. The
+      # rules are in scripts/ruff.toml. Format is not checked there yet: most
+      # of the scripts predate this step and were never formatted.
+      - name: The scripts lint clean
+        run: ruff check ../scripts
       # Railpack installs nothing from a bare pyproject.toml, so the deploy
       # reads api/requirements.txt. Catch the two lists drifting here rather
       # than in a health check that has already failed.
@@ -220,6 +229,15 @@ jobs:
         env:
           CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
         run: python -m pytest tests/test_hex_detail_sql.py -q
+
+      # CS-302. Retrieval's isolation from unsealed and superseded corpus
+      # versions is a property of a view, so it is only checked where the view
+      # exists. `make test-spatial` runs these same three files.
+      - name: Retrieval sees only the sealed corpus against real pgvector
+        working-directory: api
+        env:
+          CLEARSKIES_TEST_DATABASE_URL: postgresql://clearskies:clearskies@localhost:5432/clearskies
+        run: python -m pytest tests/test_retrieval_sql.py -q
 
       - name: Down migrations unwind the whole set
         working-directory: api

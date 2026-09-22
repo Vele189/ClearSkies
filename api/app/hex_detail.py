@@ -20,7 +20,7 @@ import logging
 from datetime import date
 from typing import Any
 
-from app.facilities import contributing
+from app.facilities import contributing, count_contributing
 from app.indicators import (
     COMPONENT_COLUMNS,
     COMPONENT_GROUPS,
@@ -252,11 +252,11 @@ async def load(conn: Any, h3_index: str, run: RunContext) -> HexDetail | None:
     # Bound the enforcement count by the run rather than by today, which is
     # what app/facilities.py asks a caller rendering a stored run to do.
     run_day = run.finished_at.date() if run.finished_at is not None else date.today()
-    facilities = await contributing(
-        conn,
-        h3_index,
-        actions_since=enforcement_window_start(run_day),
-    )
+    since = enforcement_window_start(run_day)
+    facilities = await contributing(conn, h3_index, actions_since=since)
+    # The list is capped; the count is not. A reader told "50 facilities" by a
+    # panel that stopped counting at 50 has been told something false.
+    facility_count = await count_contributing(conn, h3_index, actions_since=since)
 
     indicators = build_indicators(list(indicator_rows))
 
@@ -273,6 +273,7 @@ async def load(conn: Any, h3_index: str, run: RunContext) -> HexDetail | None:
         confidence=build_confidence(core),
         demographics=build_demographics(core),
         facilities=facilities,
+        facility_count=facility_count,
         no_score_reason=core["no_score_reason"],
         methodology_version=run.methodology_version,
         data_vintage=run.data_vintage,

@@ -23,10 +23,16 @@
  * legal documents.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError, postDraft } from "../lib/api.ts";
-import { citationLabel, citationUrl, draftFileName, renderDraftText } from "../lib/draft.ts";
+import {
+  allCitations,
+  citationLabel,
+  citationUrl,
+  draftFileName,
+  renderDraftText,
+} from "../lib/draft.ts";
 import {
   DOCUMENT_TYPE_BLURBS,
   DOCUMENT_TYPE_LABELS,
@@ -154,6 +160,25 @@ function Extras({ document }: { document: DraftDocument }) {
         </section>
       )}
 
+      {/* The authority a complaint rests on. It is what makes the document an
+          administrative complaint rather than a letter of concern, so it is on
+          the page and in anything copied or downloaded. */}
+      {document.legal_basis && document.legal_basis.length > 0 && (
+        <section className="mb-4">
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Legal basis
+          </h4>
+          <ul className="space-y-1">
+            {document.legal_basis.map((citation, i) => (
+              <li key={i} className="text-sm text-slate-800">
+                <CitationLink citation={citation} />
+                <span className="ml-1 text-slate-600">{citation.proposition}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {document.what_you_can_do && document.what_you_can_do.length > 0 && (
         <section className="mb-4">
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -207,15 +232,28 @@ function Extras({ document }: { document: DraftDocument }) {
   );
 }
 
+/** How long a downloaded draft's blob URL is kept alive. Revoking it in the
+ *  same tick as the click races the download the click started, and a browser
+ *  that has not fetched it yet saves nothing. A minute is far longer than any
+ *  of them need and the page is not holding much: one short text file. */
+const BLOB_LIFETIME_MS = 60_000;
+
 function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache: boolean }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"yes" | "no" | "failed">("no");
   const document_ = stamped.document;
+  const citations = allCitations(document_);
 
   const copy = useCallback(() => {
-    void navigator.clipboard.writeText(renderDraftText(stamped)).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    });
+    // A clipboard write can be refused — no permission, or no clipboard at all
+    // over plain HTTP. Saying so is the point: a reader who believes they have
+    // the draft and pastes nothing has lost it.
+    navigator.clipboard.writeText(renderDraftText(stamped)).then(
+      () => {
+        setCopied("yes");
+        window.setTimeout(() => setCopied("no"), 2000);
+      },
+      () => setCopied("failed"),
+    );
   }, [stamped]);
 
   const download = useCallback(() => {
@@ -225,7 +263,9 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
     anchor.href = url;
     anchor.download = draftFileName(stamped);
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, BLOB_LIFETIME_MS);
   }, [stamped]);
 
   return (
@@ -246,14 +286,14 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
 
       <section className="mt-5 border-t border-slate-200 pt-3">
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Citations ({document_.citations.length})
+          Citations ({citations.length})
         </h4>
         <p className="mb-2 text-xs text-slate-500">
           Every one was checked against the EPA data and the statute corpus before this was
           shown. Follow them.
         </p>
         <ul className="space-y-2">
-          {document_.citations.map((citation, i) => (
+          {citations.map((citation, i) => (
             <li key={i} className="text-xs">
               <CitationLink citation={citation} />
               <span className="ml-1 text-slate-600">{citation.proposition}</span>
@@ -269,7 +309,7 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
           onClick={copy}
           className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
         >
-          {copied ? "Copied" : "Copy"}
+          {copied === "yes" ? "Copied" : "Copy"}
         </button>
         <button
           onClick={download}
@@ -278,6 +318,13 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
           Download
         </button>
       </div>
+
+      {copied === "failed" && (
+        <p role="status" className="mt-2 text-xs text-amber-800">
+          The browser would not let the page write to the clipboard. Select the draft above and
+          copy it yourself, or use Download.
+        </p>
+      )}
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
         Hexagon {stamped.h3} · confidence {stamped.confidence_band} · methodology{" "}
@@ -333,14 +380,32 @@ function Failed({ status, detail }: { status: number; detail: string }) {
 
 export default function DraftPanel({ hex }: { hex: HexDetail }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const pending = useRef<AbortController | null>(null);
 
   const insufficient = hex.confidence.band === "insufficient";
 
+  // A draft in flight belongs to the hexagon it was asked about. If the reader
+  // moves on before it lands, it is abandoned rather than shown under a heading
+  // for a different place. The parent keys this panel on the hexagon, so the
+  // state resets with it; this makes sure nothing late arrives into the reset.
+  useEffect(
+    () => () => {
+      pending.current?.abort();
+      pending.current = null;
+    },
+    [hex.h3],
+  );
+
   const generate = useCallback(
     (documentType: DocumentType) => {
+      pending.current?.abort();
+      const controller = new AbortController();
+      pending.current = controller;
+
       setStatus({ kind: "generating", documentType });
-      postDraft(hex.h3, documentType)
+      postDraft(hex.h3, documentType, controller.signal)
         .then((response) => {
+          if (controller.signal.aborted) return;
           if (response.status === "refused" && response.refusal) {
             setStatus({ kind: "refused", refusal: response.refusal });
           } else if (response.draft) {
@@ -354,6 +419,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
           }
         })
         .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
           setStatus({
             kind: "failed",
             status: error instanceof ApiError ? error.status : 0,

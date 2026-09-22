@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Place } from "../lib/geocode.ts";
 import {
   FILL_COLOR,
+  FILL_OPACITY,
   HATCH_IMAGE_ID,
   hatchFilter,
   hatchImage,
@@ -38,6 +39,16 @@ function sourceOf(event: unknown): string | null {
   if (event && typeof event === "object" && "sourceId" in event) {
     const sourceId: unknown = event.sourceId;
     if (typeof sourceId === "string") return sourceId;
+  }
+  return null;
+}
+
+/** The H3 index a rendered feature carries. Tile feature properties are
+ *  untyped by definition, so this narrows rather than trusts them. */
+function h3Of(properties: unknown): string | null {
+  if (properties && typeof properties === "object" && "h3" in properties) {
+    const h3: unknown = properties.h3;
+    if (typeof h3 === "string") return h3;
   }
   return null;
 }
@@ -129,7 +140,7 @@ export default function MapView({ onSelect }: Props) {
         source: SOURCE_ID,
         "source-layer": "hexes",
         filter: visibilityFilter(false),
-        paint: { "fill-color": FILL_COLOR, "fill-opacity": 0.75 },
+        paint: { "fill-color": FILL_COLOR, "fill-opacity": FILL_OPACITY },
       });
 
       // Drawn over the fill rather than in place of it, so a low-confidence hex
@@ -155,12 +166,8 @@ export default function MapView({ onSelect }: Props) {
       });
 
       map.on("click", FILL_LAYER_ID, (event: MapLayerMouseEvent) => {
-        // Tile feature properties are untyped by definition; narrow before use.
-        const properties: unknown = event.features?.[0]?.properties;
-        if (properties && typeof properties === "object" && "h3" in properties) {
-          const h3: unknown = properties.h3;
-          if (typeof h3 === "string") onSelectRef.current(h3);
-        }
+        const h3 = h3Of(event.features?.[0]?.properties);
+        if (h3) onSelectRef.current(h3);
       });
       map.on("mouseenter", FILL_LAYER_ID, () => {
         map.getCanvas().style.cursor = "pointer";
@@ -196,13 +203,59 @@ export default function MapView({ onSelect }: Props) {
       ? null
       : fatal;
 
+  /** The selection waiting on a flight to finish, so a second pick can cancel
+   *  the first rather than open two panels in turn. */
+  const pendingPick = useRef<(() => void) | null>(null);
+
+  // A search pick selects the hexagon under it, not only the view. Clicking is
+  // otherwise the only way into a panel, and a reader on the keyboard would be
+  // shown the right place and given no way to open it. The fill is queried at
+  // the point once the flight has settled and its tiles have drawn, because
+  // until then the hexagon there may not be rendered at all.
   const handlePick = useCallback((place: Place) => {
-    mapRef.current?.flyTo({ center: place.center, zoom: 11, essential: true });
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (pendingPick.current) {
+      map.off("moveend", pendingPick.current);
+      map.off("idle", pendingPick.current);
+    }
+    // Ending any flight still under way before listening, because an
+    // interrupted flight fires its own moveend, and this pick would otherwise
+    // take that for its own arrival and select at the old position.
+    map.stop();
+
+    const select = () => {
+      pendingPick.current = null;
+      if (!map.getLayer(FILL_LAYER_ID)) return;
+      const features = map.queryRenderedFeatures(map.project(place.center), {
+        layers: [FILL_LAYER_ID],
+      });
+      const h3 = h3Of(features[0]?.properties);
+      if (h3) onSelectRef.current(h3);
+    };
+    const settle = () => {
+      if (map.areTilesLoaded()) {
+        select();
+      } else {
+        pendingPick.current = select;
+        map.once("idle", select);
+      }
+    };
+    pendingPick.current = settle;
+    map.once("moveend", settle);
+
+    map.flyTo({ center: place.center, zoom: 11, essential: true });
   }, []);
 
   return (
     <div className="relative h-full w-full">
-      <div ref={container} className="h-full w-full" aria-label="Burden score map" />
+      <div
+        ref={container}
+        role="region"
+        className="h-full w-full"
+        aria-label="Burden score map"
+      />
 
       {!blocked && (
         <>

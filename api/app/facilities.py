@@ -37,6 +37,14 @@ NEARBY = """
 SELECT * FROM facilities_near_hex($1, $2, $3) LIMIT $4
 """
 
+# How many there are, which is not how many are listed. The panel shows the
+# nearest fifty and the model is shown fewer still, and both were presenting
+# that cap as the total: a hexagon with 120 facilities within 10 km reported
+# 50, in a drill-down whose purpose is to say what produced the score.
+NEARBY_COUNT = """
+SELECT count(*) FROM facilities_near_hex($1, $2, $3)
+"""
+
 
 def program_label(row: Any) -> str:
     """What the facility is permitted under, as the panel prints it.
@@ -74,6 +82,17 @@ def to_facility(row: Any) -> Facility:
         quarters_in_noncompliance=row["quarters_in_noncompliance"],
         formal_actions_5yr=row["formal_actions"],
     )
+
+
+async def count_contributing(
+    conn: Any,
+    h3: str,
+    *,
+    radius_m: float = INTERACTION_RADIUS_M,
+    actions_since: date | None = None,
+) -> int:
+    """How many facilities are within the interaction radius, uncapped."""
+    return int(await conn.fetchval(NEARBY_COUNT, h3, radius_m, actions_since))
 
 
 async def contributing(

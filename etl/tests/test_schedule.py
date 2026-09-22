@@ -86,6 +86,30 @@ def test_every_reason_is_written_down() -> None:
         assert schedule.note.strip(), f"{schedule.source} has no note"
 
 
+def test_every_registered_source_declares_an_interval() -> None:
+    """An undeclared source is pulled nightly by default, which for the block
+    layer meant half an hour a night against geography fixed until 2030."""
+    from pipeline.adapters import names
+
+    undeclared = sorted(set(names()) - set(SCHEDULES))
+    assert not undeclared, f"no schedule is declared for {', '.join(undeclared)}"
+
+
+def test_the_decennial_block_layer_is_not_due_nightly() -> None:
+    schedule = schedule_for("census_block")
+
+    assert schedule.refresh.cadence == "decennial"
+    assert not schedule.refresh.due(last_success=ago(30), now=NOW)[0]
+    assert schedule.refresh.due(last_success=ago(366), now=NOW)[0]
+
+
+def test_the_most_expensive_source_sorts_last() -> None:
+    """Cheapest-first is what decides which source a timeout cuts."""
+    order = resolve_order(SCHEDULES)
+
+    assert order[-1] == "census_block"
+
+
 def test_only_the_daily_source_is_pulled_every_night() -> None:
     """The budget rests on this: one source moves daily and the rest do not."""
     nightly = [s.source for s in SCHEDULES.values() if s.refresh.every_days == 1]

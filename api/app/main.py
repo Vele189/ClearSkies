@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import __version__, db
+from app import __version__, db, llm
 from app.config import get_settings
 from app.logging_config import REQUEST_ID_HEADER, RequestLogMiddleware, configure_logging
 from app.routers import draft, health, hex, meta, provenance
@@ -35,6 +35,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await db.connect()
     yield
     await db.disconnect()
+    # The provider client is built on first use and lives for the process, so
+    # closing it is the lifespan's job; an unclosed one leaks its connection
+    # pool and its TLS sessions.
+    await llm.close()
     log.info("stopped")
 
 

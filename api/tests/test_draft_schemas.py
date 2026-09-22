@@ -250,6 +250,40 @@ def test_a_complaint_cannot_proceed_on_a_dataset_record_alone() -> None:
         )
 
 
+def test_a_complaints_legal_basis_is_among_its_citations() -> None:
+    """Otherwise it never reaches the verifier, and a fabricated statute in the
+    part of a complaint an office reads first verified and was cached."""
+    basis = StatuteCitation(
+        section="42 U.S.C. § 2000d",
+        document_id="usc-42-chap21",
+        proposition="Title VI prohibits discrimination in federally assisted programs.",
+    )
+    complaint = AgencyComplaintDraft(
+        recipient_office="U.S. EPA External Civil Rights Compliance Office",
+        legal_basis=[basis],
+        relief_sought="Open an investigation.",
+        paragraphs=[cited()],
+    )
+
+    assert basis in complaint.citations
+    assert basis in complaint.claims()
+
+
+def test_a_section_cited_for_two_claims_is_one_source_and_two_claims() -> None:
+    """The display list is deduplicated by source; the verifier's is not, or the
+    second proposition on a section already cited is never judged."""
+    second = SECTION.model_copy(update={"proposition": "A facility here violated it."})
+    document = letter(
+        paragraphs=[
+            Paragraph(text="One.", citations=[SECTION]),
+            Paragraph(text="Two.", citations=[second, SECTION]),
+        ]
+    )
+
+    assert document.citations == [SECTION]
+    assert document.claims() == [SECTION, second]
+
+
 def test_a_complaint_needs_a_legal_basis() -> None:
     with pytest.raises(ValidationError):
         AgencyComplaintDraft(

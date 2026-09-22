@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql://clearskies:clearskies@localhost:5432/clearskies"
+    # Neon's direct endpoint, for the migration runner only. DATABASE_URL is the
+    # pooled one, and the runner's advisory lock is session-level, which
+    # PgBouncer's transaction mode does not keep. Empty against the container,
+    # where there is no pooler. See app/migrate.py.
+    database_url_unpooled: str = ""
     cors_origins: str = "http://localhost:5173"
     log_level: str = "info"
 
@@ -31,6 +36,13 @@ class Settings(BaseSettings):
     # Keep startup fast when the database is not running, so the API still
     # serves /health and reports the database as unavailable.
     db_connect_timeout: float = 5.0
+
+    # Per-client limit on /draft, the one endpoint that spends money. On by
+    # default; a limit of zero or less turns it off. In-process only, so it
+    # bounds one client's burst rather than the deployment's bill -- the hard
+    # cap belongs with the provider. See app/rate_limit.py.
+    draft_rate_limit: int = 10
+    draft_rate_window_s: float = 3600.0
 
     @property
     def cors_origin_list(self) -> list[str]:

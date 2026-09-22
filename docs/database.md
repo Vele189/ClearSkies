@@ -20,10 +20,12 @@ Three extensions, and the project does not work without any of them:
 | h3-pg | Ad-hoc H3 queries in psql |
 | pgvector | Retrieval over the statute corpus |
 
-**h3-pg is why this is a self-hosted image.** Managed Postgres providers do not
-offer it, so `infra/postgres/Dockerfile` builds it from source on top of
-`postgres:17-bookworm` and Railway runs that image as the `db` service. The
-first build compiles the H3 C library and takes several minutes.
+**Neon provides all three as managed extensions**, which is why the database is
+a Neon branch rather than a service of its own. h3-pg is the one that is hard to
+find: most managed providers do not offer it, and the project carried a custom
+image for it before Neon did. `infra/postgres/Dockerfile` still builds that
+image from source on top of `postgres:17-bookworm`, for offline work and for
+CI, and the first build compiles the H3 C library and takes several minutes.
 
 **Nothing in the pipeline depends on h3-pg.** Cell indexes are computed in
 Python during the nightly job and stored as text, so the schema uses a domain,
@@ -35,9 +37,51 @@ extension is there for the queries a human writes at a prompt.
 
 ## 2. Local development
 
-The default path is the container. `docker-compose.yml` builds the same image
-Railway does, so a local database and a deployed one differ only in the data
-they hold.
+The default path is a [Neon](https://neon.com) branch. Branch the database
+rather than sharing one: a branch is a copy-on-write fork of the data, so a
+migration you are unsure about runs against real rows and is then thrown away.
+
+```bash
+cp .env.example .env   # DATABASE_URL and DATABASE_URL_UNPOOLED from the branch
+make migrate           # create the schema
+```
+
+Neon shows two connection strings per branch and they are not interchangeable.
+
+- **`DATABASE_URL`, the pooled one** (`-pooler` in the hostname). The API, the
+  pipeline and the scoring scripts use it: they open many short connections and
+  that is what the pooler is for.
+- **`DATABASE_URL_UNPOOLED`, the direct one.** `make migrate` and the other
+  `migrate-*` targets prefer it whenever it is set, and fall back to
+  `DATABASE_URL`. The runner holds a session-level advisory lock for the whole
+  run so two runners queue instead of interleaving half-applied schemas, and
+  PgBouncer's transaction mode hands each statement whichever server connection
+  is free, so over the pooler that lock guards nothing.
+
+Confirm the branch has the three extensions. `make migrate` creates a
+`clearskies_extensions` view for exactly that, readable from `psql`, the Neon
+SQL editor, or any other client:
+
+```sql
+SELECT * FROM clearskies_extensions;
+```
+
+Useful afterwards:
+
+```bash
+make migrate-status  # what is applied, what is pending
+make migrate-verify  # every migration applied, and no file edited since
+```
+
+An idle branch scales to zero, so the first query after a quiet spell waits for
+the compute to wake. `DB_CONNECT_TIMEOUT` is what the API allows for it before
+reporting the database unavailable on `/health`.
+
+### The container instead
+
+`docker-compose.yml` and `infra/postgres` build the equivalent database
+locally: the same three extensions, from source. It is the offline path, and it
+is what CI uses, since a CI job should not depend on a shared branch being up.
 
 ```bash
 cp .env.example .env
@@ -46,44 +90,31 @@ make extensions  # print the extension versions
 make migrate     # create the schema
 ```
 
+Point `DATABASE_URL` at
+`postgresql://clearskies:clearskies@localhost:5432/clearskies`, leave
+`DATABASE_URL_UNPOOLED` empty — there is no pooler to avoid — and every other
+command is identical.
+
 `make up` is slow the first time and fast afterwards. If port 5432 is taken,
 set `POSTGRES_PORT` in `.env` to something free and change the port in
 `DATABASE_URL` to match.
 
-Useful afterwards:
-
 ```bash
-make psql            # a shell on the local database
-make migrate-status  # what is applied, what is pending
-make down            # stop the container, keep the data
+make psql                # a shell on the local database
+make down                # stop the container, keep the data
 docker compose down -v   # stop it and destroy the volume
 ```
 
-### Against a remote database instead
-
-Every migration command reads `DATABASE_URL`, so pointing at a shared
-development database on Railway is a matter of setting it. Take the connection
-string from the Railway dashboard, under the `db` service's Variables tab, and
-use the public proxy hostname rather than the internal one, which only resolves
-inside Railway's network.
-
-```bash
-DATABASE_URL='postgresql://user:password@host.proxy.rlwy.net:PORT/railway' \
-  make migrate-status
-```
-
-Two cautions. A shared development database has no per-branch isolation, so a
-migration you apply is applied for everyone on it, and `migrate-down` unwinds
-their schema too. And Railway's egress is billed, so a full pilot-state load
-over the public proxy costs real money where the same load into a local
-container costs nothing. Use the container for anything involving bulk data.
+Bulk data is the one case where the container wins on more than convenience: a
+full pilot-state load pulls every row across the network from a branch, and
+does not from a container on the same machine.
 
 ---
 
 ## 3. How schema changes land
 
 **Only through a migration.** No `CREATE TABLE` typed into psql, no column
-added by hand on Railway, no exceptions. A schema that exists because somebody
+added by hand in the Neon console, no exceptions. A schema that exists because somebody
 ran a statement once cannot be rebuilt, and this project's whole claim is that
 its output is reproducible from public inputs.
 
@@ -134,6 +165,14 @@ The migrations ship inside the `api` service, which is why they live under
 
 ```bash
 railway run --service api python -m app.migrate up
+```
+
+That runs against the service's pooled `DATABASE_URL`. Prefer running it from a
+machine that holds the branch's direct connection string, for the advisory lock
+reason in section 2:
+
+```bash
+DATABASE_URL_UNPOOLED='postgresql://...neon.tech/neondb?sslmode=require' make migrate
 ```
 
 `make migrate-verify` exits non-zero unless every migration is applied and
@@ -480,13 +519,14 @@ socket only, so a socket check reports ready while extensions are still being
 created. Give the first build several minutes and watch
 `docker compose logs -f db`.
 
-**`extension "h3" is not available`.** The container is stock Postgres, not the
-project image. Rebuild with `docker compose up -d --build db`, and check
-`make extensions` prints four rows.
+**`extension "h3" is not available`.** On the container: it is stock Postgres,
+not the project image. Rebuild with `docker compose up -d --build db`, and check
+`make extensions` prints four rows. On Neon: the branch predates h3 being
+available, or the connection is to the wrong database.
 
 **`migrate` reports drift.** A file changed after it was applied. Restore the
-file, or on a local database rebuild from empty with `docker compose down -v`
-followed by `make up && make migrate`.
+file, or rebuild from empty: reset the Neon branch from its parent, or on the
+container `docker compose down -v` followed by `make up && make migrate`.
 
 **`type "h3_cell" does not exist`.** Migration `0001` has not run. It creates
 the domain as well as the extensions.
