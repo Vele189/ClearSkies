@@ -198,3 +198,30 @@ Acceptance:
 - **Setup docs:** `docs/database.md` and `CONTRIBUTING.md` lead with Neon, with the container as the optional and CI path.
 - **Backlog:** hosting is Neon, and the CS-206, CS-212 and CS-213 statuses are current.
 - **Docs index:** `docs/README.md` indexes every document, including the validation results and this audit.
+
+---
+
+## Follow-ups raised while fixing, not yet ticketed for work
+
+These came out of the fix branches. Each is real, each is outside the ticket
+that found it, and none is fixed.
+
+- **AUD-16 · The persistent snapshot store can overwrite a good copy.**
+  `HttpFetcher._record` writes a snapshot on every 200, so a pull that
+  succeeds and then fails validation replaces the last copy the stale fallback
+  would have served. Harmless while the store was in memory; AUD-09 made it
+  durable. Fix: stage snapshots and promote them only when the pull succeeds.
+- **AUD-17 · `tri.py` repeats the ECHO paging bug.** `adapters/tri.py:424,471`
+  sends `responseset` only on `get_qid` and keeps the page number in the
+  parameters, which is what AUD-08 fixed for ECHO and RCRA.
+- **AUD-18 · The facility drill-down still counts quarters without a window.**
+  `facilities_near_hex` (migration 0014) counts non-compliant quarters over all
+  loaded rows, so the panel can disagree with F2 now that AUD-05 bounds the
+  score's window. Fix: a migration bounding the panel query the same way.
+- **AUD-19 · Unobserved indicator rows for eligible-but-unscored hexes.**
+  AUD-05 writes `observed=false` rows for scored hexes. Writing them for
+  eligible hexes that got no score would hand `robustness.py` hexes with no
+  confidence band, which it refuses. Decide which side changes.
+- **AUD-20 · `robustness.md` §7.3 misstates why the areal counterpart did not
+  run.** AUD-07 fixed the cause; the results document still blames the block
+  layer. It needs a line once a run under the corrected code exists.
