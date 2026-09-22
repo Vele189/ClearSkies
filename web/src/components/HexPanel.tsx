@@ -21,7 +21,7 @@ import type { ComponentScore, HexDetail, IndicatorValue } from "../lib/types.ts"
 
 function Bar({ percentile, observed }: { percentile: number | null; observed: boolean }) {
   if (!observed || percentile === null) {
-    return <span className="text-xs text-slate-400 italic">not observed</span>;
+    return <span className="text-xs text-slate-500 italic">not observed</span>;
   }
   return (
     <div className="h-2 w-full rounded-sm bg-slate-100">
@@ -44,7 +44,7 @@ function IndicatorRow({
     <li className="grid grid-cols-[1fr_5rem] items-center gap-3 py-1.5">
       <div>
         <div className="text-sm text-slate-800">
-          <span className="mr-1.5 font-mono text-xs text-slate-400">{indicator.id}</span>
+          <span className="mr-1.5 font-mono text-xs text-slate-500">{indicator.id}</span>
           {indicator.name}
         </div>
         <Bar percentile={indicator.percentile} observed={indicator.observed} />
@@ -224,7 +224,7 @@ export default function HexPanel({
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="font-mono text-xs text-slate-400">{hex.h3}</div>
+            <div className="font-mono text-xs text-slate-500">{hex.h3}</div>
             <h2 className="text-lg font-semibold text-slate-900">
               {placeName(hex)}
             </h2>

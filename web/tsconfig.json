@@ -15,7 +15,10 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "types": ["vite/client"]
+    // "node" is here for the one test that reads Tailwind's shipped palette
+    // off disk to check contrast; nothing under src/ that ships to the browser
+    // imports a node module, and the bundler would fail if it did.
+    "types": ["vite/client", "node"]
   },
   "include": ["src"]
 }

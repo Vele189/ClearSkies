@@ -326,7 +326,7 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
         </p>
       )}
 
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+      <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
         Hexagon {stamped.h3} · confidence {stamped.confidence_band} · methodology{" "}
         {stamped.methodology_version} · corpus {stamped.corpus_version} · prompt{" "}
         {stamped.prompt_version} · {stamped.model}

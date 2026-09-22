@@ -122,7 +122,7 @@ export default function SearchBox({ onPick }: Props) {
           handleChange(event.target.value);
         }}
         onKeyDown={handleKeyDown}
-        className="w-full rounded-md border border-slate-300 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur-sm placeholder:text-slate-400 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none"
+        className="w-full rounded-md border border-slate-500 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur-sm placeholder:text-slate-500 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none"
       />
 
       {(open || error || pending) && (
