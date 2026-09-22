@@ -64,9 +64,11 @@ export const LEGEND_CLASSES: LegendClass[] = RAMP_COLORS.map((color, i) => {
 });
 
 /** Bands whose fill is hatched rather than solid. `unknown` is here on purpose:
- *  a tile that carries no confidence attribute at all is an archive defect, and
- *  drawing it as confident would be the one failure mode section 12 is written
- *  to prevent. It reads as uncertain until the archive says otherwise. */
+ *  a *scored* tile that carries no confidence attribute is an archive defect,
+ *  and drawing it as confident would be the one failure mode section 12 is
+ *  written to prevent. It reads as uncertain until the archive says otherwise.
+ *  An unscored tile also resolves to `unknown` and is not hatched: see
+ *  `hatchFilter`. */
 const HATCHED_BANDS = ["low", "unknown"] as const;
 
 /** The bands as the map knows them. `unknown` is not a methodology band: it is
@@ -89,9 +91,19 @@ export const BAND: ExpressionSpecification = [
 /** Stepped rather than interpolated so that every colour on the map appears in
  *  the legend. A continuous ramp asks the reader to interpolate by eye between
  *  two swatches, which they cannot do accurately and should not have to. */
+/** Whether the pipeline scored this hex, which is what the presence of a
+ *  percentile says. Everything the ramp and the hatching do is conditional on
+ *  it: a hex with no score is not a pale one, and it is not an uncertain one
+ *  either. */
+export const SCORED: ExpressionSpecification = [
+  "==",
+  ["typeof", ["get", "percentile"]],
+  "number",
+];
+
 export const FILL_COLOR: ExpressionSpecification = [
   "case",
-  ["==", ["typeof", ["get", "percentile"]], "number"],
+  SCORED,
   [
     "step",
     ["get", "percentile"],
@@ -115,10 +127,40 @@ export function hatchFilter(showInsufficient: boolean): FilterSpecification {
   const hatched: MapBand[] = showInsufficient
     ? [...HATCHED_BANDS, "insufficient"]
     : [...HATCHED_BANDS];
-  return ["in", BAND, ["literal", hatched]];
+  // Only a hex that has a score. An unscored one carries no confidence
+  // attribute either, so it resolves to `unknown` and would be hatched — which
+  // would say the score here is poorly supported, of a hex that has no score
+  // at all. It is drawn as the legend's "Not scored" swatch is drawn: solid
+  // grey, off the ramp and off the confidence treatment both.
+  return ["all", SCORED, ["in", BAND, ["literal", hatched]]];
 }
 
 export const HATCH_IMAGE_ID = "clearskies-hatch";
+
+/** What the fill layer is painted at, so the basemap's roads and place names
+ *  stay legible under a hexagon. The legend blends its swatches by the same
+ *  amount, because a swatch that does not match the fill it explains sends the
+ *  reader to the wrong class. */
+export const FILL_OPACITY = 0.75;
+
+/** A colour as it appears once the fill is drawn at `FILL_OPACITY` over a pale
+ *  basemap. White is the approximation: Positron is close to it away from
+ *  water, and the legend's own background is white. */
+export function blendOnWhite(color: string, alpha = FILL_OPACITY): string {
+  const channel = (start: number) => {
+    const value = parseInt(color.slice(start, start + 2), 16);
+    return Math.round(value * alpha + 255 * (1 - alpha));
+  };
+  const hex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${hex(channel(1))}${hex(channel(3))}${hex(channel(5))}`;
+}
+
+/** The hatch as the legend's SVG pattern has to draw it: vertical lines in a
+ *  tile rotated by this many degrees. `hatchImage` below lights the pixels
+ *  where `(x + y)` is a multiple of the tile, which in screen coordinates runs
+ *  from the lower left to the upper right, and an SVG rotation is clockwise.
+ *  The two renderers lean the same way only if this number does. */
+export const HATCH_ANGLE_DEG = 45;
 
 /** 45° hatch, drawn once and registered with the map as an image so the fill
  *  layer can reference it. Returned as raw RGBA rather than a canvas so the

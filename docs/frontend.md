@@ -67,6 +67,21 @@ painting it at the pale end of the ramp would assert exactly that. Methodology
 section 11 is explicit that zero and missing are different things, and the map
 has to hold that line as much as the database does.
 
+They are drawn **solid**, exactly as the legend's "Not scored" swatch shows
+them, and they are off the confidence treatment as well as off the ramp. An
+unscored hex carries no confidence attribute — the pipeline writes one only
+where it wrote a score — so the band expression resolves it to `unknown`, which
+is otherwise hatched. Hatching it would say the score here is poorly supported,
+of a hex that has no score to support, and it would put a texture on the map
+that the legend explains as low confidence. The hatch filter therefore requires
+a percentile, and "unscored" and "uncertain" stay two different statements.
+
+**Swatches are blended the way the fill is painted.** The fill layer draws at
+75% opacity so the basemap's roads and place names stay legible under it, which
+makes every hexagon lighter than an opaque swatch of the same colour. The
+legend blends its swatches by the same amount, against white, so a reader
+matching a colour on the map to a class in the legend lands on the right one.
+
 ## 3. Confidence
 
 Methodology section 12 gives four bands and their treatment. The implementation
@@ -86,10 +101,12 @@ of degrading the one already in use: the colour still says how burdened, and
 the texture says how sure. The hatch is drawn as a separate layer over the fill
 rather than replacing it, so a low-confidence hex keeps its class colour.
 
-**A hex with no confidence attribute at all is hatched.** That is an archive
+**A scored hex with no confidence attribute is hatched.** That is an archive
 defect rather than a data-quality signal, but drawing it as confident is the
 one failure section 12 exists to prevent, so it reads as uncertain until the
-archive says otherwise.
+archive says otherwise. An *unscored* hex also has no confidence attribute and
+is not hatched, for the reason in section 2: it is not an uncertain score, it
+is no score.
 
 **The insufficient toggle is off by default and says why.** Those hexes are
 excluded from validation statistics and from the drafting assistant, and the
@@ -107,9 +124,12 @@ map it is explaining.
 
 The legend and the map read the same module, `web/src/lib/ramp.ts`. A swatch is
 the colour the tile is painted with by construction, not because two lists are
-kept in step by hand. The hatch appears twice — as a canvas image for MapLibre
-and as an SVG pattern for the legend swatch — from the same angle, spacing and
-weight.
+kept in step by hand, and it is blended at the same opacity the fill is drawn
+at. The hatch appears twice — as a canvas image for MapLibre and as an SVG
+pattern for the legend swatch — from the same angle, spacing and weight. The
+angle is one exported number the two renderers share, because two hatches
+leaning opposite ways are two textures, and the legend can only explain the
+map's texture if it is drawing it.
 
 ## 5. Search
 
@@ -278,6 +298,26 @@ Not a disabled button with no reason on it, and not an error code. The reader is
 being told the tool does not trust its own number for their neighbourhood, and
 that deserves a sentence. A test asserts no status code or the word "error"
 appears in that state.
+
+### The legal basis, and the citation list
+
+An agency complaint's `legal_basis` is the authority it rests on, and it is
+what makes the document a complaint rather than a letter of concern. It is
+rendered as its own section, each reference a link like any other citation, and
+it goes into the copied and downloaded text too.
+
+The citation list at the foot of the draft is every citation the document
+makes, not only `document.citations`: the legal basis and the source behind
+each key figure are in it as well. Two citations are the same only when they
+point at the same place for the same proposition, so a second claim on an
+already-cited section stays its own line — it was verified as its own claim.
+
+### Taking the draft away
+
+Copy reports a refusal. A browser can decline a clipboard write, and a reader
+who believes they have the draft and pastes nothing has lost it. The download's
+blob URL is released a minute after the click rather than in the same tick,
+because revoking it immediately races the download the click started.
 
 ### Failures
 

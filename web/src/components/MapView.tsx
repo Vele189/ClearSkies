@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Place } from "../lib/geocode.ts";
 import {
   FILL_COLOR,
+  FILL_OPACITY,
   HATCH_IMAGE_ID,
   hatchFilter,
   hatchImage,
@@ -139,7 +140,7 @@ export default function MapView({ onSelect }: Props) {
         source: SOURCE_ID,
         "source-layer": "hexes",
         filter: visibilityFilter(false),
-        paint: { "fill-color": FILL_COLOR, "fill-opacity": 0.75 },
+        paint: { "fill-color": FILL_COLOR, "fill-opacity": FILL_OPACITY },
       });
 
       // Drawn over the fill rather than in place of it, so a low-confidence hex

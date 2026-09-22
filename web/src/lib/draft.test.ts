@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { citationLabel, citationUrl, draftFileName, renderDraftText, statuteUrl } from "./draft.ts";
+import {
+  allCitations,
+  citationLabel,
+  citationUrl,
+  draftFileName,
+  renderDraftText,
+  statuteUrl,
+} from "./draft.ts";
 import type { Citation, GeneratedDraft, StatuteCitation } from "./types.ts";
 
 const SECTION: StatuteCitation = {
@@ -82,7 +89,89 @@ describe("citation links", () => {
   });
 });
 
+const TITLE_VI: StatuteCitation = {
+  kind: "statute",
+  section: "42 U.S.C. § 2000d",
+  document_id: "usc-42-chap21",
+  proposition: "No person shall be subjected to discrimination under a federally funded program.",
+};
+
+const FIGURE_SOURCE: StatuteCitation = {
+  kind: "statute",
+  section: "40 C.F.R. § 51.166",
+  document_id: "cfr-40-51",
+  proposition: "Prevention of significant deterioration review applies to this source.",
+};
+
+describe("every citation the document makes", () => {
+  it("includes the legal basis a complaint rests on", () => {
+    // The legal basis is what makes the document an administrative complaint
+    // rather than a letter of concern. A reader checking the citations is
+    // entitled to find the authority it rests on among them.
+    const citations = allCitations(
+      stamped({
+        document_type: "agency_complaint_draft",
+        legal_basis: [TITLE_VI],
+      }).document,
+    );
+
+    expect(citations.map(citationLabel)).toContain("42 U.S.C. § 2000d");
+  });
+
+  it("includes the source behind each key figure", () => {
+    const citations = allCitations(
+      stamped({
+        key_figures: [{ label: "Cancer risk", value: "62", unit: "", citation: FIGURE_SOURCE }],
+      }).document,
+    );
+
+    expect(citations.map(citationLabel)).toContain("40 C.F.R. § 51.166");
+  });
+
+  it("lists a citation once, however many places it is used", () => {
+    const citations = allCitations(stamped({ legal_basis: [SECTION] }).document);
+
+    expect(citations.filter((c) => citationLabel(c) === SECTION.section)).toHaveLength(1);
+  });
+
+  it("keeps a second proposition on an already-cited section as its own line", () => {
+    // Two claims on one section are two claims, and each was verified
+    // separately. Collapsing them would hide one of them from the reader.
+    const second: StatuteCitation = { ...SECTION, proposition: "Something else entirely." };
+    const citations = allCitations(stamped({ legal_basis: [second] }).document);
+
+    expect(citations.filter((c) => citationLabel(c) === SECTION.section)).toHaveLength(2);
+  });
+});
+
 describe("rendering a draft for the clipboard", () => {
+  it("carries the legal basis of a complaint into the text", () => {
+    const text = renderDraftText(
+      stamped({
+        document_type: "agency_complaint_draft",
+        recipient_office: "EPA Office of External Civil Rights Compliance",
+        legal_basis: [TITLE_VI],
+        relief_sought: "An investigation.",
+      }),
+    );
+
+    expect(text).toContain("Legal basis");
+    expect(text).toContain("42 U.S.C. § 2000d");
+    expect(text).toContain("subjected to discrimination");
+    expect(text).toContain("https://www.law.cornell.edu/uscode/text/42/2000d");
+  });
+
+  it("lists a key figure's source among the citations", () => {
+    const text = renderDraftText(
+      stamped({
+        document_type: "journalist_fact_sheet",
+        key_figures: [{ label: "Cancer risk", value: "62", unit: "", citation: FIGURE_SOURCE }],
+      }),
+    );
+
+    expect(text).toContain("https://www.ecfr.gov/current/title-40/section-51.166");
+  });
+
   it("puts the draft notice first", () => {
     // People paste rather than screenshot. A document that leaves here without
     // its notice is the failure this line prevents.

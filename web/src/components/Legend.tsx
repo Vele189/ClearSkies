@@ -1,6 +1,19 @@
 import { useState } from "react";
 
-import { LEGEND_CLASSES, NO_SCORE_COLOR } from "../lib/ramp.ts";
+import { HATCH_ANGLE_DEG, LEGEND_CLASSES, NO_SCORE_COLOR, blendOnWhite } from "../lib/ramp.ts";
+
+/** A swatch as the map draws it. The fill is painted at `FILL_OPACITY` so the
+ *  basemap shows through, and an opaque swatch of the same hex is visibly
+ *  darker than the hexagons it is meant to identify. */
+function Swatch({ color }: { color: string }) {
+  return (
+    <span
+      className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
+      style={{ backgroundColor: blendOnWhite(color) }}
+      aria-hidden="true"
+    />
+  );
+}
 
 /** The hatch, as an inline SVG pattern rather than the canvas image the map
  *  uses. Two renderers, one appearance: the angle, spacing and weight are the
@@ -14,9 +27,9 @@ function HatchSwatch({ color }: { color: string }) {
           width="8"
           height="8"
           patternUnits="userSpaceOnUse"
-          patternTransform="rotate(-45)"
+          patternTransform={`rotate(${String(HATCH_ANGLE_DEG)})`}
         >
-          <rect width="8" height="8" fill={color} />
+          <rect width="8" height="8" fill={blendOnWhite(color)} />
           <line x1="0" y1="0" x2="0" y2="8" stroke="#282828" strokeOpacity="0.67" strokeWidth="2" />
         </pattern>
       </defs>
@@ -61,11 +74,7 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
         <ul className="mt-2 flex flex-col gap-0.5">
           {LEGEND_CLASSES.map((cls) => (
             <li key={cls.label} className="flex items-center gap-2 text-xs text-slate-700">
-              <span
-                className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
-                style={{ backgroundColor: cls.color }}
-                aria-hidden="true"
-              />
+              <Swatch color={cls.color} />
               <span className="tabular-nums">
                 {cls.label}
                 {cls.from === 90 && <span className="text-slate-500"> (top decile)</span>}
@@ -73,11 +82,10 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
             </li>
           ))}
           <li className="flex items-center gap-2 text-xs text-slate-700">
-            <span
-              className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
-              style={{ backgroundColor: NO_SCORE_COLOR }}
-              aria-hidden="true"
-            />
+            <Swatch color={NO_SCORE_COLOR} />
+            {/* Solid, and the map draws it solid: an unscored hexagon is not
+                hatched, because hatching would say its score is poorly
+                supported when it has no score to support. */}
             <span>Not scored</span>
           </li>
         </ul>
@@ -87,11 +95,7 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
         </h3>
         <ul className="mt-1.5 flex flex-col gap-1">
           <li className="flex items-center gap-2 text-xs text-slate-700">
-            <span
-              className="h-4 w-6 shrink-0 rounded-xs border border-black/10"
-              style={{ backgroundColor: LEGEND_CLASSES[3].color }}
-              aria-hidden="true"
-            />
+            <Swatch color={LEGEND_CLASSES[3].color} />
             <span>High or moderate</span>
           </li>
           <li className="flex items-center gap-2 text-xs text-slate-700">
