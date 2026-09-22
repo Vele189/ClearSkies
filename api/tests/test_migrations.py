@@ -11,10 +11,12 @@ from pathlib import Path
 
 import pytest
 
+from app.config import Settings
 from app.migrate import (
     MigrationError,
     discover,
     drift,
+    migration_dsn,
     new,
     out_of_order,
     parse_args,
@@ -284,6 +286,30 @@ def test_database_url_overrides_the_api_setting() -> None:
 
     assert args.database_url == "postgresql://localhost/other"
     assert args.command == "status"
+
+
+# ---- which connection migrates ------------------------------------------
+
+POOLED = "postgresql://u:p@ep-x-pooler.neon.tech/neondb"
+DIRECT = "postgresql://u:p@ep-x.neon.tech/neondb"
+
+
+def test_the_unpooled_url_is_preferred_over_the_pooled_one() -> None:
+    settings = Settings(database_url=POOLED, database_url_unpooled=DIRECT)
+
+    assert migration_dsn(None, settings) == DIRECT
+
+
+def test_without_an_unpooled_url_the_api_setting_is_used() -> None:
+    settings = Settings(database_url=POOLED, database_url_unpooled="")
+
+    assert migration_dsn(None, settings) == POOLED
+
+
+def test_the_flag_beats_both_settings() -> None:
+    settings = Settings(database_url=POOLED, database_url_unpooled=DIRECT)
+
+    assert migration_dsn("postgresql://localhost/other", settings) == "postgresql://localhost/other"
 
 
 def test_a_command_is_required() -> None:

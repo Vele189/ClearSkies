@@ -33,7 +33,7 @@ down: ## Stop the database, keeping its volume
 	docker compose down
 
 .PHONY: extensions
-extensions: ## Prove the custom image loaded all three extensions
+extensions: ## Prove the local container loaded postgis, h3, h3_postgis and vector
 	docker compose exec -T db psql -U clearskies -d clearskies \
 	  -c "SELECT * FROM clearskies_extensions"
 
@@ -376,11 +376,26 @@ check: lint test etl-check scoring-check assistant-check ## Everything CI runs, 
 	$(MAKE) robustness-harness
 
 # ---- Pipeline (Phase 1 and 2) -----------------------------------------
+#
+# The real runs, one step each, in the order a run happens: load a source,
+# score what was loaded, export the scored run for the section 13 gates. Every
+# one of them writes to or reads from DATABASE_URL as exported in the shell;
+# unlike the API, none of these scripts reads .env, so `set -a; . ./.env; set +a`
+# first. They run under the ingestion environment, which carries asyncpg and the
+# dasymetric code the scoring script needs.
 
-# `tiles` left this list in CS-207 and is a real target above. `score` is still
-# a placeholder: the scoring package is built and tested, but running it end to
-# end needs a populated database, which is CS-204's remaining dependency.
-.PHONY: ingest score
-ingest score:
-	@echo "'$@' arrives in Phase $(if $(filter ingest,$@),1,2). See docs/methodology.md."
-	@exit 1
+.PHONY: ingest
+ingest: $(ETL_VENV) ## Pull one source into Postgres: make ingest SOURCE=echo
+	@test -n "$(SOURCE)" || { echo "usage: make ingest SOURCE=echo  (make sources lists them)"; exit 1; }
+	cd $(ETL) && .venv/bin/python -m pipeline run $(SOURCE) --load $(ARGS)
+
+# Writes a new run and leaves the served one alone unless ARGS=--promote.
+.PHONY: score
+score: $(ETL_VENV) ## Score the loaded data into a new run: make score ARGS=--promote
+	$(ETL_VENV)/bin/python scripts/run_scoring.py $(ARGS)
+
+# Defaults to the promoted run; ARGS="--run-id N" picks another.
+.PHONY: export-run
+export-run: $(ETL_VENV) ## Export a run for the gates: make export-run ARGS="--validation run.json"
+	@test -n "$(ARGS)" || { echo "usage: make export-run ARGS=\"--validation run.json --robustness values.json\""; exit 1; }
+	$(ETL_VENV)/bin/python scripts/export_run.py $(ARGS)

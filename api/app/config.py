@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql://clearskies:clearskies@localhost:5432/clearskies"
+    # Neon's direct endpoint, for the migration runner only. DATABASE_URL is the
+    # pooled one, and the runner's advisory lock is session-level, which
+    # PgBouncer's transaction mode does not keep. Empty against the container,
+    # where there is no pooler. See app/migrate.py.
+    database_url_unpooled: str = ""
     cors_origins: str = "http://localhost:5173"
     log_level: str = "info"
 
