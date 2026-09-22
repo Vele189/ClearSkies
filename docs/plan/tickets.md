@@ -64,6 +64,37 @@ AUD-20 — were raised while fixing and never ticketed for work.
 both need a live deployment and are held with the Railway and R2 work in CS-009
 and CS-207. They are the only Phase 4 tickets this document leaves out.
 
+---
+
+## Where this stands, 2026-09-23
+
+Implemented, each on its own branch, none pushed:
+
+| ID | Branch | What is on it |
+|---|---|---|
+| CP-01 | `master` | The audit merged locally. **The migrations have not been applied to the Neon branch** — that needs the owner. |
+| CP-02 | `plan/cp-02-data-defects` | AUD-16, AUD-17, AUD-18, each with a regression test checked against the pre-fix code |
+| CP-03 | `plan/cp-03-unobserved-rows` | AUD-19, resolved in the export rather than in the scorer or `robustness.py` |
+| CP-05 | `plan/cp-05-stale-docs` | Six reconciled backlog statuses; the scaffold banner |
+| CP-16 | `plan/cp-16-routing` | Router, nav, footer disclaimer, skip link |
+| CP-17 | `plan/cp-17-provenance-page` | CS-406, rendered from the live endpoint |
+| CP-18 | `plan/cp-18-pages` | Methodology, model card, about |
+| CP-19 | `plan/cp-19-accessibility` | `/hex/:h3`, axe in CI |
+| CP-20 | `plan/cp-20-safe-language` | CS-407, with the scan committed |
+| CP-21 | `plan/cp-21-read-rate-limits` | CS-402 on the read endpoints |
+| CP-25 | `plan/cp-25-nightly-scoring` | The scoring job, and `export_run.py --tiles` |
+
+Stacking, where it matters: CP-16 is on CP-05, CP-17 on CP-16, CP-18 on CP-17,
+CP-19 on CP-18, CP-20 on CP-19 — they touch the same files in that order. CP-02,
+CP-03, CP-21 and CP-25 are independent of that chain and of each other.
+
+Not started, and why: **CP-04** pushes to `origin`. **CP-06 to CP-09** need a
+loaded database and produce a result nobody can predict. **CP-10 to CP-14** are
+gated on CP-09 and carry decisions that are the Lead's. **CP-15** spends real
+money. **CP-22**, **CP-23** and **CP-24** need results that do not exist yet.
+
+---
+
 **The rule that governs all of it.** Methodology §13.7 permits three responses to
 a failing check: fix a defect in the code, fix a defect in the data handling, or
 revise the paper with a rationale that stands independently of the validation
@@ -190,6 +221,10 @@ and has none of those rows. It needs one rebuild from blocks.
 
 Acceptance:
 - The 2020 Decennial block layer is reloaded, roughly a thirty-minute pull.
+  Confirmed while implementing: migration 0025 already keeps the rows, and the
+  crosswalk in the database was built under the old code and holds none of
+  them, so the reload is needed once and for that reason rather than the one
+  `robustness.md` §7.3 gives.
 - The crosswalk is rebuilt under migration 0025, so the `pop_weight = 0` rows
   are written, and the statewide block total is checked against Louisiana's
   published 2020 population as CS-112 requires.
@@ -552,11 +587,27 @@ Acceptance:
 
 ## CP-25 · Score and build tiles nightly; promotion stays manual · medium · M
 
-**Files:** `.github/workflows/etl.yml`.
+**Files:** `.github/workflows/etl.yml`, `scripts/export_run.py`.
 
 The nightly job ingests, gates and regenerates the provenance page. It does not
 score, build tiles, upload them or promote a run — those are `make score`,
 `make tiles`, `make deploy-tiles`. A good night does not update the map.
+
+**Corrected while implementing: the nightly does not *load* either.** It pulls
+every due adapter into the in-memory sink and gates what came back, and the
+workflow is deliberately given no `DATABASE_URL`, because the ledger deciding
+what is due is a file in an Actions cache and a night that loaded would write to
+the database on the strength of state GitHub may evict. So a scoring job scores
+whatever the last manual load put there, not tonight's pull, and skips legibly
+where no such secret exists. Wiring the two together is CS-109's remaining work
+and is not this ticket.
+
+**Also found: `pipeline tiles` had no producer for its input.** It reads a JSON
+file that nothing wrote, so the map was only ever as current as a file somebody
+made by hand — which `_tiles` says in as many words is what it exists not to be.
+`export_run.py --tiles` is that producer, and its shape is not the validation
+export's: tiles carry the score and the confidence value too, and every hex the
+run has a row for rather than only the scored ones.
 
 Acceptance:
 - After a night clears the quality gate, the workflow scores it and builds the
