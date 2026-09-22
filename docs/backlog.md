@@ -327,7 +327,7 @@ under version control.
 
 ### CS-007 — Generate the H3 hex grid for the pilot state
 
-**Size:** S · **Labels:** geospatial · **Depends on:** CS-001, CS-006 · **Owner:** Terrence · **Status:** Not started
+**Size:** S · **Labels:** geospatial · **Depends on:** CS-001, CS-006 · **Owner:** Terrence · **Status:** Done
 
 Produce the fixed set of resolution 8 hexes that everything else joins against.
 
@@ -345,6 +345,14 @@ Produce the fixed set of resolution 8 hexes that everything else joins against.
   published area. Expect roughly 150,000 populated cells at a mean cell area of
   0.737 km².
 - Idempotent: re-running does not duplicate rows.
+
+**What landed:** `etl/pipeline/grid.py`, run by `make grid`. Cells come from
+`h3shape_to_cells` in Python and the database receives finished geometry, so the
+pipeline does not depend on `h3-pg` being installed. The centroid rule of
+section 5 is applied at build time and recorded per cell as `in_pilot_state`,
+which is what every percentile denominator later filters on. `make grid-plan`
+counts the cells the boundary yields without writing anything, and the load is
+idempotent on the H3 index.
 
 ---
 
@@ -413,7 +421,7 @@ example are in `etl/README.md`.
 
 ### CS-101 — EPA ECHO/ICIS adapter
 
-**Size:** L · **Labels:** etl · **Depends on:** CS-005, CS-006 · **Owner:** Lead · **Status:** Not started
+**Size:** L · **Labels:** etl · **Depends on:** CS-005, CS-006 · **Owner:** Lead · **Status:** Done
 
 Facilities, permits, violations and enforcement actions for Louisiana. Feeds
 indicators F1 through F4.
@@ -439,11 +447,24 @@ indicators F1 through F4.
 - Tests run against recorded fixtures through a mock transport, never the live
   API.
 
+**What landed:** `etl/pipeline/adapters/echo.py`, the largest adapter in the
+project, feeding F1 through F4. Three things about the live service shaped it,
+each established by querying it rather than assumed: one physical facility can
+hold several air permits, so rows are grouped to a site before they become a
+facility; the RCRA feed is a second universe that has to be unioned with the air
+feed, or a hazardous-waste site overwrites an air facility on the same natural
+key; and `responseset` is honoured only on the registering call, which AUD-08
+found and fixed after a truncated pull reported one row for a 652-row query.
+Positional accuracy follows section 6: a facility outside the state boundary
+buffer or more than 2 km from its ZIP centroid is rejected with a stated reason
+and counted into the manifest. Tests run against recorded fixtures through a
+mock transport.
+
 ---
 
 ### CS-102 — EPA TRI adapter
 
-**Size:** M · **Labels:** etl · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** etl · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Done
 
 Annual toxic release volumes by facility. Feeds indicator E3.
 
@@ -459,11 +480,22 @@ Annual toxic release volumes by facility. Feeds indicator E3.
   facility that did not report is `Measurement.absent()`. The two are never
   merged.
 
+**What landed:** `etl/pipeline/adapters/tri.py`, feeding E3. Releases come from
+the Basic Data File rather than the raw form tables, because the published file
+resolves TRI's range codes: a facility releasing under 1,000 lb files a range,
+and the raw pair would have to guess. The reporting year is the manifest's
+`vintage`, so a run cannot silently mix vintages. Facilities are joined to ECHO
+on the FRS id, and unmatched reporters are counted into the manifest rather than
+dropped. A facility reporting zero is `Measurement.of(0.0)` and one that did not
+report is `Measurement.absent()`, which section 9's zero-inflation note depends
+on. AUD-17 later found this adapter had repeated the ECHO paging bug; CP-02
+fixed it.
+
 ---
 
 ### CS-103 — EPA NEI / AirToxScreen adapter
 
-**Size:** L · **Labels:** etl · **Depends on:** CS-005, CS-007 · **Owner:** Lead · **Status:** Not started
+**Size:** L · **Labels:** etl · **Depends on:** CS-005, CS-007 · **Owner:** Lead · **Status:** Done
 
 Modeled air toxics exposure, the primary pollution input because it covers every
 area evenly. Feeds indicators E1 and E2.
@@ -479,6 +511,15 @@ area evenly. Feeds indicators E1 and E2.
 - Every hex in the pilot state receives a value or an explicit, counted absence.
 - Model vintage recorded as the manifest's `vintage`. The release reflects an
   emissions inventory several years old and the recency term must see that.
+
+**What landed:** `etl/pipeline/adapters/airtoxscreen.py`, feeding E1 and E2, the
+two indicators that carry the primary weight because this is the only source
+covering the whole state evenly. Pinned to the 2019 assessment: the 2020 release
+publishes state and county summaries and no downloadable tract file, so 2019 is
+the most recent release that publishes both tract-level cancer risk and
+tract-level respiratory hazard. That pin is a known gap on the adapter and
+reaches the provenance page through the manifest. Values arrive per tract and
+reach hexagons through section 7's crosswalk, not by centroid.
 
 ---
 
@@ -545,7 +586,7 @@ siblings take `datetime_from` and `datetime_to`.
 
 ### CS-105 — US Census ACS adapter
 
-**Size:** M · **Labels:** etl · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** etl · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Done
 
 Tract-level demographics. Feeds indicators S1, S2 and P1 through P5, plus the
 race and ethnicity fields that are recorded and displayed but never scored.
@@ -562,6 +603,15 @@ race and ethnicity fields that are recorded and displayed but never scored.
   scored indicators. Methodology section 14 is the reason: keeping them out of
   the arithmetic is what makes the later disparity finding an independent result.
 - Tract geometries loaded and validated against the state boundary.
+
+**What landed:** `etl/pipeline/adapters/census_acs.py`, feeding S1, S2, P1
+through P5, and the section 8.5 race and ethnicity variables that are recorded
+and displayed but never scored. Only published counts are pulled, every one
+written `is_extensive = true`: section 7 forbids recomputing a rate from
+independently interpolated parts, so pulling counts is what makes the correct
+interpolation the only one CS-106 *can* perform, with each rate derived once at
+the end. Tract polygons come from the same pull as the values, so the geometry
+and the estimates cannot disagree about which tracts exist.
 
 ---
 
@@ -845,7 +895,7 @@ yet, so this costs nothing — which is why CS-111 was scheduled ahead of CS-206
 
 ### CS-112 — Load the 2020 Decennial block layer
 
-**Size:** M · **Labels:** etl, geospatial · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Not started
+**Size:** M · **Labels:** etl, geospatial · **Depends on:** CS-005, CS-006 · **Owner:** Terrence · **Status:** Done
 
 The ancillary layer of methodology section 7 has a table and a consumer but no
 adapter. `census_block` is created by migration 0003 and read by CS-106, and
@@ -872,6 +922,25 @@ the schema, which made it look owned.
   state population, recorded like any other pull.
 - Written through the adapter interface, so the retry, rate limit,
   partial-failure and provenance behaviour is inherited rather than rewritten.
+
+**What landed:** `etl/pipeline/adapters/census_block.py`. Counts and geometry
+both come from TIGERweb, because its `POP100` *is* the PL 94-171 count and taking
+both from one source means the block set is the same by construction — two
+sources could disagree about which blocks exist and strand the difference on a
+tract boundary. The live layer returned 142,874 Louisiana blocks, and the
+statewide total is checked against the published 2020 state population as the
+ticket asks. `SourceSpec.provides` is empty, because the layer is not a scored
+source and the quality gate's group-minimum checks must not look for one.
+
+**A zero-population block is a fact, not an absence.** Most of Louisiana's water
+and marsh blocks hold nobody and section 7 needs that zero, which is also why
+AUD-07's migration 0025 had to stop `tract_hex_weight` discarding the overlaps
+those blocks produce.
+
+**The layer is discarded once the crosswalk is built**, which kept the database
+inside its old storage ceiling. CP-06 reloads it once so the section 13.5 areal
+counterpart can be produced under migration 0025, after which it is discarded
+again for good.
 
 ---
 

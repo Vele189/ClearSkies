@@ -5,6 +5,15 @@ import MapView from "./components/MapView.tsx";
 import { ApiError, getHealth, getHex } from "./lib/api.ts";
 import type { HexDetail, Health } from "./lib/types.ts";
 
+/** Shown only when this deployment is not serving everything it should.
+ *
+ *  It used to open with "Phase 0 scaffold", which was true when it was written
+ *  and had stopped being true long before anybody noticed — a banner that
+ *  describes the project rather than the deployment goes stale silently and
+ *  tells a reader nothing about what they are looking at. What follows is a
+ *  statement about this instance, which the health check and the environment
+ *  can both answer.
+ */
 function Banner({ health }: { health: Health | null }) {
   const tilesConfigured = Boolean(import.meta.env.VITE_TILES_URL);
   if (health?.status === "ok" && tilesConfigured) return null;
@@ -21,7 +30,7 @@ function Banner({ health }: { health: Health | null }) {
 
   return (
     <div className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-sm text-amber-900">
-      <span className="font-semibold">Phase 0 scaffold. </span>
+      <span className="font-semibold">Not everything is running. </span>
       {messages.join(" ")}
     </div>
   );
