@@ -225,3 +225,56 @@ that found it, and none is fixed.
 - **AUD-20 · `robustness.md` §7.3 misstates why the areal counterpart did not
   run.** AUD-07 fixed the cause; the results document still blames the block
   layer. It needs a line once a run under the corrected code exists.
+
+---
+
+## Status, 2026-09-22
+
+All fifteen are implemented, each on its own branch, none pushed and none
+merged into `master`. Every branch passed its own package's gate before it was
+committed.
+
+| ID | Branch | Tip |
+|---|---|---|
+| AUD-01 | `audit/aud-01-verify-citations` | 6f7963b |
+| AUD-02 | `audit/aud-02-cache-key` | 2112834 |
+| AUD-03 | `audit/aud-03-api-edges` | a6785b3 |
+| AUD-04 | `audit/aud-04-accounting` | c76453f |
+| AUD-05 | `audit/aud-05-scoring-fidelity` | 1ca57b8 |
+| AUD-06 | `audit/aud-06-methodology-changelog` | 9626cb1 |
+| AUD-07 | `audit/aud-07-dasymetric-edges` | 605d866 |
+| AUD-08 | `audit/aud-08-connection-and-paging` | 08e2566 |
+| AUD-09 | `audit/aud-09-nightly-and-snapshots` | 1462d2f |
+| AUD-10 | `audit/aud-10-web-state` | 5040315 |
+| AUD-11 | `audit/aud-11-web-content` | ff4ca05 |
+| AUD-12 | `audit/aud-12-corpus-integrity` | 8abe0a2 |
+| AUD-13 | `audit/aud-13-validation-tooling-ci` | 5e7d436 |
+| AUD-14 | `audit/aud-14-infra-cleanup` | 284f467 |
+| AUD-15 | `audit/aud-15-docs` | dcd2ac9 |
+
+**They were proved to combine.** `audit/integration-check` merges all fifteen in
+the order below and passes `make check` end to end: api 349 passed / 39 skipped,
+web 156, etl 770, scoring 260, assistant 97, all lint and strict mypy clean.
+Merge order, which is also the order that keeps the migrations in sequence:
+
+    aud-04 (carries 01, 02, 03)   0024
+    aud-07                        0025
+    aud-12                        0026
+    aud-06 (carries 05)
+    aud-09 (carries 08)
+    aud-11 (carries 10)
+    aud-13
+    aud-15 (carries 14)
+
+Three resolutions were needed, all recorded as merge commits on
+`audit/integration-check` rather than rewritten into the branches:
+
+- `scripts/run_scoring.py`: AUD-07 routed the ACS rates through
+  `interpolate_rate` while AUD-05 made the same function return per-tract CVs.
+  Both apply; only the docstring conflicted.
+- `scripts/run_citation_audit.py` and `run_redteam.py`: AUD-13 wanted the audit
+  to send the app's default request text, which AUD-02 had moved into the
+  service. The audit now passes an empty request, which is the app's own path.
+- `web/src/App.test.tsx`: AUD-04 made `facility_count` required on `HexDetail`
+  after AUD-10 wrote its fixture. Neither branch is wrong alone; only the merge
+  fails to typecheck.
