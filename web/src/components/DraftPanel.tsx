@@ -23,7 +23,7 @@
  * legal documents.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError, postDraft } from "../lib/api.ts";
 import { citationLabel, citationUrl, draftFileName, renderDraftText } from "../lib/draft.ts";
@@ -333,14 +333,32 @@ function Failed({ status, detail }: { status: number; detail: string }) {
 
 export default function DraftPanel({ hex }: { hex: HexDetail }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const pending = useRef<AbortController | null>(null);
 
   const insufficient = hex.confidence.band === "insufficient";
 
+  // A draft in flight belongs to the hexagon it was asked about. If the reader
+  // moves on before it lands, it is abandoned rather than shown under a heading
+  // for a different place. The parent keys this panel on the hexagon, so the
+  // state resets with it; this makes sure nothing late arrives into the reset.
+  useEffect(
+    () => () => {
+      pending.current?.abort();
+      pending.current = null;
+    },
+    [hex.h3],
+  );
+
   const generate = useCallback(
     (documentType: DocumentType) => {
+      pending.current?.abort();
+      const controller = new AbortController();
+      pending.current = controller;
+
       setStatus({ kind: "generating", documentType });
-      postDraft(hex.h3, documentType)
+      postDraft(hex.h3, documentType, controller.signal)
         .then((response) => {
+          if (controller.signal.aborted) return;
           if (response.status === "refused" && response.refusal) {
             setStatus({ kind: "refused", refusal: response.refusal });
           } else if (response.draft) {
@@ -354,6 +372,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
           }
         })
         .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
           setStatus({
             kind: "failed",
             status: error instanceof ApiError ? error.status : 0,

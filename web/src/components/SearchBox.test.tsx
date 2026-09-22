@@ -73,6 +73,40 @@ describe("SearchBox", () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
+  it("stays closed after a pick, rather than searching for the name it wrote in", async () => {
+    // Picking writes the place's name into the input. That is display, not a
+    // query: searching for it reopened the list under the reader's cursor.
+    const fetchMock = stubPhoton(["Reserve"]);
+    const onPick = vi.fn();
+    render(<SearchBox onPick={onPick} />);
+
+    const input = screen.getByRole("combobox");
+    await userEvent.type(input, "Reser");
+    await screen.findByRole("option", { name: /Reserve/ });
+    await userEvent.keyboard("{Enter}");
+
+    expect(input).toHaveValue("Reserve");
+    // Longer than the debounce, so a search the pick had scheduled would have run.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays closed after Escape even if a search was already on its way", async () => {
+    const fetchMock = stubPhoton(["Baton Rouge"]);
+    render(<SearchBox onPick={vi.fn()} />);
+
+    // Escape inside the debounce window, before the request has gone out.
+    await userEvent.type(screen.getByRole("combobox"), "Baton Rouge{Escape}");
+
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("debounces so a typed word is one request and not nine", async () => {
     const fetchMock = stubPhoton(["Reserve"]);
     render(<SearchBox onPick={vi.fn()} />);

@@ -137,6 +137,19 @@ The input is a combobox: arrow keys move through results, Enter picks, Escape
 dismisses. A failed search says it failed rather than showing an empty list,
 because "no results" and "the geocoder is down" mean different things.
 
+Picking a result writes the place's name into the input as a label, not as a
+query. Searching for it would reopen the list under a reader who had just
+chosen from it. Escape cancels a search already on its way for the same reason.
+
+**A pick selects the hexagon it lands on,** and not only the view. The map is
+queried at the destination once the flight has settled and its tiles have
+drawn, and the hexagon there opens its panel exactly as a click would. Without
+that step the only way into a panel is a mouse click on the fill, which shows a
+keyboard reader the right place and gives them no way to open it. Where the
+destination has no hexagon drawn — outside the scored extent, or an
+insufficient-band hex while the toggle is off — the map flies there and no
+panel opens, which is the same answer a click on that spot would give.
+
 ## 6. Loading and failure
 
 A tile fetch failure must not leave a blank screen. Three states:
@@ -205,6 +218,15 @@ and CS-209 should confirm the key.
 follows the reader rather than continuing from the map and walking the whole
 panel in reverse. Escape closes it. The close button and every facility link
 carry visible focus rings.
+
+**One hexagon at a time.** A selection abandons the one before it: the request
+for the previous hexagon is aborted, a response that arrives late for it is
+discarded, and the panel says which hexagon it is waiting on rather than
+leaving the last one on screen under a new selection. The panel is keyed on the
+H3 index, so everything inside it — including a draft written about the
+previous hexagon, and a draft still being written — starts again with the new
+one. A draft that belongs to one place must never be read under the heading of
+another.
 
 ## 8. The drafting assistant in the panel
 

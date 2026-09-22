@@ -125,6 +125,52 @@ describe("choosing a document", () => {
   });
 });
 
+describe("a draft belongs to the hexagon it was asked about", () => {
+  /** A fetch that never settles on its own, so the test decides when it lands. */
+  function heldFetch() {
+    let land: (body: unknown) => void = () => undefined;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          land = (body) =>
+            resolve({ ok: true, status: 200, statusText: "", json: () => Promise.resolve(body) });
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return { fetchMock, land: (body: unknown) => land(body) };
+  }
+
+  function signalOf(fetchMock: ReturnType<typeof vi.fn>): AbortSignal {
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    return init.signal as AbortSignal;
+  }
+
+  it("abandons a draft in flight when the panel goes away", async () => {
+    const { fetchMock } = heldFetch();
+    const { unmount } = render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Public comment letter"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    unmount();
+
+    expect(signalOf(fetchMock).aborted).toBe(true);
+  });
+
+  it("abandons a draft in flight when the hexagon changes, and never shows it", async () => {
+    const { fetchMock, land } = heldFetch();
+    const { rerender } = render(<DraftPanel hex={hex()} />);
+    await userEvent.click(screen.getByText("Public comment letter"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    rerender(<DraftPanel hex={{ ...hex(), h3: "88444600dbfffff" }} />);
+    expect(signalOf(fetchMock).aborted).toBe(true);
+
+    land(DRAFTED);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+});
+
 describe("the insufficient band", () => {
   it("explains the refusal in plain language before anything is clicked", () => {
     // The reader is being told the tool does not trust its own number for their
