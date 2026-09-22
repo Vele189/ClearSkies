@@ -396,6 +396,6 @@ score: $(ETL_VENV) ## Score the loaded data into a new run: make score ARGS=--pr
 
 # Defaults to the promoted run; ARGS="--run-id N" picks another.
 .PHONY: export-run
-export-run: $(ETL_VENV) ## Export a run for the gates: make export-run ARGS="--validation run.json"
-	@test -n "$(ARGS)" || { echo "usage: make export-run ARGS=\"--validation run.json --robustness values.json\""; exit 1; }
+export-run: $(ETL_VENV) ## Export a run for the gates or the tiles: make export-run ARGS="--validation run.json"
+	@test -n "$(ARGS)" || { echo "usage: make export-run ARGS=\"--validation run.json --robustness values.json --tiles tile_scores.json\""; exit 1; }
 	$(ETL_VENV)/bin/python scripts/export_run.py $(ARGS)

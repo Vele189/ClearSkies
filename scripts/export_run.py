@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export a scored run in the shapes the two section 13 gates read.
+"""Export a scored run in the shapes the gates and the tile builder read.
 
 `run_validation.py` and `run_robustness.py` each take a JSON file rather than a
 database, so that a result is reproducible by anyone holding the file and so
@@ -8,6 +8,15 @@ and it left nothing that produces the files. This does.
 
     etl/.venv/bin/python scripts/export_run.py --validation out.json
     etl/.venv/bin/python scripts/export_run.py --robustness values.json
+    etl/.venv/bin/python scripts/export_run.py --tiles tile_scores.json
+
+`--tiles` is the same idea for `pipeline tiles`, which also took a JSON file
+nothing produced. The map was therefore only as current as a file somebody made
+by hand, which `_tiles` says in as many words is the thing it exists not to be.
+Its shape is not the validation export's: tiles carry the score and the
+confidence value as well as the percentile, and they carry every hex the run has
+a row for rather than only the ones that scored, because `no_score_reason` is an
+attribute so the map can explain a hole rather than draw nothing.
 
 Defaults to the promoted run, the one the API and the tiles serve, so a gate
 describes the data a reader is looking at rather than whichever run finished
@@ -65,6 +74,23 @@ SELECT s.h3::text        AS h3,
  WHERE s.run_id = $1
 """
 
+# Everything the tile builder puts in a feature, for every hex the run has a
+# row for -- scored or not. `no_score_reason` is an attribute precisely so the
+# map can explain a hole: a grey cell reading "fewer than 25 residents" is a
+# different thing from a cell that failed to draw. Filtering to scored hexes
+# here, as the validation export does, would turn every explained hole into an
+# unexplained one.
+TILE_HEXES = """
+SELECT h3::text        AS h3,
+       score           AS score,
+       percentile      AS percentile,
+       confidence      AS confidence,
+       confidence_band AS confidence_band,
+       no_score_reason AS no_score_reason
+  FROM hex_score
+ WHERE run_id = $1
+"""
+
 ROBUSTNESS_INDICATORS = """
 SELECT indicator_id, h3::text AS h3, value
   FROM hex_indicator
@@ -102,6 +128,39 @@ async def validation_payload(conn: asyncpg.Connection, run_id: int, version: str
     }
 
 
+async def tiles_payload(conn: asyncpg.Connection, run_id: int, version: str) -> dict[str, Any]:
+    """The run in the shape `pipeline tiles` reads.
+
+    Without this, `make tiles SCORES=...` had no documented way to produce its
+    input from a run: the validation export carries only percentile and band,
+    and only for hexes that scored, so tiles built from it would lose the score,
+    the confidence value and every unscored cell.
+
+    A scored hex carries no `no_score_reason` key at all rather than a null one,
+    which is the distinction `build.py` relies on: a reason is present or it is
+    not.
+    """
+    rows = await conn.fetch(TILE_HEXES, run_id)
+
+    hexes: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        hex_row: dict[str, Any] = {}
+        if row["no_score_reason"] is not None:
+            hex_row["no_score_reason"] = str(row["no_score_reason"])
+        for field in ("score", "percentile", "confidence"):
+            if row[field] is not None:
+                hex_row[field] = float(row[field])
+        if row["confidence_band"] is not None:
+            hex_row["confidence_band"] = str(row["confidence_band"])
+        hexes[row["h3"]] = hex_row
+
+    return {
+        "source": f"run {run_id}",
+        "methodology_version": version,
+        "hexes": hexes,
+    }
+
+
 async def robustness_payload(conn: asyncpg.Connection, run_id: int, version: str) -> dict[str, Any]:
     hexes = await conn.fetch(ROBUSTNESS_HEXES, run_id)
     indicators = await conn.fetch(ROBUSTNESS_INDICATORS, run_id)
@@ -133,11 +192,12 @@ async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--validation", type=Path, help="write the CS-206 scores file here")
     parser.add_argument("--robustness", type=Path, help="write the CS-212 values file here")
+    parser.add_argument("--tiles", type=Path, help="write the CS-207 tile input here")
     parser.add_argument("--run-id", type=int, default=None, help="default: the promoted run")
     args = parser.parse_args()
 
-    if not args.validation and not args.robustness:
-        parser.error("nothing to write: pass --validation, --robustness, or both")
+    if not args.validation and not args.robustness and not args.tiles:
+        parser.error("nothing to write: pass --validation, --robustness or --tiles")
 
     url = os.environ.get("DATABASE_URL", "").strip()
     if not url:
@@ -150,6 +210,7 @@ async def main() -> int:
         for path, build in (
             (args.validation, validation_payload),
             (args.robustness, robustness_payload),
+            (args.tiles, tiles_payload),
         ):
             if path is None:
                 continue
