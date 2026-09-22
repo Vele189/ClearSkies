@@ -26,6 +26,7 @@ from pipeline.adapters.echo import (
     GAZETTEER_URL,
     GET_FACILITIES,
     GET_QID,
+    PAGE_SIZE,
     RCRA_GET_FACILITIES,
     RCRA_GET_QID,
     ComplianceQuarter,
@@ -58,6 +59,23 @@ TEST_POLICY = SourcePolicy(
 )
 
 
+def paged(body: str, page: str, page_size: int | None) -> str:
+    """One page of a recorded get_qid response, as ECHO serves a fixed page size.
+
+    With no page size the whole recording is page 1 and every later page is
+    empty, which is what a query registered with a page size larger than the
+    state returns.
+    """
+    document = json.loads(body)
+    rows = document["Results"]["Facilities"]
+    number = int(page)
+    if page_size is None:
+        document["Results"]["Facilities"] = rows if number == 1 else []
+    else:
+        document["Results"]["Facilities"] = rows[(number - 1) * page_size : number * page_size]
+    return json.dumps(document)
+
+
 def echo_transport(
     *,
     facilities: str | None = None,
@@ -65,33 +83,32 @@ def echo_transport(
     rcra_facilities: str | None = None,
     rcra_qid: str | None = None,
     fail: set[str] | None = None,
+    page_size: int | None = None,
+    seen: list[httpx.Request] | None = None,
 ) -> httpx.MockTransport:
     down = fail or set()
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if seen is not None:
+            seen.append(request)
         url = str(request.url).split("?")[0]
         if url in down:
             return httpx.Response(503)
+        json_type = {"Content-Type": "application/json"}
         if url == GET_FACILITIES:
             body = facilities or (FIXTURES / "get_facilities.json").read_text()
-            return httpx.Response(200, text=body, headers={"Content-Type": "application/json"})
+            return httpx.Response(200, text=body, headers=json_type)
         if url == GET_QID:
-            page = request.url.params.get("pageno", "1")
-            if page != "1":
-                empty = {"Results": {"Message": "Success", "Facilities": []}}
-                return httpx.Response(200, text=json.dumps(empty))
             body = qid or (FIXTURES / "get_qid_page1.json").read_text()
-            return httpx.Response(200, text=body, headers={"Content-Type": "application/json"})
+            page = request.url.params.get("pageno", "1")
+            return httpx.Response(200, text=paged(body, page, page_size), headers=json_type)
         if url == RCRA_GET_FACILITIES:
             body = rcra_facilities or (FIXTURES / "rcra_get_facilities.json").read_text()
-            return httpx.Response(200, text=body, headers={"Content-Type": "application/json"})
+            return httpx.Response(200, text=body, headers=json_type)
         if url == RCRA_GET_QID:
-            page = request.url.params.get("pageno", "1")
-            if page != "1":
-                empty = {"Results": {"Message": "Success", "Facilities": []}}
-                return httpx.Response(200, text=json.dumps(empty))
             body = rcra_qid or (FIXTURES / "rcra_get_qid_page1.json").read_text()
-            return httpx.Response(200, text=body, headers={"Content-Type": "application/json"})
+            page = request.url.params.get("pageno", "1")
+            return httpx.Response(200, text=paged(body, page, page_size), headers=json_type)
         if url == GAZETTEER_URL:
             return httpx.Response(
                 200,
@@ -716,13 +733,83 @@ async def test_a_second_pull_updates_rather_than_duplicates(sink: InMemorySink) 
     assert sink.count(ComplianceQuarter.table) == 11 * 12
 
 
-async def test_pagination_stops_when_a_short_page_arrives(sink: InMemorySink) -> None:
+async def test_pagination_stops_once_every_reported_row_has_arrived(sink: InMemorySink) -> None:
     """One page here, but fetch must not keep asking, and must not loop forever."""
     async with echo_context(sink) as ctx:
         await run_adapter(EpaEchoAdapter(), ctx)
-        pages = [u for u in ctx.http.urls if u == GET_QID]
+        pages = [u for u in ctx.http.urls if u.startswith(f"{GET_QID}?")]
 
-    assert len(pages) == 1
+    assert pages == [f"{GET_QID}?pageno=1"]
+
+
+async def test_the_page_size_is_sent_when_the_query_is_registered(sink: InMemorySink) -> None:
+    """ECHO fixes the page size at registration and ignores it on get_qid (a22f68c)."""
+    seen: list[httpx.Request] = []
+    await run(sink, transport=echo_transport(seen=seen))
+
+    registrations = [
+        r for r in seen if str(r.url).split("?")[0] in (GET_FACILITIES, RCRA_GET_FACILITIES)
+    ]
+    assert len(registrations) == 2
+    assert all(r.url.params.get("responseset") == str(PAGE_SIZE) for r in registrations)
+
+
+async def test_paging_continues_past_short_pages_until_the_count_is_reached(
+    sink: InMemorySink,
+) -> None:
+    """A server page smaller than ours is not the last page.
+
+    Before AUD-08 the loop stopped on the first page shorter than PAGE_SIZE, so a
+    query ECHO registered at its default page size loaded one page and called it
+    the state.
+    """
+    result = await run(sink, transport=echo_transport(page_size=4))
+
+    assert result.status == "partial"
+    assert result.counts.fetched == 18
+    assert sink.count(Facility.table) == 16
+    pages = [a.url for a in result.artifacts if a.url.startswith(f"{GET_QID}?")]
+    assert pages == [f"{GET_QID}?pageno={n}" for n in range(1, 5)]
+
+
+@pytest.mark.parametrize(
+    ("override", "what"),
+    [
+        ("facilities", "facilities"),
+        ("rcra_facilities", "RCRA handlers"),
+    ],
+)
+async def test_a_pull_that_ends_short_of_the_reported_count_fails(
+    sink: InMemorySink, override: str, what: str
+) -> None:
+    """A truncated list would read as empty hexes, so it is not an `ok` pull."""
+    inflated = json.dumps({"Results": {"Message": "Success", "QueryRows": 500, "QueryID": "1"}})
+    result = await run(sink, transport=echo_transport(**{override: inflated}))  # type: ignore[arg-type]
+
+    assert result.status == "failed"
+    assert sink.tables == {}
+    assert f"reported 500 {what}" in " ".join(result.notes)
+
+
+async def test_a_stale_night_replays_every_page_rather_than_the_last(
+    sink: InMemorySink,
+) -> None:
+    """The URL is the snapshot key, so each page needs its own URL."""
+    store = InMemorySnapshotStore()
+    await run(sink, snapshots=store, transport=echo_transport(page_size=4))
+
+    second_sink = InMemorySink()
+    result = await run(
+        second_sink,
+        transport=echo_transport(
+            fail={GET_FACILITIES, GET_QID, RCRA_GET_FACILITIES, RCRA_GET_QID, GAZETTEER_URL}
+        ),
+        snapshots=store,
+        clock=FakeClock(),
+    )
+
+    assert result.status == "stale"
+    assert second_sink.count(Facility.table) == 16
 
 
 # ---- failure modes -----------------------------------------------------

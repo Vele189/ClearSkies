@@ -84,7 +84,7 @@ from typing import ClassVar
 from pipeline.adapters.base import FetchResult, SourceAdapter
 from pipeline.adapters.registry import register
 from pipeline.context import RunContext
-from pipeline.errors import PermanentSourceError, RecordRejected
+from pipeline.errors import PermanentSourceError, RecordRejected, TransientSourceError
 from pipeline.geo import Geocode, classify, containing_cell
 from pipeline.metadata import Artifact, KnownGap, SourceSpec
 from pipeline.policy import RateLimit, SourcePolicy
@@ -580,38 +580,9 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         state = ctx.pilot_state
         columns = ",".join(str(cid) for cid, _ in QCOLUMNS)
 
-        opened = await ctx.http.get(GET_FACILITIES, params={"output": "JSON", "p_st": state})
-        results = self._results(opened.content, GET_FACILITIES)
-        qid = _as_text(results.get("QueryID"))
-        expected = _as_int(results.get("QueryRows"))
-        if not qid:
-            raise PermanentSourceError(f"{GET_FACILITIES}: no QueryID in the response")
-        if expected == 0:
-            raise PermanentSourceError(f"{GET_FACILITIES}: {state} matched no facilities")
-
-        artifacts = [opened.artifact]
-        rows: list[dict[str, str]] = []
-        for page in range(1, MAX_PAGES + 1):
-            download = await ctx.http.get(
-                GET_QID,
-                params={
-                    "output": "JSON",
-                    "qid": str(qid),
-                    "pageno": str(page),
-                    "responseset": str(PAGE_SIZE),
-                    "qcolumns": columns,
-                },
-            )
-            artifacts.append(download.artifact)
-            batch = _as_rows(self._results(download.content, GET_QID).get("Facilities"))
-            rows.extend(batch)
-            if len(batch) < PAGE_SIZE or len(rows) >= expected:
-                break
-
-        if not rows:
-            # A qid that returns nothing is usually an expired query rather than
-            # an empty state, and retrying the same qid will not help.
-            raise PermanentSourceError(f"{GET_QID}: qid {qid} returned no rows")
+        rows, artifacts = await self._paged(
+            ctx, GET_FACILITIES, GET_QID, state=state, columns=columns, what="facilities"
+        )
 
         # Before the gazetteer, so a hazardous-waste site that holds no air permit
         # is classified on the same ZIP centroids as every other facility.
@@ -640,9 +611,6 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             f"ZIP centroids from the {GAZETTEER_YEAR} Census gazetteer "
             f"({len(self._zip_centroids)} ZIP codes)",
         ]
-        if len(rows) < expected:
-            notes.append(f"upstream reported {expected} rows, {len(rows)} were paged")
-
         return FetchResult(
             records=sites,
             known_gaps=self._positional_gaps(flagged, unchecked, len(sites))
@@ -654,6 +622,77 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             artifacts=artifacts,
             notes=notes,
         )
+
+    async def _paged(
+        self,
+        ctx: RunContext,
+        register: str,
+        pages: str,
+        *,
+        state: str,
+        columns: str,
+        what: str,
+    ) -> tuple[list[dict[str, str]], list[Artifact]]:
+        """Register a query for the state and page every row it reports.
+
+        `responseset` goes on the registering call. ECHO fixes the page size when
+        the query is registered and `get_qid` serves that size whatever it is
+        asked for afterwards, so a page size sent only with the pages is ignored
+        and the first short page looks like the last one (a22f68c found this in
+        the audit seeder, which reported 652 QueryRows and returned one row).
+
+        Paging therefore stops on the count, not on the size of a page, and a
+        pull that ends short of `QueryRows` raises. A truncated facility list is
+        not a partial success: every facility left off it reads as a hex with
+        nothing in it. Raising hands the night to the runner's stale fallback,
+        which serves the last complete pull or fails the source.
+
+        The page number is part of the URL rather than a parameter, because the
+        URL is the snapshot key and a stale night has to replay each page, not
+        the last one twenty times. The qid stays a parameter: it is different
+        every night, and the replayed registration carries the old one anyway.
+        """
+        opened = await ctx.http.get(
+            register,
+            params={"output": "JSON", "p_st": state, "responseset": str(PAGE_SIZE)},
+        )
+        results = self._results(opened.content, register)
+        qid = _as_text(results.get("QueryID"))
+        expected = _as_int(results.get("QueryRows"))
+        if not qid:
+            raise PermanentSourceError(f"{register}: no QueryID in the response")
+        if expected == 0:
+            raise PermanentSourceError(f"{register}: {state} matched no {what}")
+
+        artifacts = [opened.artifact]
+        rows: list[dict[str, str]] = []
+        for page in range(1, MAX_PAGES + 1):
+            download = await ctx.http.get(
+                f"{pages}?pageno={page}",
+                params={
+                    "output": "JSON",
+                    "qid": str(qid),
+                    "responseset": str(PAGE_SIZE),
+                    "qcolumns": columns,
+                },
+            )
+            artifacts.append(download.artifact)
+            batch = _as_rows(self._results(download.content, pages).get("Facilities"))
+            rows.extend(batch)
+            if not batch or len(rows) >= expected:
+                break
+
+        if not rows:
+            # A qid that returns nothing is usually an expired query rather than
+            # an empty state, and retrying the same qid will not help.
+            raise PermanentSourceError(f"{pages}: qid {qid} returned no rows")
+        if len(rows) < expected:
+            # Transient rather than permanent: an expired qid partway through is
+            # the likeliest cause, and tomorrow's fresh query may well page fine.
+            raise TransientSourceError(
+                f"{pages}: qid {qid} reported {expected} {what}, {len(rows)} were paged"
+            )
+        return rows, artifacts
 
     async def _rcra_handlers(
         self, ctx: RunContext, state: str
@@ -672,38 +711,14 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         """
         columns = ",".join(str(cid) for cid, _ in RCRA_QCOLUMNS)
 
-        opened = await ctx.http.get(RCRA_GET_FACILITIES, params={"output": "JSON", "p_st": state})
-        results = self._results(opened.content, RCRA_GET_FACILITIES)
-        qid = _as_text(results.get("QueryID"))
-        expected = _as_int(results.get("QueryRows"))
-        if not qid:
-            raise PermanentSourceError(f"{RCRA_GET_FACILITIES}: no QueryID in the response")
-        if expected == 0:
-            raise PermanentSourceError(f"{RCRA_GET_FACILITIES}: {state} matched no RCRA handlers")
-
-        artifacts = [opened.artifact]
-        rows: list[dict[str, str]] = []
-        for page in range(1, MAX_PAGES + 1):
-            download = await ctx.http.get(
-                RCRA_GET_QID,
-                params={
-                    "output": "JSON",
-                    "qid": str(qid),
-                    "pageno": str(page),
-                    "responseset": str(PAGE_SIZE),
-                    "qcolumns": columns,
-                },
-            )
-            artifacts.append(download.artifact)
-            batch = _as_rows(self._results(download.content, RCRA_GET_QID).get("Facilities"))
-            rows.extend(batch)
-            if len(batch) < PAGE_SIZE or len(rows) >= expected:
-                break
-
-        if not rows:
-            # As on the air side: a qid returning nothing is an expired query
-            # rather than a state without hazardous waste in it.
-            raise PermanentSourceError(f"{RCRA_GET_QID}: qid {qid} returned no rows")
+        rows, artifacts = await self._paged(
+            ctx,
+            RCRA_GET_FACILITIES,
+            RCRA_GET_QID,
+            state=state,
+            columns=columns,
+            what="RCRA handlers",
+        )
 
         handlers, unkeyed = self._group_handlers(rows)
         return handlers, len(rows), unkeyed, artifacts

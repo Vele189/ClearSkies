@@ -45,6 +45,7 @@ import httpx
 
 from pipeline.adapters import census_acs, fake, get, names, openaq, specs
 from pipeline.context import make_context
+from pipeline.errors import SinkError
 from pipeline.http import build_client
 from pipeline.ledger import NightlyRun, RunLedger, carried, finish, outcome_from
 from pipeline.metadata import PullMetadata
@@ -144,15 +145,31 @@ class _LazyConnection:
     So the connection is opened when it is first needed and checked before each
     use. It satisfies `sinks_postgres.Connection` and `dasymetric.postgis.
     Connection` between them; nothing here knows which.
+
+    Except inside a transaction. Callers open one with `transaction()` and then
+    keep calling this object, not the connection it yields, so a reconnect there
+    would run the rest of the statements on a fresh connection outside the
+    transaction, each one autocommitting, while the server rolled back the ones
+    before it. Half a commit, reported as a whole one. So while a transaction is
+    open every call goes to the connection it was opened on, and a lost
+    connection raises instead of being replaced.
     """
 
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
         self._connection: Any = None
+        self._pinned: Any = None
 
     async def _live(self) -> Any:
         import asyncpg  # noqa: PLC0415
 
+        if self._pinned is not None:
+            if self._pinned.is_closed():
+                raise SinkError(
+                    "the database connection closed inside a transaction; "
+                    "the server rolled it back and nothing was reconnected"
+                )
+            return self._pinned
         if self._connection is None or self._connection.is_closed():
             self._connection = await asyncpg.connect(self._dsn)
         return self._connection
@@ -176,8 +193,16 @@ class _LazyConnection:
         @asynccontextmanager
         async def opened() -> AsyncIterator[Any]:
             connection = await self._live()
-            async with connection.transaction():
-                yield connection
+            # A nested call is a savepoint on the same connection; only the
+            # outermost one unpins.
+            outermost = self._pinned is None
+            self._pinned = connection
+            try:
+                async with connection.transaction():
+                    yield connection
+            finally:
+                if outermost:
+                    self._pinned = None
 
         return opened()
 
