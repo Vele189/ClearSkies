@@ -13,6 +13,8 @@ rule expressed in workflow steps is a rule no test can reach.
 1. **Plan.** Read the ledger for when each source last loaded cleanly, and decide
    which sources are due. Print the plan before pulling anything.
 2. **Pull** the sources that are due, in dependency order, into one shared sink.
+   In the workflow that sink is in memory, not Postgres. See *What the night does
+   not do* below.
 3. **Gate.** Apply CS-108's per-source thresholds and cross-source checks.
 4. **Record** the night in the ledger and every pull in the provenance history,
    whatever happened to them.
@@ -22,10 +24,30 @@ rule expressed in workflow steps is a rule no test can reach.
 
 Steps 1 and 5 are what this ticket adds to what CS-108 already did.
 
+## What the night does not do
+
+It does not write to the database. `python -m pipeline nightly` runs every due
+adapter into the in-memory sink and applies the gate to the result, so a green
+night means the sources are still reachable, still shaped the way the adapters
+believe, and still inside the CS-108 thresholds. It does not mean the map has
+tonight's numbers in it.
+
+Loading is `python -m pipeline run <source> --load`, against `DATABASE_URL`, run
+by hand. The workflow is given no such secret, deliberately: the ledger that
+decides what is due is a file in an Actions cache, so a night that loaded would
+write to the database on the strength of state GitHub is free to evict. The two
+move together, into `pipeline_run` and the Postgres sink, and until then this
+page says which of the two a night actually did.
+
+What the night *does* keep is the snapshots: every download is written to
+`etl/pipeline-snapshots`, which has its own Actions cache, because a source that
+has gone away is served from its last good copy and a copy held in memory does
+not outlive the process that fetched it.
+
 ## Refresh cadence
 
-Only one of these sources changes every day. Pulling all six nightly would spend
-three times the Actions budget and three times EPA's bandwidth to arrive at the
+Only one of these sources changes every day. Pulling all eight nightly would
+spend six times the Actions budget and six times EPA's bandwidth to arrive at the
 same numbers, so each source declares how often it is worth pulling, in
 `etl/pipeline/schedule.py`, with the reason attached to the interval.
 
@@ -36,7 +58,9 @@ same numbers, so each source declares how often it is worth pulling, in
 | `epa_echo` | weekly | every 7 days | ECHO refreshes weekly, so six nights in seven would re-download an unchanged file. |
 | `epa_tri` | annual, ~18-month lag | every 30 days | Republished at most once a year. |
 | `airtoxscreen` | every 1-2 years, ~3-year lag | every 30 days | Republished at most once a year. |
+| `epa_rsei` | annual, by model version | every 30 days | Republished on its own model-version schedule, at most once a year. |
 | `census_acs` | annual release | every 30 days | Republished at most once a year. |
+| `census_block` | decennial | every 365 days | The 2020 blocks and their PL 94-171 counts are fixed until the 2030 census. It is also the longest pull in the job, about 30 minutes, so a monthly pull would buy nothing with the largest bill in the schedule. |
 
 A monthly interval on an annual source bounds how long a new release can sit
 unnoticed. The day one is announced, a `workflow_dispatch` with `force` closes
@@ -85,11 +109,12 @@ timeout, so when a night overruns, the order decides what got cut.
 
 Nothing. That is the point.
 
-Each source's transaction committed hours before the gate ran, so a failure
-cannot mean a rollback, and unwinding four good sources to punish a fifth would
-be worse than saying so. Instead the run is **not promoted**: it is recorded in
-the ledger, marked failed, and the map keeps serving the run that last passed its
-gate.
+Nothing was written to the database in the first place, and even once the night
+loads, each source's transaction will have committed hours before the gate ran,
+so a failure cannot mean a rollback: unwinding four good sources to punish a
+fifth would be worse than saying so. Instead the run is **not promoted**: it is
+recorded in the ledger, marked failed, and the map keeps serving the run that
+last passed its gate.
 
 The schema already models this. `pipeline_run` in migration 0002 carries a
 status and an `is_current` flag, with a constraint that only a succeeded run may
@@ -122,20 +147,23 @@ private ones. The budget is written against the tighter of the two.
 
 | | Minutes |
 |---|---|
-| 30 nights of a typical pull (OpenAQ plus the reference adapter) | ~185 |
+| 30 nights of a typical pull (OpenAQ plus the reference adapter) | ~183 |
 | 4 nights of ECHO's weekly refresh | ~12 |
-| 1 night when the three annual sources come due together | ~17 |
+| 1 night when the four monthly sources come due together | ~18 |
+| A twelfth of a night for the decennial block layer | ~3 |
 | 30 nights of checkout, install and gate | ~60 |
-| **Total** | **~275** |
+| **Total** | **~276** |
 
-Under 300 against a 2,000 floor, and the cadence policy is why. Pulling all six
-every night would be roughly 900 minutes for the same numbers.
+Under 300 against a 2,000 floor, and the cadence policy is why. Pulling all
+eight every night would be roughly 1,760 minutes for the same numbers.
 
-`timeout-minutes` is 45, comfortably above the ~26 minutes an all-six night is
-expected to cost, so a genuinely slow night finishes rather than being cut in
-half. The per-source budgets are envelopes, not measurements: four of these six
-adapters have never run against live upstream from a GitHub runner. Being wrong
-about one costs ordering, not correctness.
+`timeout-minutes` is 75, above the ~57 minutes an all-eight night is expected to
+cost, so a genuinely slow night finishes rather than being cut in half. An
+all-eight night happens twice: on the first one, and after the cache is lost.
+The per-source budgets are envelopes rather than measurements, except the block
+layer's, which was measured. Being wrong about one costs ordering, not
+correctness: cheapest-first means a night that does hit the timeout loses the
+census blocks, the one source that cannot have changed.
 
 A `concurrency` group stops a scheduled run and a hand-triggered one loading at
 the same time. They share a ledger, and two nights promoting themselves in
@@ -144,9 +172,9 @@ parallel is how a run that failed its gate ends up current.
 ## The ledger between runs
 
 A cadence counts from a date, and a GitHub runner keeps nothing by default, so
-the workflow caches `etl/pipeline-state`. The cache key is unique per run and the
-restore key is a prefix, so each night writes a fresh entry and picks up the most
-recent one.
+the workflow caches `etl/pipeline-state`, and `etl/pipeline-snapshots` beside it.
+Each cache key is unique per run and each restore key is a prefix, so every night
+writes a fresh entry and picks up the most recent one.
 
 This is interim, and safe to rely on because losing it is harmless: a cache miss
 means every source comes out due and the night does one redundant full pull.
@@ -160,6 +188,7 @@ python -m pipeline plan                 # what tonight would pull, and why
 python -m pipeline nightly              # the scheduled run
 python -m pipeline nightly --force epa_tri   # ignore one source's cadence
 python -m pipeline nightly --all        # ignore every cadence
+python -m pipeline nightly --snapshots DIR   # where last-good downloads are kept
 python -m pipeline runs                 # past nights, and the one being served
 ```
 

@@ -9,6 +9,17 @@ name: Nightly ETL
 # covers the planner, the ledger and the promotion rule, and none of that would
 # be reachable if the orchestration lived in these steps.
 #
+# ---- what this job does not do -----------------------------------------
+#
+# It does not load into Postgres. `nightly` runs every due adapter into the
+# in-memory sink and applies the CS-108 gate to what came back, so a night
+# proves that upstream still serves what this pipeline believes it serves, and
+# records that verdict in the ledger and in docs/provenance.md. The database is
+# written by `python -m pipeline run <source> --load` against DATABASE_URL, by
+# hand, and this job is given no such secret. Until the ledger and the sink move
+# into Postgres together, a green night means "the sources are healthy and the
+# gate passed", not "the map has tonight's data in it".
+#
 # ---- the free-tier budget ----------------------------------------------
 #
 # Actions is unmetered for public repositories and 2,000 minutes a month on the
@@ -16,25 +27,28 @@ name: Nightly ETL
 # of the two.
 #
 # Per-source envelopes are declared in `pipeline/schedule.py` and add up to about
-# 26 minutes if every source pulls on the same night. That happens roughly once a
-# month, when the three annual sources come due together. A typical night pulls
-# only OpenAQ and the reference adapter, about 6 minutes.
+# 57 minutes if all eight sources pull on the same night, which is the first
+# night and the night after the cache is lost. The four monthly sources coming
+# due together costs about 18. A typical night pulls only OpenAQ and the
+# reference adapter, about 6 minutes.
 #
-#     30 nights x  ~6 min typical pull                  ~185 min
+#     30 nights x  ~6 min typical pull                  ~183 min
 #      4 nights x  ~3 min for ECHO's weekly refresh      ~12 min
-#      1 night  x ~17 min for the three annual sources   ~17 min
+#      1 night  x ~18 min for the four monthly sources   ~18 min
+#     1/12 night x ~30 min for the decennial blocks       ~3 min
 #     30 nights x  ~2 min of checkout, install, gate     ~60 min
 #                                                      ---------
-#                                                       ~275 min
+#                                                       ~276 min
 #
 # Under 300 minutes a month against a 2,000 minute floor, and the reason it is
-# that low is the cadence policy: pulling all six every night would be about
-# 900 minutes, which is still inside the tier but spends three times the budget
-# and three times EPA's bandwidth to produce the same numbers.
+# that low is the cadence policy: pulling all eight every night would be about
+# 1,760 minutes, which is just inside the tier and spends six times the budget
+# and six times EPA's bandwidth to produce the same numbers.
 #
-# `timeout-minutes` is set well above the all-six figure so that a genuinely slow
+# `timeout-minutes` is set above the all-eight figure so that a genuinely slow
 # night finishes rather than being cut in half. If it ever does cut a night off,
-# the planner's cheapest-first ordering decides what survived.
+# the planner's cheapest-first ordering decides what survived: the census blocks,
+# the one source that cannot have changed, are what it drops first.
 
 on:
   schedule:
@@ -46,9 +60,9 @@ on:
         required: false
         default: ""
 
-# A scheduled run and a hand-triggered one must not load at the same time. They
-# share a ledger and a database, and two nights promoting themselves in parallel
-# is how a run that failed its gate ends up current.
+# A scheduled run and a hand-triggered one must not run at the same time. They
+# share a ledger and a snapshot directory, and two nights promoting themselves in
+# parallel is how a run that failed its gate ends up current.
 concurrency:
   group: nightly-etl
   cancel-in-progress: false
@@ -64,7 +78,7 @@ jobs:
   ingest:
     name: Ingest and gate
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -93,6 +107,22 @@ jobs:
           restore-keys: |
             pipeline-state-
 
+      # The other half of the state, and the one methodology section 6 rests on:
+      # the last good copy of every download, which is what a source that has
+      # gone away is served from. Cached separately from the ledger because it
+      # is orders of magnitude larger and because losing it is a different kind
+      # of loss: a missing ledger costs one redundant pull, a missing snapshot
+      # directory costs the stale fallback until the next successful night
+      # refills it. Same key shape, so each night writes a fresh entry and
+      # restores the most recent one.
+      - name: Restore the source snapshots
+        uses: actions/cache@v4
+        with:
+          path: etl/pipeline-snapshots
+          key: pipeline-snapshots-${{ github.run_id }}
+          restore-keys: |
+            pipeline-snapshots-
+
       - name: What tonight will pull
         working-directory: etl
         run: python -m pipeline plan
@@ -104,14 +134,21 @@ jobs:
       # `--require` names the sources that must produce what they were asked for
       # on a night their cadence says they are due. A source that is carried is
       # not required of that run, so the flag stays correct as each cadence
-      # comes and goes. Today only the reference adapter is registered; CS-102
-      # through CS-105 each add their own `--require` in the pull request that
-      # wires the adapter in, which is what keeps "the check skipped because
-      # nothing loaded" from reading as a green tick.
+      # comes and goes. Every registered source is named: a night on which one
+      # of them was due, ran, and produced nothing usable is a night whose gate
+      # skipped its checks, and a report made of skips must not read as a green
+      # tick.
+      #
+      # The two credentials are the ones `CREDENTIAL_ENV` maps. OpenAQ refuses
+      # every request without a key, so an absent secret fails that source with
+      # a legible reason rather than quietly pulling nothing; the Census key
+      # only raises the rate at which ACS answers.
       - name: Nightly run
         working-directory: etl
         env:
           FORCE: ${{ github.event.inputs.force }}
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
         run: |
           args=""
           if [ "$FORCE" = "all" ]; then
@@ -121,7 +158,15 @@ jobs:
               args="$args --force $source"
             done
           fi
-          python -m pipeline nightly --require fake $args
+          python -m pipeline nightly $args \
+            --require fake \
+            --require openaq \
+            --require epa_echo \
+            --require epa_tri \
+            --require epa_rsei \
+            --require airtoxscreen \
+            --require census_acs \
+            --require census_block
 
       # CS-110. The page answers "where did this number come from", and the only
       # honest way to keep that answer true is to generate it. This runs after

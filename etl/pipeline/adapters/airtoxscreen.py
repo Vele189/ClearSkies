@@ -407,15 +407,16 @@ class AirToxScreenAdapter(SourceAdapter[AirToxRecord]):
         title="EPA AirToxScreen (Air Toxics Screening Assessment)",
         homepage=RESULTS_PAGE,
         cadence="every 1-2 years, ~3-year lag",
-        native_geography=f"census tract ({TRACT_VINTAGE} vintage)",
+        native_geography=f"census tract ({TRACT_VINTAGE} vintage, re-keyed to 2020)",
         provides=("E1", "E2"),
     )
 
     policy: ClassVar[SourcePolicy] = SourcePolicy(
-        # A static file host, and this adapter makes two requests a night. One a
-        # second is politeness rather than a published limit.
+        # A static file host, and this adapter makes three requests a night: the
+        # two result files and the tract relationship file the vintage crossing
+        # reads. One a second is politeness rather than a published limit.
         rate_limit=RateLimit(requests_per_second=1.0, burst=2),
-        # The two files are 62 MB and 43 MB, by a wide margin the largest
+        # The two result files are 62 MB and 43 MB, by a wide margin the largest
         # downloads in the project. The 30-second default times out on any
         # ordinary connection and would turn a working source into a nightly
         # retry storm.
@@ -674,9 +675,13 @@ class AirToxScreenAdapter(SourceAdapter[AirToxRecord]):
                     f"Tract identifiers in this release are {TRACT_VINTAGE} census geography. "
                     f"All 1,128 Louisiana tracts in the file exist in the {TRACT_VINTAGE} tract "
                     f"set; 273 of them do not exist in the 2020 set, which is the geography the "
-                    f"section 7 crosswalk is built on. Tracts that fail to cross are counted as "
-                    f"unmatched rather than dropped, and reconciling the two vintages needs a "
-                    f"Census tract relationship file that belongs with the geography loader."
+                    f"section 7 crosswalk is built on. The values are therefore re-keyed onto "
+                    f"2020 tracts through the Census tract relationship file before they are "
+                    f"loaded, weighted by the land area each pair of tracts shares. The weight "
+                    f"section 7 would use is population, which would need the block layer at "
+                    f"both vintages and only 2020 was ever loaded, so the crossing is least "
+                    f"accurate where density varies inside an overlap -- which is where tracts "
+                    f"get redrawn. Every use of E1 and E2 inherits that approximation."
                 ),
                 affects=("E1", "E2"),
             ),
@@ -803,8 +808,9 @@ def _mapping_gaps(cancer: Coverage, respiratory: Coverage) -> tuple[KnownGap, ..
                     detail=(
                         f"{indicator}: {len(coverage.unmatched_sources)} tracts carry a value "
                         f"but appear nowhere in the tract-to-hex crosswalk, so they reach no "
-                        f"hexagon. Expected where the release's {TRACT_VINTAGE} tracts and the "
-                        f"crosswalk's 2020 tracts disagree. First few: {sample}."
+                        f"hexagon. These are 2020 tracts the vintage crossing produced and the "
+                        f"crosswalk does not hold, rather than the {TRACT_VINTAGE} identifiers "
+                        f"the release publishes. First few: {sample}."
                     ),
                     affects=(indicator,),
                 )

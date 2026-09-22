@@ -49,7 +49,7 @@ from typing import Literal
 # What upstream does, which is the reason each interval below holds its value.
 # This is documentation attached to the number rather than a switch: nothing
 # branches on it, and `every_days` is what the planner reads.
-Cadence = Literal["daily", "weekly", "annual", "fixture"]
+Cadence = Literal["daily", "weekly", "annual", "decennial", "fixture"]
 
 # pull     run the adapter tonight
 # carry    not due; the previous load stands and stays current
@@ -168,6 +168,22 @@ MONTHLY = Refresh(
     ),
 )
 
+# The 2020 blocks are fixed until the 2030 census: the geography is defined once
+# a decade and the PL 94-171 counts with it. A yearly pull is not about catching
+# a new release, then, but about noticing that TIGERweb still serves the layer
+# this pipeline is built on -- and it is the most expensive pull in the job, so
+# paying it monthly to learn that nothing changed would be the clearest waste in
+# the schedule. `workflow_dispatch` reloads it the day a correction is issued.
+DECENNIAL = Refresh(
+    cadence="decennial",
+    every_days=365,
+    why=(
+        "2020 blocks and their PL 94-171 counts are fixed until the 2030 census, "
+        "so a pull confirms upstream still serves them rather than collecting a "
+        "new release."
+    ),
+)
+
 FIXTURE = Refresh(
     cadence="fixture",
     every_days=1,
@@ -225,8 +241,21 @@ SCHEDULES: dict[str, SourceSchedule] = {
         refresh=MONTHLY,
         budget_minutes=5.0,
         note=(
-            "Envelope. Two requests, but one is a national workbook that is "
-            "unzipped and parsed for every tract in the country."
+            "Envelope. Three requests, but one is a national workbook that is "
+            "unzipped and parsed for every tract in the country, and another is "
+            "the national tract relationship file the 2010-to-2020 crossing reads."
+        ),
+    ),
+    "census_block": SourceSchedule(
+        source="census_block",
+        refresh=DECENNIAL,
+        budget_minutes=30.0,
+        note=(
+            "Measured, not an envelope, and the longest pull in the job: 143 pages "
+            "of TIGERweb block geometry at about 8.4 seconds each, plus the "
+            "statewide population check. It sorts last within its level, so a "
+            "night that runs into the timeout loses this rather than a source that "
+            "publishes something new."
         ),
     ),
     "openaq": SourceSchedule(
@@ -485,6 +514,7 @@ def _stamp(moment: datetime) -> str:
 
 __all__ = [
     "DAILY",
+    "DECENNIAL",
     "FIXTURE",
     "MONTHLY",
     "SCHEDULES",
