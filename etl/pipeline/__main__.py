@@ -248,7 +248,9 @@ async def _run_into_postgres(
     return metadata
 
 
-async def _grid(*, state_fips: str, database_url: str, dry_run: bool) -> int:
+async def _grid(
+    *, state_fips: str, database_url: str, dry_run: bool, names_only: bool = False
+) -> int:
     """Build the hex grid, or report what it would build.
 
     Exits non-zero when the loaded area is implausible against Louisiana's
@@ -259,10 +261,24 @@ async def _grid(*, state_fips: str, database_url: str, dry_run: bool) -> int:
     if not database_url:
         raise SystemExit("grid needs DATABASE_URL or --database-url")
 
-    from pipeline.grid import BOUNDARY, build_grid, cells_for  # noqa: PLC0415
+    from pipeline.grid import (  # noqa: PLC0415
+        BOUNDARY,
+        assign_parishes,
+        build_grid,
+        cells_for,
+    )
 
     connection = _LazyConnection(database_url)
     try:
+        # CP-26's backfill. The grid built before `parish_name` had a source
+        # carries none, and rebuilding the whole grid to add a label would
+        # rewrite every row that references it. This re-runs one idempotent
+        # UPDATE instead.
+        if names_only:
+            changed = await assign_parishes(connection, state_fips=state_fips)
+            print(f"{changed} cells given a parish and its name. Nothing else written.")
+            return 0
+
         if dry_run:
             raw = await connection.fetchval(BOUNDARY, state_fips)
             if raw is None:
@@ -728,6 +744,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="count the cells the boundary yields without writing them",
     )
+    grid.add_argument(
+        "--names-only",
+        action="store_true",
+        help="fill parish_name on the existing grid, building nothing (CP-26)",
+    )
 
     interpolate = sub.add_parser(
         "interpolate",
@@ -949,6 +970,7 @@ def main(argv: list[str] | None = None) -> int:
                 state_fips=args.pilot_state_fips,
                 database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
                 dry_run=args.dry_run,
+                names_only=args.names_only,
             )
         )
 

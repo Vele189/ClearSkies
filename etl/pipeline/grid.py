@@ -47,11 +47,14 @@ from typing import Any, Protocol, runtime_checkable
 
 import h3
 
+from pipeline.parishes import as_arrays
+
 __all__ = [
     "Connection",
     "GridReport",
     "RESOLUTION",
     "UNSCORED_REASON",
+    "assign_parishes",
     "build_grid",
     "cells_for",
     "export_for_tiles",
@@ -202,13 +205,23 @@ WHERE NOT h.in_pilot_state
 
 # The parish a cell sits in, by its centre. Fringe cells centred outside the
 # state get no parish, which is correct: they belong to a neighbouring one.
+#
+# The name comes from `pipeline.parishes`, passed as two arrays rather than
+# written into the statement, because the mapping has one home and a copy of it
+# here would be a copy that drifts. A LEFT JOIN, so a code with no name still
+# gets its `county_fips`: the geometry is the fact and the label is a
+# convenience, and losing the first to a missing second would be the wrong way
+# round (CP-26).
 ASSIGN_PARISH = """
 UPDATE hex h
-SET county_fips = t.county_fips
+SET county_fips = t.county_fips,
+    parish_name = p.name
 FROM census_tract t
+LEFT JOIN unnest($2::text[], $3::text[]) AS p(fips, name) ON p.fips = t.county_fips
 WHERE ST_Contains(t.geom, h.centroid)
   AND t.state_fips = $1
-  AND h.county_fips IS DISTINCT FROM t.county_fips
+  AND (h.county_fips IS DISTINCT FROM t.county_fips
+       OR h.parish_name IS DISTINCT FROM p.name)
 """
 
 MEASURE = """
@@ -309,6 +322,23 @@ async def _export_unscored(connection: Connection) -> dict[str, Any]:
     }
 
 
+async def assign_parishes(connection: Connection, *, state_fips: str = "22") -> int:
+    """Give every cell the parish its centre falls in, and that parish's name.
+
+    Separate from `build_grid` so it can be re-run over a grid that already
+    exists, which is what fills `parish_name` on the 173,424 cells built before
+    there was a name to fill it with. Idempotent: the `IS DISTINCT FROM` guard
+    means a second run touches nothing, so it costs one scan and changes
+    nothing when it has already been done.
+
+    Returns how many rows it changed, for the caller's log.
+    """
+    codes, names = as_arrays(state_fips)
+    status = await connection.execute(ASSIGN_PARISH, state_fips, codes, names)
+    # asyncpg returns the command tag, "UPDATE <n>".
+    return int(status.rsplit(" ", 1)[-1]) if status else 0
+
+
 async def build_grid(
     connection: Connection, *, state_fips: str = "22", batch: int = 5_000
 ) -> GridReport:
@@ -341,7 +371,7 @@ async def build_grid(
             await connection.executemany(INSERT, pending)
 
         await connection.execute(PRUNE, state_fips)
-        await connection.execute(ASSIGN_PARISH, state_fips)
+        await assign_parishes(connection, state_fips=state_fips)
         measured = await connection.fetchrow(MEASURE)
 
     assert measured is not None

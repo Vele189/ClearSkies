@@ -611,8 +611,16 @@ Acceptance:
 - The 1,699 hexagons with no `county_fips` are left null and counted, not
   guessed. They are open water and state-line cells, and a wrong parish on a
   drafted document is worse than none.
-- A backfill migration fills the existing grid; the grid builder fills it for
-  every grid built afterwards, so the two cannot drift.
+- The existing grid is filled without being rebuilt, and the grid builder fills
+  it for every grid built afterwards, from the same mapping.
+
+  **Not a backfill migration**, which is what this ticket first said. A
+  migration would need the 64 names written into SQL, and the grid builder
+  needs them in Python, and two copies of a mapping are two copies that drift —
+  which is the defect this ticket exists to fix, in a new place. The mapping
+  lives once in `pipeline/parishes.py`, is passed to the UPDATE as parameters,
+  and `pipeline grid --names-only` re-runs that one idempotent statement over a
+  grid that already exists.
 - `GET /hex/{h3}` returns it, and the panel heading reads the parish.
 
 ---
