@@ -79,6 +79,11 @@ class Report:
         return [h for h in self.hits if not h.found]
 
 
+def _answers(label: str, expect: str) -> bool:
+    """True when `label` is the expected section or a subdivision of it."""
+    return label == expect or label.startswith(expect + "(")
+
+
 async def run(
     conn: Any,
     client: Any,
@@ -97,10 +102,12 @@ async def run(
 
         rank: int | None = None
         for position, row in enumerate(rows, start=1):
-            # A prefix match: a question about § 7412(b) is answered by any
-            # subdivision of it, and demanding an exact label would measure the
-            # chunker rather than retrieval.
-            if str(row["section_label"]).startswith(question.expect):
+            # The section or any subdivision of it: a question about § 7412(b)
+            # is answered by § 7412(b)(1), and demanding an exact label would
+            # measure the chunker rather than retrieval. A bare prefix is too
+            # loose, because § 2000d-1 starts with § 2000d and is a different
+            # section, so a subdivision has to begin with its parenthesis.
+            if _answers(str(row["section_label"]), question.expect):
                 rank = position
                 break
 

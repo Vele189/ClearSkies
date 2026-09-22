@@ -235,7 +235,12 @@ FEDERAL: tuple[Authority, ...] = (
         relevance="New and modified major source review",
         jurisdiction="federal",
         plan=CLEAN_AIR_ACT,
-        sections=tuple(str(n) for n in range(7470, 7493)),
+        # The sections the Code has, not the numbers the citation spans. Part C
+        # runs 7470 to 7479 and resumes at 7491; 7480 to 7490 were never
+        # enacted. Listing them made the range look like coverage nobody had
+        # checked, and now that a listed section that does not arrive is an
+        # error, a range would fail every build.
+        sections=(*(str(n) for n in range(7470, 7480)), "7491", "7492"),
         parent="usc-42-chap85",
     ),
     Authority(
