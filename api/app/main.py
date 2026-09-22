@@ -62,6 +62,10 @@ app.add_middleware(
 # rejected preflight. A request refused by CORS is a request worth seeing.
 app.add_middleware(RequestLogMiddleware)
 
+# /health carries no rate limit on purpose: the uptime check polls it, a
+# limited health check would page the operator about a rate limit rather
+# than an outage, and it is the one endpoint that must answer while
+# everything else is refusing. Every other router limits reads (CS-402).
 app.include_router(health.router)
 app.include_router(meta.router)
 app.include_router(provenance.router)

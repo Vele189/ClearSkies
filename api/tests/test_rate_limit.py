@@ -12,10 +12,10 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from app import rate_limit
 from app.config import get_settings
 from app.main import app
 from app.rate_limit import SlidingWindow, client_key
-from app.routers import draft as draft_router
 
 
 def test_requests_under_the_limit_pass() -> None:
@@ -93,12 +93,12 @@ def limited(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("DRAFT_RATE_LIMIT", "2")
     monkeypatch.setenv("DRAFT_RATE_WINDOW_S", "3600")
     get_settings.cache_clear()
-    draft_router._limiter = None
+    rate_limit.reset_all()
     try:
         with TestClient(app) as client:
             yield client
     finally:
-        draft_router._limiter = None
+        rate_limit.reset_all()
         get_settings.cache_clear()
 
 

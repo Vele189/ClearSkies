@@ -1,9 +1,19 @@
-"""A small per-client limit on the endpoint that spends money.
+"""Small per-client limits on the public endpoints.
 
 `/draft` calls a paid API on every miss, and nothing stood between a script and
-the spend cap. This is the cheap half of the answer: a fixed number of requests
-per client per window, in this process's memory, with no dependency and no
-Redis.
+the spend cap. The read endpoints spend no money and still reach the database
+once per request, and a crawler that walks every hexagon in Louisiana is 19,881
+queries nobody asked for. Both are the same cheap answer: a fixed number of
+requests per client per window, in this process's memory, with no dependency
+and no Redis.
+
+**The two limits are deliberately far apart.** A draft is a few per hour,
+because each one is money and no human writes ten an hour. A read is hundreds
+per minute, because opening a panel is one request and a reader clicking around
+the map is meant to be able to keep clicking. A read limit tight enough to stop
+a determined scraper would stop ordinary use first, and the scraper would still
+get the data one request at a time -- it is public data, and the limit is there
+to keep one client from taking the database down, not to keep anybody out.
 
 **It is a courtesy, not a control.** The process holds its own counters, so two
 replicas allow twice the limit and a restart forgets everything. The limit that
@@ -69,6 +79,32 @@ class SlidingWindow:
 
     def reset(self) -> None:
         self._hits.clear()
+
+
+#: One window per named limit, per process. Built on first use rather than at
+#: import, so a deployment or a test can change a limit without the module
+#: having already read it.
+_windows: dict[str, SlidingWindow] = {}
+
+
+def window_for(name: str, limit: int, window_s: float) -> SlidingWindow:
+    """The named window, rebuilt when its configuration has changed.
+
+    Rebuilding drops the counts, which is the right way round: a deployment
+    that raises its limit should not keep rejecting the client that was over
+    the old one.
+    """
+    existing = _windows.get(name)
+    if existing is None or existing.limit != limit or existing.window_s != window_s:
+        existing = SlidingWindow(limit, window_s)
+        _windows[name] = existing
+    return existing
+
+
+def reset_all() -> None:
+    """Forget every count. For tests, which must not inherit each other's."""
+    for window in _windows.values():
+        window.reset()
 
 
 def client_key(forwarded_for: str | None, peer: str | None) -> str:
