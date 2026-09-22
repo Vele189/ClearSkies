@@ -13,6 +13,7 @@ import {
   weakestTerm,
   weightedGroupMean,
 } from "../lib/score.ts";
+import { placeName } from "../lib/place.ts";
 import { BAND_LABELS, GROUP_LABELS } from "../lib/types.ts";
 import DraftPanel from "./DraftPanel.tsx";
 import Link from "./Link.tsx";
@@ -225,7 +226,7 @@ export default function HexPanel({
           <div>
             <div className="font-mono text-xs text-slate-400">{hex.h3}</div>
             <h2 className="text-lg font-semibold text-slate-900">
-              {hex.parish ? `${hex.parish} Parish` : hex.state}
+              {placeName(hex)}
             </h2>
             {standalone && (
               // A map click is not an address. This gives the reader one they

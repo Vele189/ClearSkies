@@ -59,6 +59,7 @@ AUD-20 — were raised while fixing and never ticketed for work.
 | CP-23 | medium | Performance and payload review | CS-408 | CP-07 |
 | CP-24 | medium | Architecture write-up | CS-409 | CP-22 |
 | CP-25 | medium | Score and build tiles nightly; promotion stays manual | — | CP-07 |
+| CP-26 | medium | Fill the parish name on the hex grid | — | — |
 
 **Not ticketed here.** CS-403 (monitoring and uptime checks) and CS-410 (launch)
 both need a live deployment and are held with the Railway and R2 work in CS-009
@@ -584,6 +585,37 @@ Acceptance:
   presents only the passing run misrepresents the method that produced it, and
   the method is the most interesting thing here.
 - Screenshots, and links to the app, the repo, the paper and the model card.
+
+## CP-26 · Fill the parish name on the hex grid · medium · S
+
+**Files:** `etl/pipeline/grid.py`, a backfill migration.
+
+Found by running the drill-down tests against the loaded branch rather than
+against an empty one. **Not one of `dev-seed`'s 173,424 hexagons has a
+`parish_name`**, though 171,725 of them have a `county_fips`. The column exists,
+the grid builder never fills it, and nothing noticed because CI seeds its own
+hexagon into an empty container where the seed's own value is what comes back.
+
+The visible cost was the drill-down heading. `parish ? "<parish> Parish" : state`
+fell through to `state`, which is a FIPS code, so every panel in Louisiana was
+headed **"22"**. The frontend half is fixed — `lib/place.ts` will not render an
+identifier as a place — but the heading is now "Louisiana" for every hexagon in
+the state, which is true and useless. The parish is the name a reader recognises
+and the one an advocacy draft needs.
+
+Acceptance:
+- `hex.parish_name` is populated for every hexagon whose `county_fips` is known,
+  from the FIPS code rather than from a second spatial join: the county is
+  already resolved, and re-deriving the name geometrically would be a new way to
+  disagree with it.
+- The 1,699 hexagons with no `county_fips` are left null and counted, not
+  guessed. They are open water and state-line cells, and a wrong parish on a
+  drafted document is worse than none.
+- A backfill migration fills the existing grid; the grid builder fills it for
+  every grid built afterwards, so the two cannot drift.
+- `GET /hex/{h3}` returns it, and the panel heading reads the parish.
+
+---
 
 ## CP-25 · Score and build tiles nightly; promotion stays manual · medium · M
 

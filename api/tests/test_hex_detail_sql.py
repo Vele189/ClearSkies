@@ -84,7 +84,18 @@ async def seed_hex(conn: asyncpg.Connection, anchor: tuple[float, float]) -> str
         VALUES ($1, 8, ST_SetSRID(ST_MakePoint($3, $2), 4326),
                 ST_GeomFromText($4, 4326), '22', '033', 'East Baton Rouge', true, 0.98)
         ON CONFLICT (h3) DO UPDATE
-            SET centroid = EXCLUDED.centroid, boundary = EXCLUDED.boundary
+            SET centroid = EXCLUDED.centroid,
+                boundary = EXCLUDED.boundary,
+                -- Also the descriptive columns, because against a loaded branch
+                -- this hexagon already exists and the conflict path decides what
+                -- the test sees. Leaving them out meant the seed silently
+                -- inherited the real row's values and the assertions below were
+                -- about the data rather than about the query.
+                state_fips = EXCLUDED.state_fips,
+                county_fips = EXCLUDED.county_fips,
+                parish_name = EXCLUDED.parish_name,
+                in_pilot_state = EXCLUDED.in_pilot_state,
+                land_fraction = EXCLUDED.land_fraction
         """,
         cell,
         latitude,
@@ -132,6 +143,14 @@ async def seeded() -> AsyncIterator[Seed]:
                 vintage_end,
             )
         echo_snapshot = snapshots["echo"]
+
+        # `pipeline_run_one_current` is a partial unique index: exactly one run
+        # is current. Against a loaded branch there already is one -- run 11 on
+        # `dev-seed` -- and this seed used to collide with it and error out
+        # every test in the file. Demoting inside the transaction is safe
+        # precisely because the transaction is always rolled back, so the real
+        # promoted run is still promoted when this finishes.
+        await conn.execute("UPDATE pipeline_run SET is_current = false WHERE is_current")
 
         run_id: int = await conn.fetchval(
             """
@@ -512,12 +531,29 @@ async def test_a_drill_down_answers_well_inside_a_click(seeded: Seed) -> None:
     The bound is deliberately loose. It is here to catch an accidental N+1 or a
     dropped index, which cost an order of magnitude, not to police milliseconds
     on whatever hardware CI happens to run.
+
+    **Measured against a round trip, not against a wall clock.** An absolute
+    millisecond bound is only meaningful against a database on the same
+    machine, which is what CI has and what a Neon branch is not: over the
+    network a single `SELECT 1` costs tens of milliseconds before any work
+    happens, and the old bound failed on link latency while saying "dropped
+    index". Calibrating on an empty query separates the two, so the test asks
+    what it claims to ask -- how much this query costs beyond the cost of
+    asking anything at all -- and gives the same answer locally and remotely.
     """
     run = await runs.current(seeded.conn)
     assert run is not None
 
     # One warm call first, so the measurement is not the first parse and plan.
     await hex_detail.load(seeded.conn, seeded.scored, run)
+
+    baseline: list[float] = []
+    for _ in range(20):
+        started = time.perf_counter()
+        await seeded.conn.fetchval("SELECT 1")
+        baseline.append((time.perf_counter() - started) * 1000)
+    baseline.sort()
+    round_trip = baseline[len(baseline) // 2]
 
     timings: list[float] = []
     for _ in range(20):
@@ -532,10 +568,28 @@ async def test_a_drill_down_answers_well_inside_a_click(seeded: Seed) -> None:
     # are the interesting part, and `pytest --log-cli-level=INFO` prints them.
     log.info(
         "drill-down timings",
-        extra={"median_ms": round(median, 2), "slowest_ms": round(worst, 2), "samples": 20},
+        extra={
+            "median_ms": round(median, 2),
+            "slowest_ms": round(worst, 2),
+            "round_trip_ms": round(round_trip, 2),
+            "samples": 20,
+        },
     )
-    assert median < 100.0, f"median {median:.1f} ms over 20 drill-downs"
-    assert worst < 400.0, f"slowest {worst:.1f} ms over 20 drill-downs"
+
+    # The drill-down is a handful of statements, so a budget of a few round
+    # trips plus a fixed local allowance is generous against correct code and
+    # nowhere near an N+1 over fifteen indicators or a sequential scan of
+    # hex_score. The floor keeps the bound sane when the round trip is
+    # sub-millisecond, which it is against a local container.
+    budget = max(100.0, round_trip * 8)
+    assert median < budget, (
+        f"median {median:.1f} ms over 20 drill-downs, "
+        f"budget {budget:.1f} ms ({round_trip:.1f} ms round trip)"
+    )
+    assert worst < budget * 4, (
+        f"slowest {worst:.1f} ms over 20 drill-downs, "
+        f"budget {budget * 4:.1f} ms ({round_trip:.1f} ms round trip)"
+    )
 
 
 async def test_the_run_context_is_not_refetched_for_every_drill_down(seeded: Seed) -> None:
