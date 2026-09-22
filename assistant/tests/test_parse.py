@@ -12,7 +12,7 @@ import pytest
 
 from corpus import parse
 from corpus.fetch import Fetched
-from corpus.parse import ParseError, _infer_depth, _succeeds
+from corpus.parse import ParseError, _blocks_from_markers, _infer_depth, _place, _succeeds
 
 # ---- United States Code -------------------------------------------------
 
@@ -124,6 +124,44 @@ def test_a_subsection_continues_its_own_sequence() -> None:
     assert _infer_depth("i", ["h"]) == 0
 
 
+# ---- The two markers that are both a letter and a numeral ---------------
+#
+# (i) after (h), with a paragraph open in between, is either the next
+# subsection or the first clause of that paragraph. Both readings produce a
+# label that exists. Only one of them is about the right subject.
+
+
+def test_a_clause_under_an_open_paragraph_is_read_as_a_clause() -> None:
+    """(h)(1)(i) followed by (ii): a roman sequence has started."""
+    assert _place("i", ["h", "1"], ("ii",)) == (2, True)
+
+
+def test_a_subsection_after_its_paragraphs_is_read_as_a_subsection() -> None:
+    """(h)(1), (h)(2), then (i)(1): the letters have carried on. This is the
+    shape of 42 U.S.C. § 7412(h) and § 7412(i), and reading it the other way
+    would bury a whole subsection inside the one before it."""
+    assert _place("i", ["h", "2"], ("1",)) == (0, True)
+    assert _place("i", ["h", "2"], ("j",)) == (0, True)
+
+
+def test_an_undecidable_marker_is_placed_but_not_citable() -> None:
+    """Nothing follows it, so nothing says which sequence it belongs to. It
+    still delimits its text, and its letter stays out of every label."""
+    assert _place("i", ["h", "1"], ()) == (2, False)
+
+
+def test_a_subclause_is_told_apart_from_the_next_subparagraph() -> None:
+    """The same collision one level down: (I) after (H), with a clause open."""
+    assert _place("I", ["a", "1", "H", "i"], ("II",)) == (4, True)
+    assert _place("I", ["a", "1", "H", "i"], ("J",)) == (2, True)
+
+
+def test_a_roman_reading_needs_a_parent_that_could_have_one() -> None:
+    """(i) after (ii) is not a clause of (ii): a CFR clause opens (A), not (i).
+    With only one reading left there is nothing to be uncertain about."""
+    assert _place("i", ["h", "1", "ii"], ()) == (0, True)
+
+
 # ---- eCFR ---------------------------------------------------------------
 
 
@@ -141,6 +179,33 @@ def test_cfr_paragraphs_nest_under_their_subsection(ecfr_doc: Fetched) -> None:
 
     assert subsection.depth == 0
     assert paragraph.depth == 1
+
+
+def test_a_cfr_clause_does_not_become_a_subsection() -> None:
+    """The CFR nests (h)(1)(i), and its paragraphs arrive as a flat run of
+    text with the markers inline. Read as continuing (h), the clause becomes
+    § 7.35(i) and the subsection that really is (i) becomes (ii)(i): two
+    citations that a reader can look up and that are about something else.
+    """
+    blocks = _blocks_from_markers(
+        [
+            "(h) Heading.",
+            "(1) A paragraph of it.",
+            "(i) The first clause.",
+            "(ii) The second clause.",
+            "(i) The next subsection.",
+            "(1) A paragraph of that one.",
+        ]
+    )
+
+    assert [(b.depth, b.marker, b.citable) for b in blocks] == [
+        (0, "h", True),
+        (1, "1", True),
+        (2, "i", False),
+        (2, "ii", False),
+        (0, "i", True),
+        (1, "1", True),
+    ]
 
 
 def test_a_cfr_document_with_no_sections_is_refused() -> None:

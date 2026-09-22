@@ -97,6 +97,19 @@ async def test_a_subdivision_satisfies_a_section_expectation() -> None:
     assert report.hits[0].rank == 1
 
 
+async def test_a_neighbouring_section_does_not_count_as_a_hit() -> None:
+    """§ 2000d-1 begins with § 2000d and is a different section: section 602
+    rather than section 601. Counting it would report recall the corpus has
+    not earned, on the one pair of sections in the set where the difference
+    decides what a draft tells somebody to do."""
+    question = next(q for q in QUESTIONS if q.expect == "42 U.S.C. § 2000d")
+    conn = FakeConn(["42 U.S.C. § 2000d-1", "42 U.S.C. § 2000d"])
+
+    report = await run(conn, FakeClient(), "m", questions=(question,), k=8)
+
+    assert report.hits[0].rank == 2
+
+
 async def test_a_miss_is_recorded_with_what_came_back_instead() -> None:
     """The nearest wrong answer is what tells you whether retrieval is broken
     or the question is badly worded."""

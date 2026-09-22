@@ -175,26 +175,89 @@ def _succeeds(marker: str, previous: str) -> bool:
     return roman is not None and previous_roman is not None and roman == previous_roman + 1
 
 
-def _infer_depth(marker: str, stack: list[str | None]) -> int:
-    """The depth a marker belongs at, given the subdivisions currently open.
+def _opens_under(marker: str, parent: str) -> bool:
+    """True when roman `marker` is the conventional first child of `parent`.
+
+    Only the two markers that are both a letter and a roman numeral need this.
+    A lower-case roman clause opens under a paragraph number in the CFR,
+    (h)(1)(i), and under an upper-case subparagraph in the US Code, (A)(i). An
+    upper-case roman subclause opens under a lower-case roman clause, (i)(I).
+    Under anything else the roman reading has no precedent in either code.
+    """
+    if marker == "i":
+        return parent.isdigit() or parent.isupper()
+    if marker == "I":
+        return parent.islower() and _roman_value(parent) is not None
+    return False
+
+
+def _place(marker: str, stack: list[str | None], following: tuple[str, ...]) -> tuple[int, bool]:
+    """The depth a marker belongs at, and whether that depth is certain.
 
     Three rules, in order. A marker that continues an open sequence sits at that
     sequence's depth. A marker that opens a sequence sits one below the deepest
     thing open. Anything else falls back to the conventional depth for its
     style, which is a guess, and is only reached by documents that number
     themselves unconventionally.
+
+    The first two rules collide on (i) and (I), which can both continue a
+    letter sequence and open a roman one. In the CFR, (h)(1)(i) is a clause of
+    (h)(1), and read as continuing (h) it becomes § 7.35(i): a subsection that
+    exists and says something else. The US Code has the same shape the other
+    way round, where (h)(1) to (h)(5) are followed by subsection (i). The open
+    subdivisions cannot tell these apart, so `following`, the markers that come
+    after this one in the section, decides. With nothing there that settles it,
+    a depth is still chosen so that the text is delimited, but it is reported
+    as uncertain and the caller must not cite it.
     """
+    deepest = max((d for d, m in enumerate(stack) if m is not None), default=-1)
     for depth in range(len(stack) - 1, -1, -1):
         current = stack[depth]
-        if current is not None and _succeeds(marker, current):
-            return depth
+        if current is None or not _succeeds(marker, current):
+            continue
+        parent = stack[deepest] if deepest >= 0 else None
+        if depth == deepest or parent is None or not _opens_under(marker, parent):
+            return depth, True
+        return _disambiguate(marker, depth, deepest + 1, following)
 
-    deepest = max((d for d, m in enumerate(stack) if m is not None), default=-1)
     if marker in FIRST_MARKERS:
-        return deepest + 1
+        return deepest + 1, True
 
     preferred = _marker_rank(marker)[0]
-    return preferred if preferred > deepest else deepest + 1
+    return (preferred if preferred > deepest else deepest + 1), True
+
+
+def _disambiguate(
+    marker: str, sibling: int, child: int, following: tuple[str, ...]
+) -> tuple[int, bool]:
+    """Letter or roman, for an (i) or (I) that could be either, from what follows.
+
+    (ii) next means a roman sequence has started, and (j) next means the
+    letters have continued. So does the first child only one of the readings
+    could have. Only the next marker is consulted: further on, a subdivision
+    could belong to either reading, and a guess that looks further is a guess
+    that is wrong more confidently.
+    """
+    if following:
+        after = following[0]
+        roman, letter = _roman_value(marker), _letter_value(marker)
+        same_case = after.isalpha() and after.islower() == marker.islower()
+        if same_case and roman is not None and _roman_value(after) == roman + 1:
+            return child, True
+        if same_case and letter is not None and _letter_value(after) == letter + 1:
+            return sibling, True
+        # A subsection (i) opens with (1) and a subparagraph (I) with (i); a
+        # CFR clause (i) opens with (A) and a US Code subclause (I) with (aa).
+        if (marker, after) in {("i", "1"), ("I", "i")}:
+            return sibling, True
+        if (marker, after) in {("i", "A"), ("I", "aa")}:
+            return child, True
+    return child, False
+
+
+def _infer_depth(marker: str, stack: list[str | None], following: tuple[str, ...] = ()) -> int:
+    """The depth a marker belongs at, given the subdivisions currently open."""
+    return _place(marker, stack, following)[0]
 
 
 def _blocks_from_markers(paragraphs: list[str], max_citable_depth: int = 1) -> tuple[Block, ...]:
@@ -209,16 +272,16 @@ def _blocks_from_markers(paragraphs: list[str], max_citable_depth: int = 1) -> t
     speculative below that, so deeper markers still delimit text but do not
     lend their letters to a label.
     """
+    markers = _markers(paragraphs)
     blocks: list[Block] = []
     stack: list[str | None] = []
-    for para in paragraphs:
-        matched = MARKER.match(para)
-        if matched is None:
+    for index, para in enumerate(paragraphs):
+        marker = markers[index]
+        if marker is None:
             depth = max((d for d, m in enumerate(stack) if m is not None), default=0)
             blocks.append(Block(depth=depth, marker=None, text=para))
             continue
-        marker = matched["marker"]
-        depth = _infer_depth(marker, stack)
+        depth, certain = _place(marker, stack, _following(markers, index))
         while len(stack) <= depth:
             stack.append(None)
         stack[depth] = marker
@@ -228,10 +291,24 @@ def _blocks_from_markers(paragraphs: list[str], max_citable_depth: int = 1) -> t
                 depth=depth,
                 marker=marker,
                 text=para,
-                citable=depth <= max_citable_depth,
+                citable=certain and depth <= max_citable_depth,
             )
         )
     return tuple(blocks)
+
+
+def _markers(paragraphs: list[str]) -> list[str | None]:
+    """The marker each paragraph opens with, or None."""
+    return [m["marker"] if (m := MARKER.match(p)) else None for p in paragraphs]
+
+
+def _following(markers: list[str | None], index: int) -> tuple[str, ...]:
+    """The next marker after position `index`, skipping unmarked paragraphs.
+
+    One is all `_place` consults, so one is all this returns.
+    """
+    after = next((m for m in markers[index + 1 :] if m is not None), None)
+    return () if after is None else (after,)
 
 
 # ---- United States Code (govinfo) ---------------------------------------
@@ -297,18 +374,18 @@ def _us_code_blocks(statute_html: str) -> tuple[Block, ...]:
     consistently enough to key on and which is the only signal for the many
     paragraphs that have no heading of their own.
     """
+    elements = [
+        (element["cls"], text)
+        for element in ELEMENT.finditer(statute_html)
+        if (text := _plain(element["body"]))
+    ]
+    markers = _markers([text for _, text in elements])
     blocks: list[Block] = []
     stack: list[str | None] = []
-    for element in ELEMENT.finditer(statute_html):
-        text = _plain(element["body"])
-        if not text:
-            continue
-        cls = element["cls"]
-
+    for index, (cls, text) in enumerate(elements):
+        marker = markers[index]
         if cls in HEAD_DEPTH:
             depth = HEAD_DEPTH[cls]
-            matched = MARKER.match(text)
-            marker = matched["marker"] if matched else None
             while len(stack) <= depth:
                 stack.append(None)
             stack[depth] = marker
@@ -326,14 +403,12 @@ def _us_code_blocks(statute_html: str) -> tuple[Block, ...]:
         # Reading the em as the depth puts (3)(A) at the same level as (1), and
         # the citation comes out as § 7412(b)(A): a subdivision that does not
         # exist, on a section that does.
-        matched = MARKER.match(text)
-        marker = matched["marker"] if matched else None
         if marker is None:
             depth = max((d for d, m in enumerate(stack) if m is not None), default=0)
             blocks.append(Block(depth=depth, marker=None, text=text))
             continue
 
-        depth = _infer_depth(marker, stack)
+        depth = _infer_depth(marker, stack, _following(markers, index))
         while len(stack) <= depth:
             stack.append(None)
         stack[depth] = marker
