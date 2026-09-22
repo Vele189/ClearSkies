@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     draft_rate_limit: int = 10
     draft_rate_window_s: float = 3600.0
 
+    # Per-client limit on the read endpoints, which cost a database query each
+    # rather than money. Loose on purpose: a reader clicking around the map
+    # makes one request per hexagon opened and must not run into this. It
+    # bounds what one client can do to the database, not what anyone can see --
+    # the data is public and a scraper rate-limited to 600 a minute still gets
+    # all of it. Zero or less turns it off.
+    read_rate_limit: int = 600
+    read_rate_window_s: float = 60.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

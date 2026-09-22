@@ -42,22 +42,19 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["draft"])
 
-# One window per process, built from the settings on first use so that a test
-# or a deployment can change the limit without the module having read it at
-# import time. See app/rate_limit.py for what this does and does not promise.
-_limiter: rate_limit.SlidingWindow | None = None
+#: Named so the two limits count separately: a reader who has been clicking
+#: around the map has not used up their drafts.
+DRAFT = "draft"
 
 
 def limiter() -> rate_limit.SlidingWindow:
-    global _limiter
+    """This endpoint's window, built from the settings on first use.
+
+    Not at import time, so a test or a deployment can change the limit and be
+    obeyed. See app/rate_limit.py for what this does and does not promise.
+    """
     settings = get_settings()
-    if (
-        _limiter is None
-        or _limiter.limit != settings.draft_rate_limit
-        or _limiter.window_s != settings.draft_rate_window_s
-    ):
-        _limiter = rate_limit.SlidingWindow(settings.draft_rate_limit, settings.draft_rate_window_s)
-    return _limiter
+    return rate_limit.window_for(DRAFT, settings.draft_rate_limit, settings.draft_rate_window_s)
 
 
 def enforce_rate_limit(request: Request) -> None:

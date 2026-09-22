@@ -1,9 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.indicators import COMPONENT_GROUPS, GROUP_MINIMUM_PRESENT, GROUP_WEIGHTS, INDICATORS
+from app.limits import enforce_read_limit
 from app.methodology import METHODOLOGY_VERSION
 
-router = APIRouter(tags=["meta"])
+router = APIRouter(tags=["meta"], dependencies=[Depends(enforce_read_limit)])
 
 
 @router.get("/indicators")

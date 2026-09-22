@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app import db
+from app import db, rate_limit
 from app.assistant import retrieval, service, verifier
 from app.assistant.context import HexContext
 from app.assistant.guardrails import InsufficientConfidence
@@ -66,7 +66,7 @@ def configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """A deployment with a key, a database and a scored hexagon."""
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     get_settings.cache_clear()
-    draft_router._limiter = None
+    rate_limit.reset_all()
 
     async def pool() -> FakePool:
         return FakePool()
@@ -80,7 +80,7 @@ def configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         with TestClient(app) as client:
             yield client
     finally:
-        draft_router._limiter = None
+        rate_limit.reset_all()
         get_settings.cache_clear()
 
 
