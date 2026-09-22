@@ -35,42 +35,116 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scoring"))
 
-from burden.eligibility import Eligibility, eligible  # noqa: E402
+from burden.eligibility import (  # noqa: E402
+    Eligibility,
+    ExcludedHex,
+    NoScoreReason,
+    eligible,
+)
 from burden.robustness import Interpolation, check, report  # noqa: E402
 
 Values = dict[str, dict[str, float | None]]
 
 
+#: Why a hex section 5 would score carries no score anyway. The scorer records
+#: it per hex; `eligible` cannot re-derive it, because it is a fact about which
+#: indicators were observed rather than about how many people live there.
+UNSCORED_FALLBACK: NoScoreReason = "insufficient_pollution_data"
+
+
 def load_run(payload: dict[str, Any]) -> tuple[Eligibility, dict[str, str], Values]:
-    """One interpolation's worth of a run: who is scored, how trusted, and what was measured."""
+    """One interpolation's worth of a run: who is scored, how trusted, and what was measured.
+
+    Section 5's split is re-derived here from population rather than read, so
+    that the eligibility rule is an input to the checks and not something
+    already applied to them. What it cannot re-derive is section 11: a hex can
+    clear the population threshold and still produce no score, because the
+    minimum-indicator rules were not met for it. The scorer records that as a
+    `no_score_reason`, and this moves those hexes where they belong.
+
+    **AUD-19.** They belong in `excluded`, not in `scored`, and this is the
+    decision that ticket asked for. Three things would otherwise be true at
+    once, and they cannot be. Section 12 gives confidence only to a hex that
+    has a score, because confidence measures how well supported a score is.
+    `robustness._universe` refuses a scored hex with no band, because a run
+    whose confidence was never computed cannot honour section 12's exclusion.
+    And section 5 calls these hexes scored. The old loader resolved it by
+    writing the missing band as the string "None", which is neither a band nor
+    absent: it passed the guard and put hexes carrying no score and no
+    confidence into the comparison universe the checks correlate over.
+
+    Neither the scorer nor `robustness.py` is wrong. Both are saying something
+    true and narrow, and this function was flattening two different absences --
+    "no confidence was computed for this run", which must fail, and "this hex
+    has no score to be confident about", which is ordinary -- into one.
+    """
     hexes = payload["hexes"]
 
     population: dict[str, float | None] = {}
     outside: list[str] = []
     bands: dict[str, str] = {}
+    unscored: dict[str, NoScoreReason] = {}
 
     for h3, row in hexes.items():
         estimate = row.get("population")
         population[h3] = None if estimate is None else float(estimate)
         if row.get("outside_pilot_state"):
             outside.append(h3)
-        # Every scored hex needs one, and `check` refuses the run if any is
-        # missing rather than assuming the hex is trustworthy.
-        if "confidence_band" in row:
-            bands[h3] = str(row["confidence_band"])
+
+        # Absent stays absent. `check` refuses a scored hex with no band rather
+        # than assuming it is trustworthy, and that guard only works if a null
+        # arrives as a missing key instead of as a string.
+        band = row.get("confidence_band")
+        if band is not None:
+            bands[h3] = str(band)
+
+        # An export that predates this field says nothing about which hexes the
+        # run scored, and the band is then the only evidence there is: under
+        # section 12 a hex has one exactly when it has a score.
+        scored = row["scored"] if "scored" in row else band is not None
+        if not scored:
+            unscored[h3] = row.get("no_score_reason") or UNSCORED_FALLBACK
 
     values: Values = {
         indicator: {h3: (None if value is None else float(value)) for h3, value in column.items()}
         for indicator, column in payload["indicators"].items()
     }
 
-    return eligible(population, outside_pilot_state=outside), bands, values
+    return _without_unscored(
+        eligible(population, outside_pilot_state=outside), unscored, population
+    ), bands, values
+
+
+def _without_unscored(
+    eligibility: Eligibility,
+    unscored: Mapping[str, NoScoreReason],
+    population: Mapping[str, float | None],
+) -> Eligibility:
+    """Move the hexes the run did not score out of `scored` and into `excluded`.
+
+    They keep the reason the scorer gave them, so the report can say how many
+    eligible hexes produced no score and why, rather than losing them.
+    """
+    if not unscored:
+        return eligibility
+
+    kept = tuple(h3 for h3 in eligibility.scored if h3 not in unscored)
+    added = tuple(
+        ExcludedHex(h3=h3, reason=unscored[h3], population=population.get(h3))
+        for h3 in eligibility.scored
+        if h3 in unscored
+    )
+    return Eligibility(
+        scored=kept,
+        excluded=tuple(sorted(eligibility.excluded + added, key=lambda row: row.h3)),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

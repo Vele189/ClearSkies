@@ -557,6 +557,15 @@ def _universe(
     trustworthy: a run whose confidence was never computed cannot honour the
     section 12 exclusion, and quietly including those hexes would be the failure
     the exclusion exists to prevent.
+
+    `eligibility.scored` therefore has to mean "produced a score", not "clears
+    section 5's population threshold". The two differ: a hex can hold enough
+    people and still fail section 11's minimum-indicator rules, and section 12
+    gives it no confidence because there is no score to support. Such a hex is
+    the caller's to exclude before it gets here — `scripts/run_robustness.py`
+    does it from the export's `no_score_reason`, and AUD-19 records why that is
+    the right side for it to happen on. This guard stays strict on purpose: it
+    is the one that catches a run with no confidence at all.
     """
     missing = [h3 for h3 in eligibility.scored if h3 not in confidence_bands]
     if missing:

@@ -54,10 +54,20 @@ SELECT h3::text AS h3, percentile, confidence_band
 # The whole grid, because section 5's exclusions are an input to the robustness
 # checks rather than something already applied: `eligible` has to be able to
 # re-derive them.
+# `scored` and `no_score_reason` are here because section 5 eligibility and
+# "this run produced a score" are not the same set, and flattening them was
+# AUD-19. A hex can hold enough people to be eligible and still carry no score,
+# because section 11's minimum-indicator rules could not be met for it. Such a
+# hex also carries no confidence: section 12 measures how well supported a score
+# is, and there is none to support. Exporting only the band left the reader
+# unable to tell "this run never computed confidence", which must fail the run,
+# from "this hex has no score to be confident about", which is ordinary.
 ROBUSTNESS_HEXES = """
 SELECT s.h3::text        AS h3,
        d.population      AS population,
        s.confidence_band AS confidence_band,
+       s.score IS NOT NULL  AS scored,
+       s.no_score_reason AS no_score_reason,
        NOT h.in_pilot_state AS outside_pilot_state
   FROM hex_score s
   JOIN hex h ON h.h3 = s.h3
@@ -120,7 +130,12 @@ async def robustness_payload(conn: asyncpg.Connection, run_id: int, version: str
         "hexes": {
             row["h3"]: {
                 "population": None if row["population"] is None else float(row["population"]),
+                # Null stays null. A hex with no score has no band, and writing
+                # the absence as a string is what let one into the comparison
+                # universe carrying neither.
                 "confidence_band": row["confidence_band"],
+                "scored": bool(row["scored"]),
+                "no_score_reason": row["no_score_reason"],
                 "outside_pilot_state": bool(row["outside_pilot_state"]),
             }
             for row in hexes
