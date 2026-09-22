@@ -279,10 +279,15 @@ def test_the_sql_payload_matches_the_migration(tmp_path: Path) -> None:
 # ---- the command the nightly job runs ---------------------------------
 
 
+def snaps(tmp_path: Path) -> str:
+    """Keep a test's downloads under tmp_path rather than in the working directory."""
+    return str(tmp_path / "snapshots")
+
+
 def test_check_exits_zero_on_the_reference_adapter(tmp_path: Path) -> None:
     from pipeline.__main__ import main
 
-    assert main(["check", "fake", "--store", str(tmp_path)]) == 0
+    assert main(["check", "fake", "--store", str(tmp_path), "--snapshots", snaps(tmp_path)]) == 0
     assert list(tmp_path.glob("*/report.json"))
 
 
@@ -290,12 +295,26 @@ def test_check_exits_one_when_a_required_source_is_absent(tmp_path: Path) -> Non
     """The exit status is what stops a bad night becoming the current run."""
     from pipeline.__main__ import main
 
-    assert main(["check", "fake", "--require", "epa_echo", "--store", str(tmp_path)]) == 1
+    assert (
+        main(
+            [
+                "check",
+                "fake",
+                "--require",
+                "epa_echo",
+                "--store",
+                str(tmp_path),
+                "--snapshots",
+                snaps(tmp_path),
+            ]
+        )
+        == 1
+    )
 
 
 def test_history_command_reads_back_what_check_wrote(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
     from pipeline.__main__ import main
 
-    main(["check", "fake", "--store", str(tmp_path)])
+    main(["check", "fake", "--store", str(tmp_path), "--snapshots", snaps(tmp_path)])
     assert main(["history", "--store", str(tmp_path)]) == 0
     assert "fake/pull_status" in capsys.readouterr().out

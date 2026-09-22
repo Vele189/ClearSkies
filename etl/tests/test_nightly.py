@@ -17,7 +17,22 @@ from pipeline.ledger import RunLedger
 def nightly(state: Path, store: Path, *extra: str) -> int:
     from pipeline.__main__ import main
 
-    return main(["nightly", "fake", "--state", str(state), "--store", str(store), *extra])
+    # `--snapshots` is passed everywhere so a test run writes downloads under
+    # tmp_path rather than into the working directory it happens to start in.
+    snapshots = state.parent / "snapshots"
+    return main(
+        [
+            "nightly",
+            "fake",
+            "--state",
+            str(state),
+            "--store",
+            str(store),
+            "--snapshots",
+            str(snapshots),
+            *extra,
+        ]
+    )
 
 
 def test_a_first_night_pulls_and_promotes_itself(tmp_path: Path) -> None:
@@ -117,6 +132,15 @@ def test_two_runs_in_the_same_second_get_different_identities(tmp_path: Path) ->
 
     ids = [run.run_id for run in RunLedger(state).runs()]
     assert len(ids) == len(set(ids)), f"duplicate run ids: {ids}"
+
+
+def test_the_night_keeps_the_downloads_it_could_fall_back_on(tmp_path: Path) -> None:
+    """E4: the fallback needs the bytes to outlive the process that fetched them."""
+    state, store = tmp_path / "state", tmp_path / "store"
+    nightly(state, store)
+
+    kept = list((tmp_path / "snapshots" / "fake").glob("*.bin"))
+    assert kept, "the night kept no snapshot to fall back on"
 
 
 def test_plan_reports_without_pulling_anything(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]

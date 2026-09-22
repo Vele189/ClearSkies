@@ -60,7 +60,7 @@ from pipeline.quality import (
 from pipeline.runner import run_adapter
 from pipeline.schedule import RunPlan, apply_outcomes, plan_run
 from pipeline.sinks import InMemorySink, Sink
-from pipeline.snapshots import InMemorySnapshotStore
+from pipeline.snapshots import FileSnapshotStore, InMemorySnapshotStore, SnapshotStore
 from pipeline.tiles.build import (
     DEFAULT_MAX_ZOOM,
     DEFAULT_MIN_ZOOM,
@@ -96,6 +96,16 @@ DEFAULT_STATE = Path("pipeline-state")
 # The generated block in this page is rewritten from the manifests by the nightly
 # job. Relative to the repository root, which is where the job runs it from.
 DEFAULT_PAGE = Path("docs/provenance.md")
+# Where the last good copy of every download is kept. Its own directory, with a
+# lifetime longer than either of the two above: the ledger says when a source
+# last loaded, the report says what a night measured, and this says what
+# upstream served, which is the only one of the three that can stand in for a
+# source that has gone away. Methodology section 6 is why it exists at all; E4
+# of the 2026-09-22 audit is why it is a directory rather than a dict that the
+# exit of the process empties. `PIPELINE_SNAPSHOTS` overrides it, which is how a
+# deployment points it at a volume it actually keeps.
+DEFAULT_SNAPSHOTS = Path(os.environ.get("PIPELINE_SNAPSHOTS", "") or "pipeline-snapshots")
+SNAPSHOT_HELP = "where each download's last good copy is kept, for the stale fallback"
 
 
 def _list_sources() -> int:
@@ -112,6 +122,7 @@ async def _run(
     dry_run: bool,
     pilot_state: str,
     sink: Sink | None = None,
+    snapshots: SnapshotStore | None = None,
 ) -> PullMetadata:
     adapter = get(name)()
     # The reference adapter has no server behind it; everything else goes to the
@@ -123,7 +134,7 @@ async def _run(
             client=client,
             sink=sink if sink is not None else InMemorySink(),
             policy=adapter.policy,
-            snapshots=InMemorySnapshotStore(),
+            snapshots=snapshots if snapshots is not None else InMemorySnapshotStore(),
             now=datetime.now(UTC),
             pilot_state=pilot_state,
             dry_run=dry_run,
@@ -211,7 +222,9 @@ class _LazyConnection:
             await self._connection.close()
 
 
-async def _run_into_postgres(name: str, *, pilot_state: str, database_url: str) -> PullMetadata:
+async def _run_into_postgres(
+    name: str, *, pilot_state: str, database_url: str, snapshots: SnapshotStore
+) -> PullMetadata:
     """One adapter, loading for real.
 
     asyncpg is imported lazily rather than at module scope so that the rest of
@@ -227,7 +240,9 @@ async def _run_into_postgres(name: str, *, pilot_state: str, database_url: str) 
     connection = _LazyConnection(database_url)
     try:
         sink = PostgresSink(connection)
-        metadata = await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink)
+        metadata = await _run(
+            name, dry_run=False, pilot_state=pilot_state, sink=sink, snapshots=snapshots
+        )
     finally:
         await connection.close()
     return metadata
@@ -399,7 +414,7 @@ async def _grid_export(*, out: Path, database_url: str) -> int:
 
 
 async def _check(
-    sources: list[str], *, pilot_state: str, required: list[str]
+    sources: list[str], *, pilot_state: str, required: list[str], snapshots: SnapshotStore
 ) -> tuple[QualityReport, list[PullMetadata]]:
     """Run every named adapter into one sink, then gate the result.
 
@@ -410,7 +425,9 @@ async def _check(
     sink = InMemorySink()
     manifests = []
     for name in sources:
-        manifests.append(await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink))
+        manifests.append(
+            await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink, snapshots=snapshots)
+        )
 
     report = run_gate(
         manifests=manifests,
@@ -430,6 +447,7 @@ async def _nightly(
     required: list[str],
     state: Path,
     store: Path | None,
+    snapshots: SnapshotStore,
     force: list[str],
     force_all: bool,
     git_sha: str,
@@ -455,7 +473,9 @@ async def _nightly(
     sink = InMemorySink()
     manifests: list[PullMetadata] = []
     for name in plan.to_pull:
-        manifests.append(await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink))
+        manifests.append(
+            await _run(name, dry_run=False, pilot_state=pilot_state, sink=sink, snapshots=snapshots)
+        )
 
     succeeded = {m.source for m in manifests if m.ok}
     plan = apply_outcomes(plan, succeeded=succeeded)
@@ -760,6 +780,7 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="override DATABASE_URL for --load",
     )
+    run.add_argument("--snapshots", type=Path, default=DEFAULT_SNAPSHOTS, help=SNAPSHOT_HELP)
 
     check = sub.add_parser("check", help="run adapters and apply the data quality gate")
     check.add_argument(
@@ -776,6 +797,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     check.add_argument("--pilot-state", default="LA")
     check.add_argument("--store", type=Path, default=DEFAULT_STORE, help="where to keep results")
+    check.add_argument("--snapshots", type=Path, default=DEFAULT_SNAPSHOTS, help=SNAPSHOT_HELP)
     check.add_argument("--no-store", action="store_true", help="do not persist the report")
     check.add_argument("--json", action="store_true", help="print the report as JSON")
     check.add_argument(
@@ -825,6 +847,9 @@ def main(argv: list[str] | None = None) -> int:
                 help="a source this run must produce when its cadence says it is due",
             )
             job.add_argument("--store", type=Path, default=DEFAULT_STORE)
+            job.add_argument(
+                "--snapshots", type=Path, default=DEFAULT_SNAPSHOTS, help=SNAPSHOT_HELP
+            )
             job.add_argument("--no-store", action="store_true", help="do not persist the report")
             job.add_argument("--json", action="store_true", help="print the report as JSON")
             job.add_argument(
@@ -961,6 +986,7 @@ def main(argv: list[str] | None = None) -> int:
                 required=args.require,
                 state=args.state,
                 store=None if args.no_store else args.store,
+                snapshots=FileSnapshotStore(args.snapshots),
                 force=args.force,
                 force_all=args.force_all,
                 git_sha=args.git_sha,
@@ -997,7 +1023,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check":
         chosen = args.sources or list(names())
         report, manifests = asyncio.run(
-            _check(chosen, pilot_state=args.pilot_state, required=args.require)
+            _check(
+                chosen,
+                pilot_state=args.pilot_state,
+                required=args.require,
+                snapshots=FileSnapshotStore(args.snapshots),
+            )
         )
         if not args.no_store:
             JsonQualityStore(args.store).save(report, manifests)
@@ -1016,11 +1047,17 @@ def main(argv: list[str] | None = None) -> int:
                 args.source,
                 pilot_state=args.pilot_state,
                 database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
+                snapshots=FileSnapshotStore(args.snapshots),
             )
         )
     else:
         metadata = asyncio.run(
-            _run(args.source, dry_run=args.dry_run, pilot_state=args.pilot_state)
+            _run(
+                args.source,
+                dry_run=args.dry_run,
+                pilot_state=args.pilot_state,
+                snapshots=FileSnapshotStore(args.snapshots),
+            )
         )
     if args.json:
         print(metadata.model_dump_json(indent=2))
