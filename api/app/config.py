@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     # serves /health and reports the database as unavailable.
     db_connect_timeout: float = 5.0
 
+    # Per-client limit on /draft, the one endpoint that spends money. On by
+    # default; a limit of zero or less turns it off. In-process only, so it
+    # bounds one client's burst rather than the deployment's bill -- the hard
+    # cap belongs with the provider. See app/rate_limit.py.
+    draft_rate_limit: int = 10
+    draft_rate_window_s: float = 3600.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

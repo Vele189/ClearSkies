@@ -412,6 +412,97 @@ def test_an_ordinary_bug_is_not_mistaken_for_a_provider_limit() -> None:
     assert not service.is_provider_limit(ValueError("bad input"))
 
 
+@pytest.mark.parametrize(
+    "exc",
+    [
+        type("APIConnectionError", (Exception,), {})("connection error"),
+        type("APITimeoutError", (Exception,), {})("request timed out"),
+        TimeoutError(),
+        RuntimeError("Error code: 502 - bad gateway"),
+        RuntimeError("Error code: 500 - internal server error"),
+        type("AuthenticationError", (Exception,), {})("incorrect api key provided"),
+    ],
+)
+def test_a_provider_outage_is_recognised_too(exc: Exception) -> None:
+    """A connection failure, a timeout, the provider's own 5xx and a rejected
+    key all came back as 500s: the server reporting a fault in itself over
+    something the caller can do nothing about."""
+    assert service.is_provider_outage(exc)
+    assert service.provider_failure(exc)
+
+
+def test_an_ordinary_bug_is_not_mistaken_for_an_outage() -> None:
+    assert not service.is_provider_outage(KeyError("h3"))
+    assert not service.is_provider_outage(ValueError("bad input"))
+
+
+# ---- A judge that cannot be asked ----------------------------------------
+
+
+def reaches_verification(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for retrieval and generation, so a test can reach step 5.
+
+    Neither is what is under test here: what is, is what the service does with
+    a judge that does not answer.
+    """
+    from types import SimpleNamespace
+
+    async def retrieve(*args: Any, **kwargs: Any) -> list[Any]:
+        return []
+
+    async def generated(*args: Any, **kwargs: Any) -> Any:
+        return SimpleNamespace(
+            document=letter(),
+            refused=False,
+            refusal=None,
+            request_tokens=10,
+            response_tokens=20,
+        )
+
+    from app.assistant import retrieval
+
+    monkeypatch.setattr(retrieval, "retrieve_for", retrieve)
+    monkeypatch.setattr(service, "generate", generated)
+
+
+async def test_a_judge_that_fails_discards_the_draft_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A judge that could not be asked is not a judge that said yes, and the
+    failure belongs to the verification rather than to the server."""
+    from pydantic_ai import UnexpectedModelBehavior
+
+    from app.assistant import verifier
+
+    async def unusable(*args: Any, **kwargs: Any) -> Any:
+        raise UnexpectedModelBehavior("exceeded maximum retries")
+
+    reaches_verification(monkeypatch)
+    monkeypatch.setattr(verifier, "verify_document", unusable)
+    conn = FakeConn()
+
+    with pytest.raises(service.VerificationFailed, match="UnexpectedModelBehavior"):
+        await draft(conn)
+
+    recorded = [args for query, args in conn.executed if "llm_usage" in query]
+    assert recorded and recorded[-1][7] == "unverifiable"
+
+
+async def test_a_judge_that_cannot_be_reached_is_the_providers_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.assistant import verifier
+
+    async def unreachable(*args: Any, **kwargs: Any) -> Any:
+        raise type("APIConnectionError", (Exception,), {})("connection error")
+
+    reaches_verification(monkeypatch)
+    monkeypatch.setattr(verifier, "verify_document", unreachable)
+
+    with pytest.raises(service.ProviderUnavailable):
+        await draft(FakeConn())
+
+
 # ---- The draft that is thrown away ---------------------------------------
 
 

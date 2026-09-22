@@ -334,14 +334,22 @@ ever written, and the corpus version is part of the key.
 | 409 | The hexagon is in the insufficient band | The tool does not trust its own number here, in plain language, not an error code |
 | 422 | A citation could not be verified | A draft was produced and discarded; this is the system working |
 | 422 | The model did not produce the schema | Nothing was shown; trying again may work |
+| 422 | The verifier could not be asked | The citations were never checked, so the draft was discarded |
+| 429 | Too many drafts from one client | How many this deployment allows, and how long to wait |
 | 503 | No API key configured | The rest of the API works normally |
 | 503 | No sealed corpus | Nothing could be verified even if it were cited |
 | 503 | Provider rate limit or spend cap | Nothing is wrong with the request; try later |
 
-A provider limit is recognised from the exception's name and message rather than
-by importing the SDK's exception classes. That hierarchy changes between major
-versions, and the cost of getting it wrong is a 500 where a legible "try later"
-belonged.
+The 429 is a courtesy and not a control. The counters live in the process, so
+two replicas allow twice the limit and a restart forgets everything; the limit
+that cannot be got round is the spend cap configured with the provider. What it
+buys is that one client cannot burn a month's budget by holding down a button.
+
+A provider limit, and equally an outage -- a connection failure, a timeout, the
+provider's own 5xx, a key it rejects -- is recognised from the exception's name
+and message rather than by importing the SDK's exception classes. That hierarchy
+changes between major versions, and the cost of getting it wrong is a 500 where
+a legible "try later" belonged.
 
 ### The spend cap is not in this repository
 

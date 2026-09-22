@@ -16,7 +16,7 @@ async def health() -> Health:
     most likely thing to be silently wrong about this stack.
     """
     settings = get_settings()
-    p = db.pool()
+    p = await db.pool()
 
     if p is None:
         return Health(

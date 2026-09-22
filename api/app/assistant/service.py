@@ -51,6 +51,18 @@ class NoCorpus(RuntimeError):
     """Nothing is sealed, so no citation could be verified even if one were made."""
 
 
+class VerificationFailed(RuntimeError):
+    """The judge could not be asked, so no citation could be checked.
+
+    Distinct from `DraftUnverifiable`, which means the citations *were* checked
+    and one of them failed. This means the check did not happen: the judge
+    returned something that is not a judgement, ran out of retries, or timed
+    out. Both end the same way -- the draft is discarded -- because an unchecked
+    citation and a failed one are equally unfit to show, and this file's rule is
+    that the only safe failure is no document.
+    """
+
+
 class ProviderUnavailable(RuntimeError):
     """The provider refused the call: rate limit, spend cap, or an outage.
 
@@ -207,6 +219,60 @@ def is_provider_limit(exc: Exception) -> bool:
     )
 
 
+# Ways the provider can be unreachable rather than unwilling, by exception name
+# and by message, matched the same way and for the same reason as a limit.
+OUTAGE_NAMES = (
+    "apiconnectionerror",
+    "apitimeouterror",
+    "connecterror",
+    "connecttimeout",
+    "readtimeout",
+    "timeout",
+    "authenticationerror",
+    "permissiondeniederror",
+    "internalservererror",
+    "apistatuserror",
+)
+OUTAGE_TEXT = (
+    "connection error",
+    "connection refused",
+    "timed out",
+    "timeout",
+    "temporarily unavailable",
+    "service unavailable",
+    "bad gateway",
+    "internal server error",
+    "overloaded",
+    "invalid_api_key",
+    "incorrect api key",
+    "500",
+    "502",
+    "503",
+    "504",
+)
+
+
+def is_provider_outage(exc: Exception) -> bool:
+    """Whether the provider could not be reached or could not be used.
+
+    Connection failures, timeouts, its own 5xx, and a key it rejects. The last
+    is not transient and is here anyway: a deployment with a bad key is broken
+    in a way the caller can do nothing about, and 503 "the assistant is
+    unavailable" is the honest answer, where a 500 would invite them to retry a
+    request that was never the problem.
+    """
+    if isinstance(exc, TimeoutError):
+        return True
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    return any(n in name for n in OUTAGE_NAMES) or any(t in text for t in OUTAGE_TEXT)
+
+
+def provider_failure(exc: Exception) -> bool:
+    """Whether this is the provider's fault rather than this code's."""
+    return is_provider_limit(exc) or is_provider_outage(exc)
+
+
 async def draft_for_hex(
     conn: Any,
     client: Any,
@@ -282,7 +348,7 @@ async def draft_for_hex(
             conn, client, embedding_model, document_type, request_text
         )
     except Exception as exc:
-        if is_provider_limit(exc):
+        if provider_failure(exc):
             raise ProviderUnavailable(str(exc)) from exc
         raise
 
@@ -308,7 +374,7 @@ async def draft_for_hex(
         )
         raise
     except Exception as exc:
-        if is_provider_limit(exc):
+        if provider_failure(exc):
             await cost.record(
                 conn,
                 purpose="generation",
@@ -342,9 +408,41 @@ async def draft_for_hex(
     assert isinstance(document, DraftDocument)
 
     # 5. Verify. Nothing that fails here is ever rendered.
-    verification = await verifier.verify_document(
-        conn, draft_model, document, h3, hex_context.facility_ids()
-    )
+    #
+    # A judge that cannot be asked is not a judge that said yes. Whatever the
+    # verifier raises -- a malformed judgement, retries exhausted, a timeout --
+    # the draft is discarded, and the failure is reported as a failure to
+    # verify rather than as a fault in the server.
+    try:
+        verification = await verifier.verify_document(
+            conn, draft_model, document, h3, hex_context.facility_ids()
+        )
+    except Exception as exc:
+        if provider_failure(exc):
+            await cost.record(
+                conn,
+                purpose="verification",
+                model=model_name,
+                request_tokens=0,
+                response_tokens=0,
+                outcome="provider_error",
+                h3=h3,
+                document_type=document_type,
+                detail=str(exc)[:500],
+            )
+            raise ProviderUnavailable(str(exc)) from exc
+        await cost.record(
+            conn,
+            purpose="verification",
+            model=model_name,
+            request_tokens=0,
+            response_tokens=0,
+            outcome="unverifiable",
+            h3=h3,
+            document_type=document_type,
+            detail=f"judge failed: {type(exc).__name__}: {exc}"[:500],
+        )
+        raise VerificationFailed(f"{type(exc).__name__}: {exc}") from exc
     if not verification.verified:
         await verifier.log_rejections(
             conn, verification, h3, document_type, corpus_version, prompt_version, model_name

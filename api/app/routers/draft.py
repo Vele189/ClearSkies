@@ -23,26 +23,70 @@ a fault.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app import db, hex_detail, runs
+from app import db, hex_detail, llm, rate_limit, runs
 from app.assistant import cost, service, verifier
 from app.assistant.context import HexContext
 from app.assistant.documents import DOCUMENT_MODELS, DocumentType, GeneratedDraft
 from app.assistant.guardrails import InsufficientConfidence, Refusal
 from app.assistant.structured import DraftRejected
 from app.config import get_settings
+from app.h3_cell import H3Cell
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["draft"])
 
+# One window per process, built from the settings on first use so that a test
+# or a deployment can change the limit without the module having read it at
+# import time. See app/rate_limit.py for what this does and does not promise.
+_limiter: rate_limit.SlidingWindow | None = None
+
+
+def limiter() -> rate_limit.SlidingWindow:
+    global _limiter
+    settings = get_settings()
+    if (
+        _limiter is None
+        or _limiter.limit != settings.draft_rate_limit
+        or _limiter.window_s != settings.draft_rate_window_s
+    ):
+        _limiter = rate_limit.SlidingWindow(settings.draft_rate_limit, settings.draft_rate_window_s)
+    return _limiter
+
+
+def enforce_rate_limit(request: Request) -> None:
+    """429 with a Retry-After, or nothing at all."""
+    key = rate_limit.client_key(
+        request.headers.get("x-forwarded-for"),
+        request.client.host if request.client else None,
+    )
+    wait = limiter().check(key)
+    if wait is None:
+        return
+    seconds = max(int(math.ceil(wait)), 1)
+    raise HTTPException(
+        status_code=429,
+        detail=(
+            f"Too many drafting requests from this client. Each draft calls a paid "
+            f"API, so this deployment allows {limiter().limit} every "
+            f"{int(limiter().window_s)} seconds. Try again in {seconds} seconds."
+        ),
+        headers={"Retry-After": str(seconds)},
+    )
+
 
 class DraftRequest(BaseModel):
-    h3: str = Field(description="H3 cell index at resolution 8.")
+    h3: H3Cell = Field(
+        description=(
+            "H3 cell index at resolution 8, as fifteen lower-case hex digits, e.g. 88444600ddfffff."
+        )
+    )
     document_type: DocumentType
     request: str = Field(
         default="",
@@ -95,28 +139,29 @@ def _settings_or_503() -> tuple[str, str]:
     responses={
         409: {"model": Unavailable, "description": "The hexagon cannot be drafted from"},
         422: {"model": Unavailable, "description": "The draft failed verification"},
+        429: {"model": Unavailable, "description": "Too many drafts from this client"},
         503: {
             "model": Unavailable,
             "description": "Not configured, or the provider is unavailable",
         },
     },
 )
-async def create_draft(body: DraftRequest) -> DraftResponse:
+async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
     """Draft one document about one hexagon, with every citation verified.
 
     The draft is not legal advice, has not been reviewed by a lawyer, and says so
     on its face. There is no endpoint that sends, files or publishes one.
     """
     draft_model, embedding_model = _settings_or_503()
+    enforce_rate_limit(request)
 
     if body.document_type not in DOCUMENT_MODELS:  # pragma: no cover - Literal pins it
         raise HTTPException(status_code=422, detail=f"unknown document type {body.document_type}")
 
-    p = db.pool()
+    p = await db.pool()
     if p is None:
         raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
 
-    from openai import AsyncOpenAI
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
@@ -128,10 +173,11 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
     # constructor. That is a 500 on the one endpoint CS-008 requires to degrade
     # rather than crash.
     #
-    # Handing the provider the client this function already built fixes it and
-    # collapses two configurations into one: the retrieval embeddings and the
-    # draft model now demonstrably use the same key and the same HTTP client.
-    client = AsyncOpenAI(api_key=get_settings().openai_api_key)
+    # Handing the provider the process's client fixes it and collapses two
+    # configurations into one: the retrieval embeddings and the draft model
+    # demonstrably use the same key and the same HTTP client. The client is the
+    # process's rather than this request's; `app/llm.py` says why.
+    client = llm.client()
     model = OpenAIChatModel(draft_model, provider=OpenAIProvider(openai_client=client))
 
     async with p.acquire() as conn:
@@ -161,6 +207,20 @@ async def create_draft(body: DraftRequest) -> DraftResponse:
                     "The language model provider is temporarily unavailable or the "
                     "spend cap for this deployment has been reached. Nothing is wrong "
                     "with your request; try again later."
+                ),
+            ) from exc
+        except service.VerificationFailed as exc:
+            # The citations were never checked, because the judge could not be
+            # asked. Reported as 422 rather than 500 for the same reason as a
+            # failed check: the draft is gone either way, and nothing about
+            # this is a fault the caller can read as a bug in their request.
+            log.warning("verification could not run: %s", exc)
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "A draft was produced, but its citations could not be checked "
+                    "because the verifier did not return a usable judgement, so it "
+                    "was discarded rather than shown. Trying again may work."
                 ),
             ) from exc
         except verifier.DraftUnverifiable as exc:
@@ -207,7 +267,7 @@ class SpendReport(BaseModel):
 @router.get("/draft/spend", response_model=SpendReport)
 async def spend() -> SpendReport:
     """Month-to-date usage, so the bill is legible before it arrives."""
-    p = db.pool()
+    p = await db.pool()
     if p is None:
         raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
     async with p.acquire() as conn:
