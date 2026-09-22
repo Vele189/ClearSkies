@@ -49,6 +49,12 @@ permits three responses to a failing check and none of them is editing these.
 | [audit/2026-09-22-codebase-audit.md](audit/2026-09-22-codebase-audit.md) | A read-only review of the whole repository, by area, with each finding coded. |
 | [audit/tickets.md](audit/tickets.md) | The fifteen tickets that resolve those findings, with acceptance criteria. |
 
+## Finishing it
+
+| Document | What it is |
+|---|---|
+| [plan/tickets.md](plan/tickets.md) | The twenty-five tickets between the repository as it stands and the Phase 2 exit condition, then Phase 4. Sequenced, with the decision points named. |
+
 The repository's own [README](../README.md) covers what the project is,
 [CONTRIBUTING.md](../CONTRIBUTING.md) covers how to work on it, and
 [etl/README.md](../etl/README.md) covers adding a data source.
