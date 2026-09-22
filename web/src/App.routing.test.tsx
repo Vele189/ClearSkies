@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.tsx";
+import { PAGES } from "./lib/pages.ts";
 
 vi.mock("./components/MapView.tsx", () => ({
   default: () => <div data-testid="map" />,
@@ -108,5 +109,23 @@ describe("the sources page", () => {
     expect(
       await screen.findByRole("heading", { name: /where the data comes from/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("every page is reachable and every nav entry resolves", () => {
+  // The nav pointing at a 404 is the failure mode of adding a page and a link
+  // in two different commits, which is why PAGES and routeTo are extended
+  // together and why this walks the list rather than naming the pages again.
+  it.each(PAGES)("$label answers at $path", async ({ path }) => {
+    window.history.replaceState(null, "", path);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /nothing at this address/i }),
+    ).not.toBeInTheDocument();
   });
 });

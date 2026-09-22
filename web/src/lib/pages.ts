@@ -7,5 +7,8 @@
  */
 export const PAGES: { path: string; label: string }[] = [
   { path: "/", label: "Map" },
+  { path: "/methodology", label: "Methodology" },
   { path: "/provenance", label: "Sources" },
+  { path: "/model-card", label: "Model card" },
+  { path: "/about", label: "About" },
 ];

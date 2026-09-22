@@ -6,7 +6,10 @@ import Nav from "./components/Nav.tsx";
 import { getHealth } from "./lib/api.ts";
 import { match, useRoute, useScrollReset } from "./lib/router.ts";
 import type { Health } from "./lib/types.ts";
+import AboutPage from "./pages/AboutPage.tsx";
 import MapPage from "./pages/MapPage.tsx";
+import MethodologyPage from "./pages/MethodologyPage.tsx";
+import ModelCardPage from "./pages/ModelCardPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import ProvenancePage from "./pages/ProvenancePage.tsx";
 
@@ -51,6 +54,9 @@ function Banner({ health }: { health: Health | null }) {
 function routeTo(path: string) {
   if (match("/", path)) return <MapPage />;
   if (match("/provenance", path)) return <ProvenancePage />;
+  if (match("/methodology", path)) return <MethodologyPage />;
+  if (match("/model-card", path)) return <ModelCardPage />;
+  if (match("/about", path)) return <AboutPage />;
   return <NotFound path={path} />;
 }
 

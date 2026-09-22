@@ -54,6 +54,12 @@ export default function MapPage() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col md:flex-row">
+      {/* Every page owns its own h1, and the map's is the map. Visually hidden
+          because the header already names the site on screen, and a screen
+          reader arriving at <main> otherwise finds no heading at all: the
+          header's "ClearSkies" became a link to the map when routing landed,
+          and a link is not a heading. */}
+      <h1 className="sr-only">Map of cumulative environmental burden in Louisiana</h1>
         <div className="min-h-0 min-w-0 flex-1">
           <MapView onSelect={handleSelect} />
         </div>
