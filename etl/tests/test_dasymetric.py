@@ -35,18 +35,21 @@ from pipeline.dasymetric import (
     interpolate,
     interpolate_extensive,
     interpolate_intensive,
+    interpolate_rate,
     max_coefficient_variation,
     proportion_moe,
     reconcile_crosswalk,
     reconcile_population,
     require,
 )
+from pipeline.dasymetric.interpolate import UnpairedRate
 from pipeline.dasymetric.reconcile import ReconciliationFailed
 
 T1 = "22001000100"
 T2 = "22001000200"
 H1 = "8844c0b301fffff"
 H2 = "8844c0b303fffff"
+H3 = "8844c0b305fffff"
 
 # Tract T1, two blocks:
 #   block A  population 100, area 100, lies entirely in H1
@@ -532,10 +535,49 @@ def test_a_tract_the_crosswalk_never_reached_is_named_not_silently_lost(
     assert not blind.ok
 
     attributed = reconcile_population(claimed, values.values(), crosswalk=crosswalk)
-    assert attributed.ok
+    assert attributed.residual == pytest.approx(0.0)
     assert attributed.explained == pytest.approx(75.0)
     assert attributed.detail == ("22001000300",)
     assert "never reached" in attributed.describe()
+    # Named, and still a failure: 75 of 725 people is far more than the 1e-4 of
+    # the total that may go unreached. An attribution is an explanation, not a
+    # licence, or a county wholly outside the grid would reconcile perfectly.
+    assert not attributed.ok
+
+
+def test_an_unreached_tract_small_enough_to_be_a_sliver_is_tolerated(
+    crosswalk: Crosswalk,
+) -> None:
+    # The allowance is for tracts the grid was never meant to cover -- water,
+    # an offshore sliver -- which hold nobody or nearly nobody. 0.05 of 650
+    # people is inside 1e-4 relative; 0.5 is not.
+    values = interpolate_extensive(crosswalk, counts("V", 440.0, 210.0))
+    inside = reconcile_population(
+        {T1: 440.0, T2: 210.0, "22001000300": 0.05}, values.values(), crosswalk=crosswalk
+    )
+    assert inside.ok
+
+    outside = reconcile_population(
+        {T1: 440.0, T2: 210.0, "22001000300": 0.5}, values.values(), crosswalk=crosswalk
+    )
+    assert not outside.ok
+
+
+def test_an_empty_crosswalk_explains_nothing() -> None:
+    # Every tract unreached, every person explained, residual zero: before
+    # this, the emptiest possible crosswalk reconciled perfectly.
+    empty = crosswalk_from_weights(())
+    values = interpolate_extensive(empty, counts("V", 440.0, 210.0))
+    assert values == {}
+
+    report = reconcile_population({T1: 440.0, T2: 210.0}, values.values(), crosswalk=empty)
+    assert report.residual == pytest.approx(0.0)
+    assert not report.ok
+    assert "no rows" in report.describe()
+
+    assert not reconcile_crosswalk(empty).ok
+    with pytest.raises(ReconciliationFailed, match="no block met the grid"):
+        require(reconcile_crosswalk(empty))
 
 
 def test_a_tract_with_no_block_population_falls_back_to_area_share() -> None:
@@ -557,6 +599,42 @@ def test_a_tract_with_no_block_population_falls_back_to_area_share() -> None:
     assert require(reconcile_population({T1: 40.0}, values.values())).ok
 
 
+def test_a_cell_holding_none_of_a_tracts_people_is_kept_apart_not_dropped() -> None:
+    # Block D holds none of T1's people and a quarter of its area, which is any
+    # tract spanning housing and marsh. It is no part of either section 7
+    # formula, so it stays out of `weights`; it is part of T1's area, so it
+    # stays in `area_only`, and section 13.5 needs it there.
+    marsh = build_crosswalk([*FIXTURE, BlockOverlap("220010001002000", T1, H3, 0, 100.0, 100.0)])
+
+    assert [(row.tract_geoid, row.h3) for row in marsh.area_only] == [(T1, H3)]
+    assert marsh.area_only[0].pop_weight == 0.0
+    assert marsh.area_only[0].population == 0.0
+    # T1's area is 300 + 100: the marsh is a quarter of it.
+    assert marsh.area_only[0].area_weight == pytest.approx(0.25)
+
+    # The weights the score reads are exactly what they were without it.
+    assert H3 not in marsh.hexes()
+    assert weight(marsh, T1, H1).pop_weight == pytest.approx(0.4375)
+    assert weight(marsh, T1, H2).pop_weight == pytest.approx(0.5625)
+    assert math.fsum(row.pop_weight for row in marsh.for_tract(T1)) == pytest.approx(1.0)
+    # And the tract's area shares are whole again only across both sets.
+    assert math.fsum(row.area_weight for row in marsh.for_tract(T1)) == pytest.approx(0.75)
+    everything = (*marsh.for_tract(T1), *marsh.area_only)
+    assert math.fsum(row.area_weight for row in everything) == pytest.approx(1.0)
+
+
+def test_a_stored_zero_weight_row_comes_back_as_area_only() -> None:
+    # `pop_weight` of 0 is how migration 0025 stores such a cell, and it is the
+    # only thing that can produce that value, so the loader can tell them apart
+    # without a column of its own.
+    marsh = build_crosswalk([*FIXTURE, BlockOverlap("220010001002000", T1, H3, 0, 100.0, 100.0)])
+    restored = crosswalk_from_weights((*marsh.weights, *marsh.area_only))
+
+    assert restored.weights == marsh.weights
+    assert restored.area_only == marsh.area_only
+    assert H3 not in restored.hexes()
+
+
 def test_a_block_with_no_area_cannot_apportion_anything() -> None:
     with pytest.raises(ValueError, match="non-positive area"):
         build_crosswalk([BlockOverlap("b_z", T1, H1, 10, 0.0, 0.0)])
@@ -568,6 +646,56 @@ def test_a_negative_block_population_is_rejected() -> None:
 
 
 # --- reconciliation ------------------------------------------------------
+
+
+def test_a_rate_divides_only_over_the_tracts_that_report_both_parts(
+    crosswalk: Crosswalk,
+) -> None:
+    # T2 publishes the denominator and not the numerator. Interpolating both
+    # sides over every tract puts T2's 200 people under the fraction with
+    # nothing above them, so H2's rate reads as though none of them belonged to
+    # the group -- an absence acting as a zero, which section 11 forbids.
+    tops = [TractEstimate(T1, "num", 50.0, None, Kind.EXTENSIVE)]
+    bottoms = [
+        TractEstimate(T1, "den", 100.0, None, Kind.EXTENSIVE),
+        TractEstimate(T2, "den", 200.0, None, Kind.EXTENSIVE),
+    ]
+
+    # Over T1 alone: (50 * 0.5625) / (100 * 0.5625) = 50 percent.
+    paired = interpolate_rate(crosswalk, tops, bottoms, variable="P1", scale=100.0)
+    assert paired[H2].value == pytest.approx(50.0)
+    # T2's people are missing from the denominator, and that is said out loud:
+    # 225 of H2's 425 residents sit under the tract that reported.
+    assert paired[H2].population_support == pytest.approx(225.0 / 425.0)
+    # What the unpaired division said: 28.125 over 256.25, or 11 percent, a
+    # number that is not the rate of anything.
+
+
+def test_a_rate_over_mismatched_parts_is_refused_not_divided(crosswalk: Crosswalk) -> None:
+    # The guard for a caller that interpolates the two sides itself, which is
+    # how the fault got in: both mappings look complete, and only the tracts
+    # behind them say otherwise.
+    tops = interpolate_extensive(crosswalk, [TractEstimate(T1, "num", 50.0, None, Kind.EXTENSIVE)])
+    bottoms = interpolate_extensive(
+        crosswalk,
+        [
+            TractEstimate(T1, "den", 100.0, None, Kind.EXTENSIVE),
+            TractEstimate(T2, "den", 200.0, None, Kind.EXTENSIVE),
+        ],
+    )
+
+    with pytest.raises(UnpairedRate, match="different tracts"):
+        derive_rate(tops, bottoms, variable="P1", scale=100.0)
+
+
+def test_a_rate_with_no_tract_reporting_both_parts_is_empty(crosswalk: Crosswalk) -> None:
+    rate = interpolate_rate(
+        crosswalk,
+        [TractEstimate(T1, "num", 50.0, None, Kind.EXTENSIVE)],
+        [TractEstimate(T2, "den", 200.0, None, Kind.EXTENSIVE)],
+        variable="P1",
+    )
+    assert rate == {}
 
 
 def test_reconciliation_fails_loudly_when_the_totals_move(crosswalk: Crosswalk) -> None:

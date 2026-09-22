@@ -214,7 +214,12 @@ async def store_crosswalk(conn: Connection, crosswalk: Crosswalk, *, county_fips
             weight.block_count,
             weight.mean_block_area_m2,
         )
-        for weight in crosswalk.weights
+        # `area_only` rows are stored too, with the `pop_weight` of 0 that
+        # migration 0025 allows. Section 7 never reads them, and
+        # `crosswalk_from_weights` sets them apart again on the way back in,
+        # but section 13.5's areal counterpart needs the whole of each tract's
+        # area, and after this the stored crosswalk is the only place it is.
+        for weight in (*crosswalk.weights, *crosswalk.area_only)
     ]
     if payload:
         await conn.executemany(UPSERT_TRACT_HEX_WEIGHT, payload)

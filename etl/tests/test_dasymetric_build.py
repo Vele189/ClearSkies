@@ -302,7 +302,9 @@ async def test_the_check_reads_the_rows_that_were_written(conn: FakeConnection) 
 async def test_a_tract_the_grid_never_reached_is_named_not_read_as_drift() -> None:
     # T3's county is absent from the crosswalk, so its 500 people land nowhere.
     # That is a hole in the grid, not arithmetic that lost people, and the two
-    # have different fixes.
+    # have different fixes. The gap is attributed to T3 by name, and because
+    # 500 of 1,150 people is far more than may go unreached, the run still
+    # stops: naming a cause is not the same as tolerating it.
     conn = FakeConnection(OVERLAPS, ACS_POPULATION, ACS_MOE)
     await build_county_crosswalk(conn, county_fips=COUNTY_A)
 
@@ -312,6 +314,54 @@ async def test_a_tract_the_grid_never_reached_is_named_not_read_as_drift() -> No
     assert check.reconciliation.explained == pytest.approx(500.0)
     assert check.reconciliation.residual == pytest.approx(0.0)
     assert check.reconciliation.detail == (T3,)
+    assert not check.ok
+    assert "may go unreached" in check.describe()
+
+
+async def test_a_county_whose_blocks_never_met_the_grid_stops_the_run() -> None:
+    # Before this, a county with no block-hex overlap at all reconciled: zero
+    # block population in, zero hex population out, difference zero. The
+    # county's tracts simply had no weights and nothing said so.
+    conn = FakeConnection([o for o in OVERLAPS if o.tract_geoid[:5] == COUNTY_A])
+
+    with pytest.raises(ReconciliationFailed, match="no block met the grid"):
+        await build_county_crosswalk(conn, county_fips=COUNTY_B)
+
+
+async def test_an_unpopulated_tract_outside_the_grid_is_within_tolerance() -> None:
+    # The case the allowance exists for: a water tract the ACS gives no
+    # residents. It is unreached, it is named, and it costs nobody, so the
+    # statewide check passes.
+    conn = FakeConnection(
+        [o for o in OVERLAPS if o.tract_geoid[:5] == COUNTY_A],
+        {T1: 440.0, T2: 210.0, T3: 0.0},
+    )
+    await build_county_crosswalk(conn, county_fips=COUNTY_A)
+
+    check = await verify_statewide_population(conn, acs_vintage=VINTAGE)
+
+    assert check.reconciliation.detail == (T3,)
+    assert check.ok
+
+
+async def test_the_cells_holding_nobody_are_stored_and_read_back_apart() -> None:
+    # Migration 0025 allows the zero weight, `store_crosswalk` writes it, and
+    # `load_crosswalk` puts the row back where the build had it. Section 7 sees
+    # the same weights either way; section 13.5 gets the rest of the tract.
+    marsh = [*OVERLAPS, BlockOverlap("220010001002000", T1, H3, 0, 100.0, 100.0)]
+    conn = FakeConnection(marsh, ACS_POPULATION, ACS_MOE)
+    await build_state_crosswalk(conn, state_fips=STATE)
+
+    stored = [row for row in conn.weights.values() if float(row["pop_weight"]) == 0.0]
+    assert [(row["tract_geoid"], row["h3"]) for row in stored] == [(T1, H3)]
+    assert float(stored[0]["population"]) == 0.0
+
+    crosswalk = await postgis.load_crosswalk(conn)
+    assert [(row.tract_geoid, row.h3) for row in crosswalk.area_only] == [(T1, H3)]
+    assert all(row.pop_weight > 0 for row in crosswalk.weights)
+
+    # The statewide check is unmoved: those cells hold no one to reconcile.
+    check = await verify_statewide_population(conn, acs_vintage=VINTAGE)
     assert check.ok
 
 

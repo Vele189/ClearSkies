@@ -61,8 +61,8 @@ from burden.score import burden_score  # noqa: E402
 from pipeline.adapters.census_acs import INDICATORS as ACS_RECIPES  # noqa: E402
 from pipeline.dasymetric import postgis  # noqa: E402
 from pipeline.dasymetric.interpolate import (  # noqa: E402
-    derive_rate,
     interpolate,
+    interpolate_rate,
     max_coefficient_variation,
 )
 
@@ -197,9 +197,11 @@ async def acs_indicators(
 ) -> dict[str, dict[str, float | None]]:
     """S1, S2 and P1 to P5, each a rate formed once at the end.
 
-    Section 7's rule, and the reason this goes through `derive_rate` rather
-    than dividing per tract: both parts are interpolated as extensive counts
-    and the division happens after, on the hex.
+    Section 7's rule, and the reason this goes through `interpolate_rate`
+    rather than dividing per tract: both parts are interpolated as extensive
+    counts and the division happens after, on the hex. Only the tracts that
+    published both parts are interpolated, so a missing numerator cannot act
+    as a zero over a denominator that counted everybody.
     """
     wanted: set[str] = set()
     for recipe in ACS_RECIPES:
@@ -219,16 +221,12 @@ async def acs_indicators(
         # published income-by-cost brackets rather than one total, so a rate
         # whose denominator is a single variable is the special case here, not
         # the rule.
-        numerator, numerator_name = _summed(
-            loaded, recipe.numerator, f"{recipe.id}_numerator"
-        )
-        denominator, denominator_name = _summed(
-            loaded, recipe.denominator, f"{recipe.id}_denominator"
-        )
-        interpolated = interpolate(crosswalk, [*numerator, *denominator])
-        rate = derive_rate(
-            interpolated.get(numerator_name, {}),
-            interpolated.get(denominator_name, {}),
+        numerator, _ = _summed(loaded, recipe.numerator, f"{recipe.id}_numerator")
+        denominator, _ = _summed(loaded, recipe.denominator, f"{recipe.id}_denominator")
+        rate = interpolate_rate(
+            crosswalk,
+            numerator,
+            denominator,
             variable=recipe.id,
             scale=100.0,
         )

@@ -68,7 +68,8 @@ class TractHexWeight:
     Two weights, because the two formulas in section 7 need different ones.
 
     `pop_weight` is P(t n h) / P(t), the share of the tract's population that
-    falls in this hex. It is the multiplier for extensive quantities.
+    falls in this hex. It is the multiplier for extensive quantities. It is 0
+    only on a `Crosswalk.area_only` row, which no section 7 formula reads.
 
     `population` is P(t n h) itself, the block-apportioned population of the
     overlap. It is the weight for intensive quantities, which are combined as a
@@ -144,10 +145,20 @@ class CrosswalkReport:
 
 @dataclass(frozen=True, slots=True)
 class Crosswalk:
-    """The stored interpolation, indexed the two ways the formulas read it."""
+    """The stored interpolation, indexed the two ways the formulas read it.
+
+    `weights` are the rows section 7 reads, and the only rows anything indexes.
+    `area_only` holds the rest of the geometry: overlaps of a populated tract
+    that hold none of its 2020 block population. Their `pop_weight` is 0, so
+    they are no part of either section 7 formula and are kept out of the index
+    rather than multiplied by zero everywhere. They are carried because section
+    13.5's areal counterpart spreads a tract's people over its whole area, and
+    without these cells a tract's area shares stop summing to 1.
+    """
 
     weights: tuple[TractHexWeight, ...]
     report: CrosswalkReport
+    area_only: tuple[TractHexWeight, ...] = ()
     _by_tract: dict[str, tuple[TractHexWeight, ...]] = field(default_factory=dict, repr=False)
     _by_hex: dict[str, tuple[TractHexWeight, ...]] = field(default_factory=dict, repr=False)
 
@@ -295,20 +306,37 @@ def build_crosswalk(
             block_area_sum_in_cell[cell] += block_area
 
     weights: list[TractHexWeight] = []
+    area_only: list[TractHexWeight] = []
     area_fallback: list[str] = []
     for cell, population_in_hex in sorted(pop_in_cell.items()):
         tract, h3 = cell
         area_share = area_in_cell[cell] / tract_area[tract]
         total_population = tract_population[tract]
+        members = blocks_in_cell[cell]
         if total_population > 0:
             # An overlap holding none of the tract's people is not a weight.
             # It contributes nothing to an extensive quantity, which multiplies
             # through `pop_weight`, and nothing to an intensive one, which
-            # averages over `population`; storing it would add a row that every
-            # formula multiplies by zero. Migration 0003 says the same thing
-            # with `CHECK (pop_weight > 0)`, and it is common rather than
-            # exotic: any tract spanning housing and marsh has such a cell.
+            # averages over `population`, so it stays out of `weights` and
+            # out of every hex the section 7 formulas visit. It is common
+            # rather than exotic: any tract spanning housing and marsh has one.
+            #
+            # It is still a piece of the tract's area, though, and section
+            # 13.5's areal counterpart puts people there. Dropping it outright
+            # left a tract's area shares short of 1 and the counterpart refused
+            # every such tract, so it is kept, apart, as `area_only`.
             if population_in_hex == 0:
+                area_only.append(
+                    TractHexWeight(
+                        tract_geoid=tract,
+                        h3=h3,
+                        population=0.0,
+                        pop_weight=0.0,
+                        area_weight=area_share,
+                        block_count=len(members),
+                        mean_block_area_m2=block_area_sum_in_cell[cell] / len(members),
+                    )
+                )
                 continue
             pop_share = population_in_hex / total_population
             from_area = False
@@ -324,7 +352,6 @@ def build_crosswalk(
             if tract not in area_fallback:
                 area_fallback.append(tract)
 
-        members = blocks_in_cell[cell]
         weights.append(
             TractHexWeight(
                 tract_geoid=tract,
@@ -349,10 +376,15 @@ def build_crosswalk(
             uncovered_blocks=tuple(uncovered),
             area_fallback_tracts=tuple(area_fallback),
         ),
+        area_only=tuple(area_only),
     )
 
 
-def _index(weights: Sequence[TractHexWeight], report: CrosswalkReport) -> Crosswalk:
+def _index(
+    weights: Sequence[TractHexWeight],
+    report: CrosswalkReport,
+    area_only: Sequence[TractHexWeight] = (),
+) -> Crosswalk:
     by_tract: dict[str, list[TractHexWeight]] = defaultdict(list)
     by_hex: dict[str, list[TractHexWeight]] = defaultdict(list)
     for weight in weights:
@@ -361,6 +393,7 @@ def _index(weights: Sequence[TractHexWeight], report: CrosswalkReport) -> Crossw
     return Crosswalk(
         weights=tuple(weights),
         report=report,
+        area_only=tuple(area_only),
         _by_tract={k: tuple(v) for k, v in by_tract.items()},
         _by_hex={k: tuple(v) for k, v in by_hex.items()},
     )
@@ -373,8 +406,15 @@ def crosswalk_from_weights(weights: Iterable[TractHexWeight]) -> Crosswalk:
     out of Postgres. This is that path, and it deliberately recalculates
     nothing, so a stored crosswalk and a freshly built one behave identically
     downstream.
+
+    A stored row with a `pop_weight` of 0 is an `area_only` cell, and goes back
+    where `build_crosswalk` put it. Nothing else can produce that value: a
+    tract with no block population at all falls back to area share, which is
+    never 0 for an overlap that exists.
     """
-    rows = tuple(weights)
+    everything = tuple(weights)
+    rows = tuple(row for row in everything if row.pop_weight > 0)
+    area_only = tuple(row for row in everything if row.pop_weight <= 0)
     tracts = {row.tract_geoid for row in rows}
     return _index(
         rows,
@@ -385,6 +425,7 @@ def crosswalk_from_weights(weights: Iterable[TractHexWeight]) -> Crosswalk:
             total_block_population=round(sum(row.population for row in rows)),
             unassigned_population=0,
         ),
+        area_only,
     )
 
 

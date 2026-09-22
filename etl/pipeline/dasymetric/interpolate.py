@@ -18,7 +18,8 @@ Section 7 also forbids recomputing a rate from independently interpolated parts
 without care, and requires the opposite discipline where the parts exist: where
 a rate has a published numerator and denominator, both are interpolated as
 extensive quantities and the rate is derived once at the end. `derive_rate` is
-that ending, and it is the preferred path for every ACS rate in section 8.4.
+that ending, `interpolate_rate` is the whole path from tract estimates to it,
+and it is the preferred path for every ACS rate in section 8.4.
 The population-weighted mean is for the values that arrive as rates already,
 with no numerator to be had, such as the AirToxScreen cancer risk and
 respiratory hazard surfaces.
@@ -48,6 +49,16 @@ from pipeline.dasymetric.quantities import (
     proportion_moe,
 )
 from pipeline.dasymetric.weights import Crosswalk, TractHexWeight
+
+
+class UnpairedRate(ValueError):
+    """A rate's numerator and denominator were built over different tracts.
+
+    A tract that published a denominator but no numerator would otherwise sit
+    under the division as if its numerator were zero, and the hex's rate would
+    be pulled toward zero by an absence. Section 11 keeps absences and zeros
+    apart, so this is refused rather than divided.
+    """
 
 
 def _one_variable(
@@ -139,6 +150,7 @@ def interpolate_extensive(
             coefficient_of_variation=coefficient_of_variation(total, margin),
             population_support=_support(rows, (row.tract_geoid for row, _ in contributing)),
             contributing_tracts=len(contributing),
+            tracts=frozenset(row.tract_geoid for row, _ in contributing),
         )
     return values
 
@@ -241,6 +253,13 @@ def derive_rate(
     A hex whose denominator is zero or absent gets an absent rate. Zero people
     for whom poverty status is determined is not a poverty rate of zero; it is
     the absence of a poverty rate, and section 11 keeps the two apart.
+
+    Both parts must come from the same tracts. A tract that reports a
+    denominator and no numerator adds people to the bottom of the fraction and
+    nothing to the top, which divides by people whose count is unknown as if
+    it were zero. Where both sides record their tracts and the two differ, the
+    division is refused with `UnpairedRate`; `interpolate_rate` pairs the
+    tracts before interpolating, and is the way to call this from estimates.
     """
     for source, kind_name in ((numerator, "numerator"), (denominator, "denominator")):
         for value in source.values():
@@ -256,6 +275,14 @@ def derive_rate(
         if bottom is None or not top.present or not bottom.present or bottom.value == 0:
             rates[h3] = HexValue.absent(h3, variable, Kind.INTENSIVE)
             continue
+
+        if top.tracts and bottom.tracts and top.tracts != bottom.tracts:
+            unpaired = sorted(top.tracts ^ bottom.tracts)
+            raise UnpairedRate(
+                f"{variable!r} at {h3}: the numerator and denominator were interpolated "
+                f"over different tracts ({', '.join(unpaired)} report only one part); "
+                "pair them first, as interpolate_rate does"
+            )
 
         top_value = float(top.value or 0.0)
         bottom_value = float(bottom.value or 0.0)
@@ -280,8 +307,46 @@ def derive_rate(
             population_support=min(top.population_support, bottom.population_support),
             contributing_tracts=max(top.contributing_tracts, bottom.contributing_tracts),
             moe_is_conservative=conservative,
+            tracts=top.tracts,
         )
     return rates
+
+
+def interpolate_rate(
+    crosswalk: Crosswalk,
+    numerator: Iterable[TractEstimate],
+    denominator: Iterable[TractEstimate],
+    *,
+    variable: str,
+    scale: float = 1.0,
+) -> dict[str, HexValue]:
+    """Interpolate a rate's two published parts and divide once, at the end.
+
+    Only tracts that report both parts are interpolated. A tract with one part
+    and not the other has no rate to contribute, and it is dropped from both
+    sides so that it cannot count as a zero on one of them. The hexes it
+    covers are still formed from the tracts that did report, and the people it
+    holds are what `population_support` comes up short by, which is how
+    section 11 prices a gap rather than hiding it.
+
+    Returns an empty mapping when no tract reports both parts, which is what
+    `derive_rate` returns over an empty numerator.
+    """
+    tops = {estimate.tract_geoid: estimate for estimate in numerator}
+    bottoms = {estimate.tract_geoid: estimate for estimate in denominator}
+    paired = {
+        tract
+        for tract in tops.keys() & bottoms.keys()
+        if tops[tract].present and bottoms[tract].present
+    }
+    if not paired:
+        return {}
+    return derive_rate(
+        interpolate_extensive(crosswalk, (tops[t] for t in sorted(paired))),
+        interpolate_extensive(crosswalk, (bottoms[t] for t in sorted(paired))),
+        variable=variable,
+        scale=scale,
+    )
 
 
 def interpolate(
