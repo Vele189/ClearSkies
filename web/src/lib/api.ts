@@ -1,4 +1,10 @@
-import type { DocumentType, DraftResponse, HexDetail, Health } from "./types.ts";
+import type {
+  DocumentType,
+  DraftResponse,
+  HexDetail,
+  Health,
+  Provenance,
+} from "./types.ts";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -34,6 +40,15 @@ export const getHealth = (signal?: AbortSignal) => request<Health>("/health", si
 
 export const getHex = (h3: string, signal?: AbortSignal) =>
   request<HexDetail>(`/hex/${h3}`, signal);
+
+/** Where every number came from: the latest pull of each source.
+ *
+ * The most recent pull, not the most recent successful one. A reader shown a
+ * green row from three nights ago would reasonably conclude the data is
+ * current, so a failed pull is published as a failed pull.
+ */
+export const getProvenance = (signal?: AbortSignal) =>
+  request<Provenance>("/provenance", signal);
 
 /**
  * Ask for a draft about one hexagon.

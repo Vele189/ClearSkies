@@ -234,14 +234,40 @@ about the *group minimum* rather than about the indicators.
 ### 7.3 Interpolation sensitivity — did not run
 
 §13.5's third check needs the same run recomputed with simple areal weighting,
-which `dasymetric.areal_counterpart` builds from the 2020 block layer. CS-112
-discards the blocks once the §7 crosswalk is built, to fit inside a 512 MB
-storage limit, so the areal counterpart could not be produced.
+which `dasymetric.areal_counterpart` builds. It did not run against run 11, and
+the report says *did not run* rather than *found no divergence*, which is
+deliberately a different statement.
 
-The report says the check *did not run*, which is deliberately different from
-saying it found no divergence. Producing it means reloading the block layer,
-roughly a thirty-minute pull, and this document should not be read as having
-answered the question until that happens.
+**Why it did not run, corrected (AUD-20).** This section previously said the
+cause was CS-112 discarding the 2020 block layer once the §7 crosswalk is built.
+That was wrong, and the real cause was a defect. `areal_counterpart` reads each
+tract's area shares from `tract_hex_weight`, not from the blocks, so a discarded
+block layer does not stop it. What stopped it was that c5c9ac0 had stopped
+emitting the overlaps of a populated tract holding none of its block population
+— any tract spanning housing and marsh. §7 multiplies such a row by zero in both
+of its formulas, so dropping them was right for the score; it was wrong for
+§13.5, because without them a tract's `area_weight` no longer sums to 1 and the
+counterpart refuses the tract rather than quietly spreading its population over
+part of it. AUD-07 fixed the code and migration 0025 relaxed the constraint that
+had forbidden the rows.
+
+**What is still required, and it is not what this section used to say.** The
+crosswalk in the database was built under the old code, and a count confirms it:
+156,343 rows across 1,388 tracts and **not one** with `pop_weight = 0`. The rows
+come back only when the crosswalk is rebuilt, and rebuilding reads the blocks —
+so the block layer is reloaded once, the crosswalk is rebuilt under 0025, and
+then the blocks are discarded again for good, because the geometry that was
+missing now survives in `tract_hex_weight`.
+
+**And it cannot run on the current plan.** Neon's free tier caps a branch at
+512 MB and `dev-seed` is at 487 MB, so the block layer the rebuild reads does
+not fit — the ceiling CS-112 discarded it for, which `backlog.md` had recorded
+as gone and is not. CP-06 now carries the three ways out and the choice between
+them is the owner's, because one of them is a recurring bill.
+
+This document should not be read as having answered the question until a run
+under the rebuilt crosswalk exists, and that is now further away than §7.3 used
+to imply rather than nearer.
 
 ### 7.4 What §13.7 permits from here
 

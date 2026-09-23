@@ -110,11 +110,56 @@ async def test_every_download_becomes_a_snapshot() -> None:
     calls: list[httpx.Request] = []
     transport = counting_transport([httpx.Response(200, content=BODY)], calls)
     async with build_client(transport=transport) as client:
-        await make_fetcher(client, snapshots=store).get(URL)
+        fetcher = make_fetcher(client, snapshots=store)
+        await fetcher.get(URL)
+
+        # Staged, not stored: the 200 has arrived but the run has not succeeded.
+        # AUD-16 is what happens when a download writes straight through.
+        assert await store.get("fake", URL) is None
+
+        assert await fetcher.promote_snapshots() == 1
 
     snapshot = await store.get("fake", URL)
     assert snapshot is not None
     assert snapshot.content == BODY
+
+
+async def test_a_discarded_download_never_reaches_the_store() -> None:
+    store = InMemorySnapshotStore()
+    calls: list[httpx.Request] = []
+    transport = counting_transport([httpx.Response(200, content=BODY)], calls)
+    async with build_client(transport=transport) as client:
+        fetcher = make_fetcher(client, snapshots=store)
+        await fetcher.get(URL)
+        fetcher.discard_snapshots()
+
+        assert await fetcher.promote_snapshots() == 0
+
+    assert await store.get("fake", URL) is None
+
+
+async def test_a_staged_download_serves_the_run_that_fetched_it() -> None:
+    """Offline mid-run reads what this run already has, promoted or not.
+
+    An adapter that paged successfully and then hit a failure must not lose its
+    own earlier pages the moment the runner goes offline to retry from
+    snapshots.
+    """
+    store = InMemorySnapshotStore()
+    calls: list[httpx.Request] = []
+    transport = counting_transport([httpx.Response(200, content=BODY)], calls)
+    async with build_client(transport=transport) as client:
+        fetcher = make_fetcher(client, snapshots=store)
+        await fetcher.get(URL)
+        assert await store.get("fake", URL) is None
+
+        assert await fetcher.can_serve_offline()
+        fetcher.offline = True
+        replayed = await fetcher.get(URL)
+
+    assert len(calls) == 1
+    assert replayed.content == BODY
+    assert replayed.artifact.from_snapshot
 
 
 async def test_offline_serves_the_snapshot_without_touching_the_network() -> None:

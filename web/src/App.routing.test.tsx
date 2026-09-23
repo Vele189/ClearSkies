@@ -1,0 +1,131 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import App from "./App.tsx";
+import { PAGES } from "./lib/pages.ts";
+
+vi.mock("./components/MapView.tsx", () => ({
+  default: () => <div data-testid="map" />,
+}));
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "",
+        json: () =>
+          Promise.resolve(
+            new URL(url).pathname === "/provenance"
+              ? { sources: [] }
+              : { status: "ok", notes: [] },
+          ),
+      }),
+    ),
+  );
+  vi.stubEnv("VITE_TILES_URL", "https://tiles.example/hexes.pmtiles");
+});
+
+describe("the shell", () => {
+  it("renders the map at the root", async () => {
+    render(<App />);
+
+    expect(await screen.findByTestId("map")).toBeInTheDocument();
+  });
+
+  it("carries the disclaimer on every page", async () => {
+    render(<App />);
+
+    // CS-407 wants it on the app, and "on the app" has to mean every view: a
+    // reader on a deep link passed through nowhere that could have said it.
+    expect(
+      screen.getByText(/not findings of wrongdoing by any facility or operator/i),
+    ).toBeInTheDocument();
+  });
+
+  it("offers a skip link ahead of the navigation", async () => {
+    render(<App />);
+    const skip = screen.getByRole("link", { name: /skip to content/i });
+
+    expect(skip).toHaveAttribute("href", "#main");
+    // First in the tab order is the whole point of it.
+    await userEvent.tab();
+    expect(skip).toHaveFocus();
+  });
+
+  it("marks the current page for a screen reader, not only in colour", async () => {
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("says so when nothing answers a path", async () => {
+    window.history.replaceState(null, "", "/nowhere");
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /nothing at this address/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("/nowhere")).toBeInTheDocument();
+    expect(screen.queryByTestId("map")).not.toBeInTheDocument();
+  });
+
+  it("returns to the map from a dead end without a reload", async () => {
+    window.history.replaceState(null, "", "/nowhere");
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("link", { name: /back to the map/i }));
+
+    expect(await screen.findByTestId("map")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+  });
+});
+
+describe("the sources page", () => {
+  it("is reachable from the map's navigation", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("link", { name: "Sources" }));
+
+    expect(
+      await screen.findByRole("heading", { name: /where the data comes from/i }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/provenance");
+  });
+
+  it("answers a cold deep link", async () => {
+    // `serve -s` answers every path with index.html, so this is a real case.
+    window.history.replaceState(null, "", "/provenance");
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /where the data comes from/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("every page is reachable and every nav entry resolves", () => {
+  // The nav pointing at a 404 is the failure mode of adding a page and a link
+  // in two different commits, which is why PAGES and routeTo are extended
+  // together and why this walks the list rather than naming the pages again.
+  it.each(PAGES)("$label answers at $path", async ({ path }) => {
+    window.history.replaceState(null, "", path);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /nothing at this address/i }),
+    ).not.toBeInTheDocument();
+  });
+});

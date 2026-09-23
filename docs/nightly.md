@@ -39,10 +39,35 @@ write to the database on the strength of state GitHub is free to evict. The two
 move together, into `pipeline_run` and the Postgres sink, and until then this
 page says which of the two a night actually did.
 
-What the night *does* keep is the snapshots: every download is written to
-`etl/pipeline-snapshots`, which has its own Actions cache, because a source that
-has gone away is served from its last good copy and a copy held in memory does
-not outlive the process that fetched it.
+What the night *does* keep is the snapshots: every download the night ends up
+trusting is written to `etl/pipeline-snapshots`, which has its own Actions cache,
+because a source that has gone away is served from its last good copy and a copy
+held in memory does not outlive the process that fetched it. A pull that fails
+promotes nothing, so the copy kept is the last one that was good rather than the
+one that just failed (AUD-16).
+
+## Scoring, and why it promotes nothing
+
+A second job scores the database and builds the tile archive, where a
+`DATABASE_URL` secret exists. Where one does not it skips and says so, because
+the ingest job above still loads nothing: it scores whatever the last manual
+load put there, not tonight's pull. That is worth having anyway. It recomputes
+the section 13 gates against real data every night and writes the result to the
+run summary, which is the number this project is currently failing and the one
+nobody sees between manual runs.
+
+It calls `run_scoring.py` **without `--promote`**, so the run the API serves is
+unchanged and the artifacts are evidence rather than a deployment. Promoting a
+run that has not cleared section 13 would put an unvalidated score on the map,
+which is the one failure this project's discipline exists to prevent. The gates
+are reported and not enforced for a related reason: they are failing today, and
+a job that went red every night for a known failure is a job people stop
+reading, which would bury the ingest job's issue under it.
+
+The archive is kept as an artifact rather than uploaded to R2. The tiles the map
+serves are published deliberately, by `make deploy-tiles`, alongside a promoted
+run; a nightly upload would put tiles on the map for a run the API is not
+serving, and the two would disagree about what a hexagon scored.
 
 ## Refresh cadence
 

@@ -185,3 +185,29 @@ describe("selecting a hexagon", () => {
     expect(await screen.findByText("Iberville Parish")).toBeInTheDocument();
   });
 });
+
+describe("the degraded-deployment banner", () => {
+  it("names what is not running rather than a build phase", async () => {
+    vi.stubEnv("VITE_TILES_URL", "");
+    routedFetch();
+
+    render(<App />);
+
+    const banner = await screen.findByText(/Not everything is running/);
+    expect(banner).toBeInTheDocument();
+    // It described the project, not the deployment, and went stale silently.
+    expect(screen.queryByText(/Phase 0 scaffold/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/No tile archive configured/),
+    ).toBeInTheDocument();
+  });
+
+  it("stays out of the way when the deployment is whole", async () => {
+    routedFetch();
+
+    render(<App />);
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(screen.queryByText(/Not everything is running/)).not.toBeInTheDocument();
+  });
+});

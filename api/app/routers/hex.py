@@ -1,9 +1,13 @@
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path
 
 from app import db, h3_cell, hex_detail, runs
+from app.limits import enforce_read_limit
 from app.schemas import HexDetail
 
-router = APIRouter(tags=["hex"])
+# One database query per hexagon opened, so the limit is on the router
+# rather than on the handler: a limit somebody has to remember to add to
+# the next endpoint is one the next endpoint will not have.
+router = APIRouter(tags=["hex"], dependencies=[Depends(enforce_read_limit)])
 
 
 @router.get(

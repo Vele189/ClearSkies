@@ -11,12 +11,13 @@ endpoint both have to publish, because a reader shown a green row from three
 nights ago would reasonably conclude the data is current.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import db
+from app.limits import enforce_read_limit
 from app.schemas import Provenance, SourceArtifact, SourceGap, SourcePull
 
-router = APIRouter(tags=["meta"])
+router = APIRouter(tags=["meta"], dependencies=[Depends(enforce_read_limit)])
 
 # The latest pull of each source. DISTINCT ON is the Postgres idiom for
 # "one row per group, the newest", and it matches the source_pull_latest index.

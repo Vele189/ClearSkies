@@ -13,13 +13,15 @@ import {
   weakestTerm,
   weightedGroupMean,
 } from "../lib/score.ts";
+import { placeName } from "../lib/place.ts";
 import { BAND_LABELS, GROUP_LABELS } from "../lib/types.ts";
 import DraftPanel from "./DraftPanel.tsx";
+import Link from "./Link.tsx";
 import type { ComponentScore, HexDetail, IndicatorValue } from "../lib/types.ts";
 
 function Bar({ percentile, observed }: { percentile: number | null; observed: boolean }) {
   if (!observed || percentile === null) {
-    return <span className="text-xs text-slate-400 italic">not observed</span>;
+    return <span className="text-xs text-slate-500 italic">not observed</span>;
   }
   return (
     <div className="h-2 w-full rounded-sm bg-slate-100">
@@ -42,7 +44,7 @@ function IndicatorRow({
     <li className="grid grid-cols-[1fr_5rem] items-center gap-3 py-1.5">
       <div>
         <div className="text-sm text-slate-800">
-          <span className="mr-1.5 font-mono text-xs text-slate-400">{indicator.id}</span>
+          <span className="mr-1.5 font-mono text-xs text-slate-500">{indicator.id}</span>
           {indicator.name}
         </div>
         <Bar percentile={indicator.percentile} observed={indicator.observed} />
@@ -180,7 +182,21 @@ function ConfidenceBreakdown({ hex }: { hex: HexDetail }) {
   );
 }
 
-export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: () => void }) {
+export default function HexPanel({
+  hex,
+  onClose,
+  /** Offer a link to this hexagon's own page.
+   *
+   *  Set on the map, where the panel is a transient thing over a canvas and the
+   *  reader has no address for what they are reading. Left off on the page
+   *  itself, where a link to the page you are on is noise.
+   */
+  standalone = false,
+}: {
+  hex: HexDetail;
+  onClose: () => void;
+  standalone?: boolean;
+}) {
   const groups = Object.keys(GROUP_LABELS) as (keyof typeof GROUP_LABELS)[];
   const dropped = hex.indicators.filter((i) => !i.observed).length;
   const product = productOfComponents(hex.components);
@@ -208,10 +224,22 @@ export default function HexPanel({ hex, onClose }: { hex: HexDetail; onClose: ()
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="font-mono text-xs text-slate-400">{hex.h3}</div>
+            <div className="font-mono text-xs text-slate-500">{hex.h3}</div>
             <h2 className="text-lg font-semibold text-slate-900">
-              {hex.parish ? `${hex.parish} Parish` : hex.state}
+              {placeName(hex)}
             </h2>
+            {standalone && (
+              // A map click is not an address. This gives the reader one they
+              // can send to somebody, return to, or open without a map --
+              // which is also the non-map path CS-401 asks for.
+              <Link
+                to={`/hex/${hex.h3}`}
+                className="text-xs text-sky-800 underline focus-visible:outline-2
+                           focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              >
+                Open on its own page
+              </Link>
+            )}
           </div>
           <button
             onClick={onClose}

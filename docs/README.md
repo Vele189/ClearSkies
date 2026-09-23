@@ -39,6 +39,7 @@ permits three responses to a failing check and none of them is editing these.
 | [validation/citation-audit.md](validation/citation-audit.md) | CS-308: the fifty-draft audit, with the drafts themselves in `validation/audit-drafts/`. |
 | [validation/citation-audit-review.md](validation/citation-audit-review.md) | What a person found reading those fifty drafts, kept apart from what the harness measured. |
 | [validation/redteam.md](validation/redteam.md) | The adversarial set run against the real model. |
+| [validation/safe-language.md](validation/safe-language.md) | CS-407: the pass over everything user-facing, and the scan that repeats it on every CI run. |
 | [validation/verifier.md](validation/verifier.md) | The citation judge against real sections: eight traps and four true propositions. |
 
 ## The 2026-09-22 audit
@@ -47,6 +48,12 @@ permits three responses to a failing check and none of them is editing these.
 |---|---|
 | [audit/2026-09-22-codebase-audit.md](audit/2026-09-22-codebase-audit.md) | A read-only review of the whole repository, by area, with each finding coded. |
 | [audit/tickets.md](audit/tickets.md) | The fifteen tickets that resolve those findings, with acceptance criteria. |
+
+## Finishing it
+
+| Document | What it is |
+|---|---|
+| [plan/tickets.md](plan/tickets.md) | The twenty-five tickets between the repository as it stands and the Phase 2 exit condition, then Phase 4. Sequenced, with the decision points named. |
 
 The repository's own [README](../README.md) covers what the project is,
 [CONTRIBUTING.md](../CONTRIBUTING.md) covers how to work on it, and

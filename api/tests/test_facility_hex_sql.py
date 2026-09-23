@@ -10,14 +10,21 @@ The seed is two hexagons, five named facilities and a few hundred background
 ones, in a transaction that is always rolled back, so the same database can run
 this repeatedly and still be the one the next job migrates.
 
-What it assumes about the database it is pointed at is that no facility already
-loaded sits within 10 km of either of the two hexagons, since the assertions are
-about exactly which facilities come back. That is true of every ClearSkies
-database today, because no pull has loaded one.
+**It used to assume the database held no facilities of its own**, because the
+assertions were about exactly which rows came back. That stopped being true the
+moment a pilot-state load existed: against the `dev-seed` branch, which holds
+13,655 real facilities, five of these tests failed on rows that were never the
+point. They now assert about the seeded set and ignore everything else, so the
+file runs against a loaded branch as well as an empty one -- which is where you
+would most want to check a migration before applying it.
+
+The two hexagons are still seeded, and every row this file inserts is still
+rolled back, so the same database can run it repeatedly and still be the one the
+next job migrates.
 """
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from math import cos, radians
 
 import asyncpg
@@ -119,6 +126,26 @@ async def seed_facility(
     )
 
 
+#: The five facilities this file seeds, each one a case. Assertions filter to
+#: these rather than taking whatever the database holds, because a real load is
+#: thousands of rows that are not what any test here is about.
+SEEDED = ("INSIDE", "NEAR", "FAR", "SUSPECT", "BEAUMONT")
+
+
+def seeded_only[T](rows: Iterable[T], key: str = "facility_id") -> list[T]:
+    """`rows` filtered to the facilities this file inserted, order preserved.
+
+    Takes either asyncpg records or the `Facility` models `contributing`
+    returns, which is why the field is read both ways.
+    """
+    out: list[T] = []
+    for row in rows:
+        value = row[key] if hasattr(row, "keys") else getattr(row, key, None)  # type: ignore[index]
+        if value in SEEDED:
+            out.append(row)
+    return out
+
+
 @pytest.fixture
 async def seeded() -> AsyncIterator[tuple[asyncpg.Connection, dict[str, str]]]:
     """A rolled-back transaction holding two hexagons and five named facilities.
@@ -172,7 +199,10 @@ async def seeded() -> AsyncIterator[tuple[asyncpg.Connection, dict[str, str]]]:
                                                      snapshot_id)
             VALUES ('NEAR', date '2025-01-01', 'CAA', 'high_priority_violation', $1),
                    ('NEAR', date '2025-04-01', 'CAA', 'violation', $1),
-                   ('NEAR', date '2025-07-01', 'CAA', 'in_compliance', $1)
+                   ('NEAR', date '2025-07-01', 'CAA', 'in_compliance', $1),
+                   -- Outside the twelve quarters F2 counts. ECHO's history can
+                   -- run deeper than the window, which is what AUD-18 is about.
+                   ('NEAR', date '2019-01-01', 'CAA', 'high_priority_violation', $1)
             """,
             snapshot_id,
         )
@@ -223,7 +253,7 @@ async def test_only_facilities_inside_the_interaction_radius_are_linked(
         INTERACTION_RADIUS_M,
     )
 
-    assert [r["facility_id"] for r in rows] == ["INSIDE", "NEAR"]
+    assert [r["facility_id"] for r in seeded_only(rows)] == ["INSIDE", "NEAR"]
 
 
 async def test_a_quarantined_facility_is_not_linked_however_close_it_is(
@@ -267,7 +297,7 @@ async def test_an_out_of_state_facility_reaches_a_hex_on_the_state_line(
         INTERACTION_RADIUS_M,
     )
 
-    assert [r["facility_id"] for r in rows] == ["BEAUMONT"]
+    assert [r["facility_id"] for r in seeded_only(rows)] == ["BEAUMONT"]
     assert rows[0]["state"] == "TX"
     assert rows[0]["distance_m"] == pytest.approx(6_000, abs=50)
 
@@ -284,7 +314,10 @@ async def test_the_containing_hex_is_marked_on_the_link(
     )
     containing = {r["facility_id"]: r["is_containing"] for r in rows}
 
-    assert containing == {"INSIDE": True, "NEAR": False}
+    assert {k: v for k, v in containing.items() if k in SEEDED} == {
+        "INSIDE": True,
+        "NEAR": False,
+    }
 
 
 # ---- the decay kernel ----------------------------------------------------
@@ -346,10 +379,12 @@ async def test_the_bulk_relation_reaches_every_hexagon_not_only_the_one_asked_fo
         SELECT h3, count(*) AS links
           FROM hex_facility_links_all($1)
          WHERE h3 = ANY($2::text[])
+           AND facility_id = ANY($3::text[])
          GROUP BY h3
         """,
         INTERACTION_RADIUS_M,
         [cells["inland"], cells["line"]],
+        list(SEEDED),
     )
 
     assert {r["h3"]: r["links"] for r in rows} == {cells["inland"]: 2, cells["line"]: 1}
@@ -374,6 +409,8 @@ async def test_the_bulk_relation_and_the_single_hex_one_agree(
         INTERACTION_RADIUS_M,
     )
 
+    # Whole rows, not just the seeded ones: the claim is that two definitions of
+    # "near" agree, and narrowing it would weaken exactly what is being checked.
     assert [tuple(r) for r in bulk] == [tuple(r) for r in single]
 
 
@@ -388,9 +425,10 @@ async def test_the_panel_query_returns_facilities_nearest_first(
         "SELECT * FROM facilities_near_hex($1, $2)", cells["inland"], INTERACTION_RADIUS_M
     )
 
-    assert [r["facility_id"] for r in rows] == ["INSIDE", "NEAR"]
-    assert rows[0]["distance_m"] < rows[1]["distance_m"]
-    assert rows[0]["echo_url"].endswith("fid=INSIDE")
+    ours = seeded_only(rows)
+    assert [r["facility_id"] for r in ours] == ["INSIDE", "NEAR"]
+    assert ours[0]["distance_m"] < ours[1]["distance_m"]
+    assert ours[0]["echo_url"].endswith("fid=INSIDE")
 
 
 async def test_the_panel_query_carries_the_compliance_history_behind_f2_and_f3(
@@ -430,6 +468,50 @@ async def test_the_enforcement_window_is_a_parameter_not_todays_date(
 
     # The action settled 100 days ago, so a ten-day window excludes it.
     assert rows["NEAR"]["formal_actions"] == 0
+
+
+async def test_the_panel_counts_only_the_twelve_quarters_the_score_counts(
+    seeded: tuple[asyncpg.Connection, dict[str, str]],
+) -> None:
+    """AUD-18. The panel and F2 must not disagree about the same facility.
+
+    `facility_compliance_quarter` holds a 2019 violation for NEAR. F2 counts the
+    twelve quarters ending with the run's `as_of` (scoring/burden/inputs.py,
+    COMPLIANCE_QUARTERS = 12), so it does not see that row and neither may the
+    drill-down. Before migration 0027 the panel counted every row in the table
+    and would report three where the score counted two.
+    """
+    conn, cells = seeded
+    rows = {
+        r["facility_id"]: r
+        for r in await conn.fetch(
+            "SELECT * FROM facilities_near_hex($1, $2)", cells["inland"], INTERACTION_RADIUS_M
+        )
+    }
+
+    assert rows["NEAR"]["quarters_in_noncompliance"] == 2
+
+
+async def test_the_quarter_window_is_a_parameter_not_todays_date(
+    seeded: tuple[asyncpg.Connection, dict[str, str]],
+) -> None:
+    """A stored run's panel asks about that run's twelve quarters.
+
+    Passed a date inside 2019, the window reaches back far enough to include the
+    old violation, which is how a caller rendering an archived run gets a count
+    that matches the score that run wrote.
+    """
+    conn, cells = seeded
+    rows = {
+        r["facility_id"]: r
+        for r in await conn.fetch(
+            "SELECT * FROM facilities_near_hex($1, $2, NULL, date '2019-01-01')",
+            cells["inland"],
+            INTERACTION_RADIUS_M,
+        )
+    }
+
+    assert rows["NEAR"]["quarters_in_noncompliance"] == 3
 
 
 # ---- the index the read path depends on ----------------------------------
@@ -474,12 +556,13 @@ async def test_the_api_read_path_returns_the_panel_payload(
     conn, cells = seeded
     found = await contributing(conn, cells["inland"], radius_m=INTERACTION_RADIUS_M)
 
-    assert [f.registry_id for f in found] == ["INSIDE", "NEAR"]
-    assert found[0].in_hex and not found[1].in_hex
-    assert found[0].distance_km < found[1].distance_km
-    assert found[1].quarters_in_noncompliance == 2
-    assert found[1].formal_actions_5yr == 1
-    assert found[0].program == "CAA major source"
+    ours = seeded_only(found, key="registry_id")
+    assert [f.registry_id for f in ours] == ["INSIDE", "NEAR"]
+    assert ours[0].in_hex and not ours[1].in_hex
+    assert ours[0].distance_km < ours[1].distance_km
+    assert ours[1].quarters_in_noncompliance == 2
+    assert ours[1].formal_actions_5yr == 1
+    assert ours[0].program == "CAA major source"
 
 
 async def test_the_api_read_path_includes_the_out_of_state_contributor(
@@ -488,8 +571,9 @@ async def test_the_api_read_path_includes_the_out_of_state_contributor(
     conn, cells = seeded
     found = await contributing(conn, cells["line"], radius_m=INTERACTION_RADIUS_M)
 
-    assert [f.registry_id for f in found] == ["BEAUMONT"]
-    assert found[0].distance_km == pytest.approx(6.0, abs=0.05)
+    ours = seeded_only(found, key="registry_id")
+    assert [f.registry_id for f in ours] == ["BEAUMONT"]
+    assert ours[0].distance_km == pytest.approx(6.0, abs=0.05)
 
 
 async def test_the_api_read_path_caps_what_it_shows_without_capping_the_score(
@@ -499,4 +583,6 @@ async def test_the_api_read_path_caps_what_it_shows_without_capping_the_score(
     conn, cells = seeded
     found = await contributing(conn, cells["inland"], radius_m=INTERACTION_RADIUS_M, limit=1)
 
-    assert [f.registry_id for f in found] == ["INSIDE"]
+    # The claim is the cap, not which facility wins it: in a loaded database a
+    # real facility can sit nearer the seeded hexagon than the seeded one does.
+    assert len(found) == 1

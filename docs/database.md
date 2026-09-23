@@ -41,6 +41,30 @@ The default path is a [Neon](https://neon.com) branch. Branch the database
 rather than sharing one: a branch is a copy-on-write fork of the data, so a
 migration you are unsure about runs against real rows and is then thrown away.
 
+### Which branch holds what
+
+The project has two long-lived branches and they are not interchangeable.
+Nothing in the repository said so until now, which is how a reader could follow
+the setup below, point `DATABASE_URL` at the obvious-sounding one, and get a
+schema with nothing in it.
+
+| Branch | Holds | What it is for |
+|---|---|---|
+| `production` | The schema, and no rows | What the deployed API will serve. Empty until Phase 2 exits and a validated run is loaded and promoted there. |
+| `dev-seed` | The pilot-state load and every scored run | Where the work happens. Run 11 is here, and it is the run `docs/validation/` reports. |
+
+So **`make score`, `make export-run` and the section 13 gates only do anything
+against `dev-seed`**. Pointed at `production` they succeed and score nothing,
+which looks like a bug in the scorer and is not one.
+
+A throwaway fork of `dev-seed` is the right place to try a migration, and it is
+what CP-01 means by running one against real data first:
+
+```bash
+neon branches create --name migrate-check --parent dev-seed
+# apply, verify, roll back, roll forward, then delete the branch
+```
+
 ```bash
 cp .env.example .env   # DATABASE_URL and DATABASE_URL_UNPOOLED from the branch
 make migrate           # create the schema
@@ -177,6 +201,13 @@ DATABASE_URL_UNPOOLED='postgresql://...neon.tech/neondb?sslmode=require' make mi
 
 `make migrate-verify` exits non-zero unless every migration is applied and
 unedited, which is the check to run after a deploy.
+
+**Both branches have to be migrated, and they drift.** They are separate
+databases; applying a migration to one does nothing to the other. On
+2026-09-23 `production` was at 0022 and `dev-seed` at 0023, because 0023 had
+been applied to the working branch and never to the other. Both are now at
+0027. `make migrate-status` against each is the way to notice, and it is worth
+doing before reading anything into a query that returned nothing.
 
 ### The ledger
 
