@@ -250,3 +250,50 @@ jobs:
           python -m app.migrate down --to 0000
           python -m app.migrate up
           python -m app.migrate verify
+
+  images:
+    name: Container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A Dockerfile is only known to work when something builds it, and the
+      # deploy is a poor place to find out. Nothing is pushed: this proves the
+      # two images assemble and answer, and the registry is the deploy's
+      # business. Both are built from api/ and web/ exactly as the split
+      # repositories build them from their own roots (docs/repos.md).
+      - name: The API image builds
+        run: docker build -t clearskies-api:ci api
+
+      # No database: the API serves /health while the pool is down on purpose,
+      # reporting `degraded`, and that is what makes this a useful smoke test of
+      # the image rather than of Postgres. A short connect timeout keeps the
+      # first request from waiting on the default five seconds.
+      - name: The API image serves /health
+        run: |
+          docker run -d --name api-ci -p 8000:8000 \
+            -e DB_CONNECT_TIMEOUT=1 -e LOG_FORMAT=text clearskies-api:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8000/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8000/health | tee /dev/stderr | grep -q '"database":"unavailable"'
+          docker rm -f api-ci
+
+      - name: The frontend image builds
+        run: docker build -t clearskies-web:ci web
+
+      # The bundle is baked in at build time, so what this checks is that nginx
+      # is configured and serving the shell. A client-side route is asked for
+      # too: without the try_files fallback that path is a 404, and a 404 on a
+      # deep link is the failure this configuration exists to prevent.
+      - name: The frontend image serves the app and its routes
+        run: |
+          docker run -d --name web-ci -p 8080:8080 clearskies-web:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8080/ >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8080/ | grep -q 'id="root"'
+          curl -fsS http://localhost:8080/hex/8844c0b18bfffff | grep -q 'id="root"'
+          docker rm -f web-ci

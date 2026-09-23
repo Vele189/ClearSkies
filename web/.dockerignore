@@ -1,0 +1,24 @@
+# node_modules is reinstalled from the lockfile inside the build stage; copying
+# the host's would both bloat the context and risk shipping binaries built for
+# a different platform.
+node_modules/
+dist/
+.vite/
+
+# Vitest and eslint state, plus anything the dev server leaves behind.
+coverage/
+*.log
+
+# web/.env is a symlink to the repository root's .env, outside this build
+# context. The build reads its configuration from the VITE_ build args instead.
+.env
+.env.*
+
+# The tile archive is hundreds of megabytes and is served from R2, never from
+# this image.
+public/*.pmtiles
+
+# The Dockerfile itself is not needed inside the image. nginx.conf.template is:
+# the second stage copies it out of the build context, so it must NOT be ignored.
+Dockerfile
+.dockerignore

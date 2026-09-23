@@ -1,5 +1,13 @@
-# The optional local database, for offline work; CI builds the same image. The
-# deployed database is a Neon branch, and nothing deploys this container.
+# The local stack.
+#
+# `db` is the optional local database, for offline work; CI builds the same
+# image. The deployed database is a Neon branch, and nothing here deploys this
+# container.
+#
+# `api` and `web` build the images the deploy builds. They sit behind the `app`
+# profile, so `docker compose up` and `make up` still start the database alone
+# and nothing that already exists changes behaviour. `make stack` starts all
+# three.
 services:
   db:
     build:
@@ -24,6 +32,48 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  api:
+    profiles: ["app"]
+    build:
+      context: ./api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Note the host: inside the network the database is `db`, not localhost,
+      # so the .env value that works for `make api` on the host does not work
+      # here. Point CLEARSKIES_DOCKER_DATABASE_URL at a Neon branch to run this
+      # container against one instead; the `db` service can then stay down.
+      DATABASE_URL: ${CLEARSKIES_DOCKER_DATABASE_URL:-postgresql://clearskies:clearskies@db:5432/clearskies}
+      # The frontend container's origin and the Vite dev server's, so either
+      # can call this one.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PILOT_STATE: ${PILOT_STATE:-LA}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DRAFT_MODEL: ${DRAFT_MODEL:-gpt-4o}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+    # No depends_on: the API serves /health while the database is unavailable on
+    # purpose (app/config.py's db_connect_timeout), and requiring the container
+    # would stop it starting against Neon.
+
+  web:
+    profiles: ["app"]
+    build:
+      context: ./web
+      args:
+        # Build args, not environment: Vite inlines these into the bundle, so
+        # they are fixed when the image is built. Changing one means
+        # `docker compose build web`, not a restart. The default points at the
+        # api service as published on the host, because the browser resolves
+        # this URL, not the container.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_TILES_URL: ${VITE_TILES_URL:-}
+        VITE_BASEMAP_STYLE: ${VITE_BASEMAP_STYLE:-https://tiles.openfreemap.org/styles/positron}
+        VITE_GEOCODER_URL: ${VITE_GEOCODER_URL:-}
+    ports:
+      - "${WEB_PORT:-8080}:8080"
 
 volumes:
   pgdata:

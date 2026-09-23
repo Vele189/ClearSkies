@@ -1,0 +1,24 @@
+# Keep the build context to what the image installs and runs. Everything here
+# either does not belong in a deployed image or would invalidate its cache on
+# every local test run.
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# tests/ is deliberately absent from the image: it is run in CI and locally
+# against the source tree, never in the container, and it pulls in the dev
+# extras that requirements.txt leaves out.
+tests/
+
+# api/.env is a symlink to the repository root's .env, which sits outside this
+# build context. Ignoring it keeps the context from reaching for a path the
+# builder will refuse, and keeps secrets out of an image in any case.
+.env
+.env.*
+
+Dockerfile
+.dockerignore

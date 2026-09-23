@@ -21,6 +21,7 @@ it, records a result it demanded, or explains how to operate a part of it.
 | [provenance.md](provenance.md) | Per source: the release, the retrieval time, the checksum and the known gaps. Its generated block is rewritten by the nightly job. |
 | [corpus.md](corpus.md) | The statute corpus: what is in it, how a version is built, embedded and sealed, and the operator commands. |
 | [drafting.md](drafting.md) | The drafting assistant: where each safety rule lives, what the red team found, and how the citation verifier is checked. |
+| [repos.md](repos.md) | The split: this repository, the two deploy repositories generated from it, the container images both services build, and how a change reaches production. |
 | [frontend.md](frontend.md) | How the map draws a score and how it draws how much we trust it: the ramp, the legend, the confidence bands, the detail panel. |
 
 ## Validation results

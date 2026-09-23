@@ -141,6 +141,7 @@ clearskies/
 │   ├── app/routers/              /hex, /indicators, /runs, /draft
 │   ├── app/assistant/            Retrieval, prompts, the citation verifier, spend
 │   ├── migrations/               The schema, one numbered .sql pair per change
+│   ├── Dockerfile                Runtime image: requirements.txt, uvicorn, non-root
 │   └── tests/
 ├── etl/                          Ingestion
 │   ├── pipeline/adapters/base.py The data source interface: four stages
@@ -167,18 +168,21 @@ clearskies/
 │   └── corpus/chunking.py        Rule 2: never across a section boundary
 ├── web/                          React, MapLibre GL, PMTiles
 │   ├── src/lib/ramp.ts           The ramp, section 12's bands, and the legend's source of truth
-│   └── src/components/           MapView, Legend, SearchBox, HexPanel
+│   ├── src/components/           MapView, Legend, SearchBox, HexPanel
+│   ├── Dockerfile                Node build, nginx runtime; no Node in the image that serves
+│   └── nginx.conf.template       SPA fallback, cache headers, ${PORT}
 ├── infra/postgres/               Optional local image: PostGIS + h3-pg + pgvector
 ├── infra/r2/                     Tile bucket: CORS policy and why not Railway
 ├── scripts/                      The runs and the guards: scoring, export, gates, audits
 ├── .railway/railway.ts           Railway service definitions: web and api
+├── scripts/split-repos.sh        Generates and re-syncs the two deploy repositories
 ├── .github/workflows/            CI and the nightly ETL job
 ├── .github/ISSUE_TEMPLATE/       Bug, scoring, methodology, data source
 ├── .claude/skills/               Vendored Neon skill docs, pinned by skills-lock.json
 ├── CONTRIBUTING.md
 ├── LICENSE                       MIT
 ├── Makefile
-└── docker-compose.yml            Optional local database
+└── docker-compose.yml            Optional local database; api and web behind the `app` profile
 ```
 
 The schema of record is `api/migrations`, applied by `make migrate`: one numbered `.up.sql`/`.down.sql` pair per change, and nothing outside that directory creates, alters or drops anything.

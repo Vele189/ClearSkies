@@ -1,10 +1,13 @@
 // Railway infrastructure as code.
 //
 // STATUS: checked against the railway SDK (npm `railway`, v3.11.0) type
-// definitions on 2026-09-11. It typechecks, and every field below exists in
-// that schema. It has NOT yet been applied to a live Railway project: the
-// two services still have to be created and a deploy confirmed before
-// `railway config pull` can regenerate this file from reality.
+// definitions on 2026-09-11, and revised on 2026-09-23 when the two services
+// moved to repositories of their own and to Dockerfile builds. It typechecks,
+// and every field below exists in that schema. It has NOT yet been applied to a
+// live Railway project: the two services still have to be created and a deploy
+// confirmed before `railway config pull` can regenerate this file from reality.
+// Neither split repository has been pushed to GitHub yet either, so the two
+// source repositories below do not exist as written until that is done.
 //
 // Two services, `web` and `api`. The database is not one of them: it is a Neon
 // branch, which provides PostGIS, h3 and pgvector as managed extensions, so
@@ -44,31 +47,44 @@
 
 import { defineRailway, github, preserve, project, service } from "railway/iac";
 
-const REPO = "Vele189/ClearSkies";
+// One repository per service, generated from this monorepo by
+// scripts/split-repos.sh and kept in step by re-running it. The services used
+// to share Vele189/ClearSkies with a rootDirectory apiece; they no longer do,
+// and the consequences are worth naming:
+//
+//   - rootDirectory and watchPatterns are gone. Each repository IS the service,
+//     so there is nothing to scope a build to and no way for a frontend commit
+//     to redeploy the API.
+//   - A change is deployed when the split is pushed, not when it is committed
+//     here. `make split` then a push to each repository; docs/repos.md is the
+//     procedure.
+//   - The monorepo is the source of truth. A commit made directly in either
+//     deploy repository is overwritten by the next sync.
+const WEB_REPO = "Vele189/ClearSkies-web";
+const API_REPO = "Vele189/ClearSkies-api";
 
 // Set explicitly. The SDK defaults an unspecified source branch to "main", and
-// this repository's default branch is "master" - there is no "main" on the
-// remote, so leaving it off points every service at a branch that is not there.
+// both split repositories take their default branch from this one, which is
+// "master" - there is no "main" on either remote, so leaving it off points
+// every service at a branch that is not there.
 const BRANCH = "master";
 
-// Watch patterns are gitignore-style and always anchored at the repository
-// root, even for a service whose root directory is set. That is why each one
-// repeats the service directory rather than being relative to it. Scoping
-// them this way is what keeps a web-only commit from redeploying the API.
-
 export default defineRailway(() => {
-  // Railpack installs Python dependencies only when it finds requirements.txt,
-  // uv.lock, poetry.lock, pdm.lock or a Pipfile. It detects Python from
-  // pyproject.toml alone and sets a start command, but installs nothing, so the
-  // build goes green and the container has no uvicorn in it. api/requirements.txt
-  // exists for that reason and is kept in step with pyproject.toml by
-  // scripts/check_requirements_sync.py. Do not delete it as a duplicate.
+  // Built from the Dockerfile at the root of the api repository, not by
+  // Railpack. Railway prefers a Dockerfile when it finds one, which settles the
+  // trap this comment used to describe: Railpack installs Python dependencies
+  // only when it finds requirements.txt and installs nothing from a bare
+  // pyproject.toml, producing a green build whose container has no uvicorn in
+  // it. requirements.txt is still what the image installs, and is still kept in
+  // step with pyproject.toml by scripts/check_requirements_sync.py, so it must
+  // not be deleted as a duplicate either way.
+  //
+  // No `start`: an IaC start command overrides the image's CMD, and the CMD is
+  // already `uvicorn app.main:app --host 0.0.0.0 --port ${PORT}` in shell form
+  // so that the platform's assigned port is expanded. Two places to change one
+  // command is one too many. CI builds this same image and calls /health on it.
   const api = service("api", {
-    source: github(REPO, { branch: BRANCH, rootDirectory: "/api" }),
-    build: {
-      watchPatterns: ["/api/**"],
-    },
-    start: "uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+    source: github(API_REPO, { branch: BRANCH }),
     healthcheck: "/health",
     healthcheckTimeout: 30,
     env: {
@@ -105,20 +121,22 @@ export default defineRailway(() => {
     },
   });
 
+  // Also a Dockerfile build: `npm ci && npm run build` in a node stage, served
+  // by nginx in a stage that carries no Node at all. That replaces the previous
+  // arrangement, where `serve` -- a devDependency -- held the port open and the
+  // build therefore could not prune dev dependencies. No `start` here either:
+  // the image's nginx reads ${PORT}, which Railway assigns.
   const web = service("web", {
-    source: github(REPO, { branch: BRANCH, rootDirectory: "/web" }),
-    build: {
-      buildCommand: "npm ci && npm run build",
-      watchPatterns: ["/web/**"],
-    },
-    // package.json start is `serve -s dist -l ${PORT:-3000}`. `serve` is
-    // currently a devDependency, so the build must not prune dev dependencies
-    // before the deploy stage.
-    start: "npm start",
+    source: github(WEB_REPO, { branch: BRANCH }),
     env: {
       // Vite inlines VITE_ variables at build time, and the client joins this
       // onto a path, so it needs the scheme. RAILWAY_PUBLIC_DOMAIN is a bare
       // hostname.
+      //
+      // These reach the bundle because the Dockerfile declares an ARG for each
+      // one and Railway passes service variables into a Docker build as build
+      // args. The consequence is that the image is specific to this deployment:
+      // pointing it at a different API means rebuilding, not restarting.
       VITE_API_BASE_URL: "https://${{api.RAILWAY_PUBLIC_DOMAIN}}",
       // The PMTiles archive, on Cloudflare R2 rather than on this service.
       // Sealed in the dashboard once the bucket exists; preserve() keeps an

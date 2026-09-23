@@ -339,6 +339,38 @@ api: $(VENV) ## Run the API on :8000, docs at /docs
 web: ## Run the Vite dev server on :5173
 	cd $(WEB) && npm run dev
 
+# ---- Containers and the deploy repositories ----------------------------
+#
+# The two images are what the deploy builds. Building them here is the only way
+# to find out that a Dockerfile is wrong before a deploy does. They are behind
+# the `app` compose profile, so `make up` is unaffected and starts the database
+# alone. docs/repos.md is the whole picture.
+
+.PHONY: images
+images: ## Build the api and web images without starting anything
+	docker compose --profile app build api web
+
+.PHONY: stack
+stack: ## Start the database, API and frontend as containers
+	docker compose --profile app up -d --build
+	@echo "api  http://localhost:$(or $(API_PORT),8000)/docs"
+	@echo "web  http://localhost:$(or $(WEB_PORT),8080)"
+
+.PHONY: stack-down
+stack-down: ## Stop the whole stack, keeping the database volume
+	docker compose --profile app down
+
+.PHONY: stack-logs
+stack-logs: ## Follow the API and frontend container logs
+	docker compose --profile app logs -f api web
+
+# Rewrites web/ and api/ into ClearSkies-web and ClearSkies-api beside this
+# repository, keeping their history, and re-runs as a sync. One way: this
+# repository is where both are edited. See scripts/split-repos.sh.
+.PHONY: split
+split: ## Generate or re-sync the web and api deploy repositories
+	./scripts/split-repos.sh $(if $(BRANCH),--branch $(BRANCH),)
+
 # ---- Checks ------------------------------------------------------------
 
 .PHONY: test

@@ -49,6 +49,7 @@ below is identical. If port 5432 is already in use, set `POSTGRES_PORT` in
 | Migrations | build the schema from empty, unwind, and rebuild |
 | Validation set | pre-registration ordering, and internal consistency |
 | Validation gate | `scripts/run_validation.py` over the harness fixture |
+| Container images | `api/Dockerfile` and `web/Dockerfile` build, and each answers a request |
 
 `make check` runs most of that locally: the lint, typecheck and test suites for
 all four Python packages and the frontend, the adapter contract, the corpus
@@ -135,6 +136,24 @@ zero or to the median would systematically pull unmonitored high-burden areas
 toward the middle. That is the failure this project exists to avoid. The
 `Measurement` type makes the second rule hard to break by accident: an absent
 measurement cannot carry a value, and an observed one cannot be empty.
+
+## The two deploy repositories
+
+The frontend and the API each deploy from a repository of their own —
+`ClearSkies-web` and `ClearSkies-api` — which are **generated from this one**,
+not edited. Make the change here, in `web/` or `api/`, send the pull request
+here, and once it is merged run `make split` and push each repository. Both
+Dockerfiles live in the directories they build, which is how they end up at the
+root of the split repositories without anything copying them.
+
+A commit made directly in either deploy repository is overwritten by the next
+sync. [docs/repos.md](docs/repos.md) explains the arrangement, how to recover
+such a commit if one happens, and why this is mirroring rather than submodules.
+
+`make stack` runs the whole thing as containers — database, API and frontend —
+which is worth doing before touching either Dockerfile, because the frontend
+image bakes its configuration in at build time and a wrong `VITE_API_BASE_URL`
+is a rebuild rather than a restart.
 
 ## The vendored skills
 
