@@ -9,8 +9,9 @@ dist/
 coverage/
 *.log
 
-# web/.env is a symlink to the repository root's .env, outside this build
-# context. The build reads its configuration from the VITE_ build args instead.
+# In the monorepo this is a symlink to the repository root's .env, outside this
+# build context; in the split repository it is an ordinary file. The build reads
+# its configuration from the VITE_ build args either way.
 .env
 .env.*
 

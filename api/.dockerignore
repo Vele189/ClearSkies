@@ -14,9 +14,10 @@ __pycache__/
 # extras that requirements.txt leaves out.
 tests/
 
-# api/.env is a symlink to the repository root's .env, which sits outside this
-# build context. Ignoring it keeps the context from reaching for a path the
-# builder will refuse, and keeps secrets out of an image in any case.
+# In the monorepo this is a symlink to the repository root's .env, which sits
+# outside this build context, and the builder refuses a context that reaches
+# past itself. In the split repository it is an ordinary file. Either way a
+# .env has no business in an image.
 .env
 .env.*
 

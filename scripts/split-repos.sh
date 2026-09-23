@@ -52,7 +52,7 @@ for prefix in "${PREFIXES[@]}"; do
   # Deterministic: re-running over the same history produces the same commit
   # ids, which is what lets the merge below be an ordinary fast-forward rather
   # than a replay of unrelated histories.
-  git -C "$MONO" subtree split --prefix="$prefix" --branch="$split_branch" "$BRANCH" >/dev/null
+  git -C "$MONO" subtree split -q --prefix="$prefix" --branch="$split_branch" "$BRANCH" >/dev/null
   head="$(git -C "$MONO" rev-parse "$split_branch")"
 
   if [[ ! -d "$target/.git" ]]; then
