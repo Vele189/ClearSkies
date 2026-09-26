@@ -84,14 +84,12 @@ done
 
 cat <<'NOTE'
 
-Done. Neither repository has a remote other than `mono`, which points at this
-working copy on disk. To publish one:
+Done. Nothing is pushed: this script only writes to the repositories on disk.
+Publishing a sync is a push per repository, and the remotes are already set:
 
-  gh repo create Vele189/ClearSkies-web --private --source=../ClearSkies-web --push
-  gh repo create Vele189/ClearSkies-api --private --source=../ClearSkies-api --push
+  git -C ../ClearSkies-web push    ->  github.com/Vele189/clearskies-web
+  git -C ../ClearSkies-api push    ->  github.com/Vele189/clearskies-api-
 
-or, without gh, create the repository in the web interface and
-
-  git -C ../ClearSkies-web remote add origin git@github.com:Vele189/ClearSkies-web.git
-  git -C ../ClearSkies-web push -u origin master
+If `origin` is missing on a freshly created repository, add it first. Note the
+trailing hyphen on the API's slug; it is the repository's real name.
 NOTE

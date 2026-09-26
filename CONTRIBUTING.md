@@ -140,7 +140,9 @@ measurement cannot carry a value, and an observed one cannot be empty.
 ## The two deploy repositories
 
 The frontend and the API each deploy from a repository of their own —
-`ClearSkies-web` and `ClearSkies-api` — which are **generated from this one**,
+[`clearskies-web`](https://github.com/Vele189/clearskies-web) and
+[`clearskies-api-`](https://github.com/Vele189/clearskies-api-) — which are
+**generated from this one**,
 not edited. Make the change here, in `web/` or `api/`, send the pull request
 here, and once it is merged run `make split` and push each repository. Both
 Dockerfiles live in the directories they build, which is how they end up at the

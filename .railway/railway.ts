@@ -60,8 +60,14 @@ import { defineRailway, github, preserve, project, service } from "railway/iac";
 //     procedure.
 //   - The monorepo is the source of truth. A commit made directly in either
 //     deploy repository is overwritten by the next sync.
-const WEB_REPO = "Vele189/ClearSkies-web";
-const API_REPO = "Vele189/ClearSkies-api";
+//
+// The slugs are as GitHub has them, and the API's ends in a hyphen. That is not
+// a typo in this file: the repository really is `clearskies-api-`, and
+// correcting it to the name it looks like it should have points the service at a
+// repository that does not exist. Renaming it on GitHub is the way to fix it,
+// and then this line moves with it.
+const WEB_REPO = "Vele189/clearskies-web";
+const API_REPO = "Vele189/clearskies-api-";
 
 // Set explicitly. The SDK defaults an unspecified source branch to "main", and
 // both split repositories take their default branch from this one, which is

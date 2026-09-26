@@ -60,14 +60,26 @@ produces the same commit ids every time, which is what lets the second run be an
 ordinary merge rather than an unrelated history. Neither repository is pushed by
 the script; both have a single remote, `mono`, pointing at this working copy.
 
-The repositories are created with no remote on GitHub. Once:
+The script creates each repository with one remote, `mono`, pointing at this
+working copy. The GitHub remotes are added by hand, once:
+
+| Local directory | GitHub |
+|---|---|
+| `../ClearSkies-web` | [Vele189/clearskies-web](https://github.com/Vele189/clearskies-web) |
+| `../ClearSkies-api` | [Vele189/clearskies-api-](https://github.com/Vele189/clearskies-api-) |
+
+The API's slug ends in a hyphen. It is not a typo here or in
+`.railway/railway.ts`; the repository is named `clearskies-api-`, and writing it
+the way it looks like it should be written points at nothing. Rename it on
+GitHub if it grates, and move both references with it.
+
+After that, a release is:
 
 ```
-gh repo create Vele189/ClearSkies-web --public --source=../ClearSkies-web --push
-gh repo create Vele189/ClearSkies-api --public --source=../ClearSkies-api --push
+make split
+git -C ../ClearSkies-web push
+git -C ../ClearSkies-api push
 ```
-
-and after that, `make split && git -C ../ClearSkies-web push` on each.
 
 **A commit made in a deploy repository.** The next sync merges the monorepo's
 version over it, so it is not lost but it is also not in the history that
