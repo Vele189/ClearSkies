@@ -240,19 +240,34 @@ Two consequences, and they are decisions rather than tasks:
 
 ---
 
-## 5. Frontend work this implies
+## 5. Naming whose percentile it is
 
-`/hex` has to return the hexagon's state before any of this can be rendered.
-Then, in `web/`:
+**Done.** `/health` reports `scored_states` read from the `scored_state` table
+rather than from configuration, `pilot_state` is gone from `Settings` and from
+the `Health` schema, and `/hex` returns `state_name` beside the FIPS code.
 
-- `Legend.tsx` hardcodes `Louisiana percentile`, and the ramp's heading is
-  `Burden score`. Both become per-state.
-- `HexPanel.tsx` closes with *"Percentiles are Louisiana percentiles."*
-- `MapPage.tsx`'s `h1`, and the masthead tagline in `App.tsx`.
-- `AboutPage.tsx` and `MethodologyPage.tsx` describe the scope as Louisiana
-  throughout, which is correct today and becomes wrong on the first load.
-- The initial viewport is Louisiana; with several states it needs either a
-  state selector or a bounding box over the scored set.
+The copy splits along what each surface actually knows:
+
+| Surface | Says | Because |
+|---|---|---|
+| Masthead (`App.tsx`) | "…in Louisiana", "…in Louisiana and West Virginia", "…across 3 states", or no state at all when `/health` has not answered | It is the one line on every page, so a stale state here is the most-read wrong sentence on the site |
+| Legend | "Percentile within its own state" | It sits over the whole map and does not know which hexagon is being read. With two states drawn there is no single state whose percentile it shows |
+| Detail panel | "Percentiles are *Louisiana* percentiles." | It has a hexagon, so it can name the state. Where the API did not say, it narrows the claim instead of guessing |
+| Map's `h1` | "Map of cumulative environmental burden" | Coverage is the masthead's job; a heading naming one state would go stale where nothing checks it |
+
+`place.ts` now prefers the API's `state_name` over its own FIPS table, which
+existed because `state` is a code and a reader was once shown **"22"** as the
+name of where they live. The table stays as a fallback.
+
+**Deliberately not changed.** `AboutPage` and `MethodologyPage` describe the
+scope as Louisiana only, air and industrial burden only. That is *true today*,
+and rewriting it to be state-agnostic before a second state exists would make
+it vaguer without making it more accurate. It changes when DC loads, in the
+same commit.
+
+Still outstanding: the initial viewport is Louisiana (`MapView.tsx` carries the
+bounds as a constant). With several states it needs either a state selector or
+a bounding box computed over the scored extent.
 
 ---
 
@@ -279,9 +294,12 @@ pull nobody has the script for.
 
 ## 7. Revision history
 
-- **2026-10-11.** First version. Sizing model measured from the Louisiana load.
+- **2026-10-11.** First version. Section 2.3's schema work applied to
+  `dev-seed`; the per-state loop in `burden/states.py` and the coverage
+  reporting in section 5 both landed. No second state loaded, and no scoring
+  run executed against the new path. Sizing model measured from the Louisiana load.
   Migrations 0030 and 0031 written and applied on branch
   `migrate-check-0030-0031` off `dev-seed`, forward and back and forward again,
-  ending with `verify` reporting 29 applied and every checksum matching. Not
-  applied to `dev-seed` or `production`. `app.migrate forget` added, with tests.
-  No second state loaded.
+  then applied to `dev-seed`; `verify` reports 29 applied and every checksum
+  matching. `production` is still at 0027. `app.migrate forget` added, with
+  tests.

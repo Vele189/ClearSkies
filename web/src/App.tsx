@@ -51,6 +51,27 @@ function Banner({ health }: { health: Health | null }) {
   );
 }
 
+/** What the masthead says this deployment covers.
+ *
+ *  Read from /health rather than written here, because coverage is whatever
+ *  `scored_state` holds. A masthead still naming one state after a second had
+ *  been loaded would be the most-read wrong sentence on the site, and nothing
+ *  would have failed to say so.
+ *
+ *  Before health answers it says the neutral form. Naming a state on the
+ *  strength of a default would be guessing about the one thing this line is
+ *  for.
+ */
+function coverage(health: Health | null): string {
+  const burden = "Cumulative environmental burden";
+  const states = health?.scored_states ?? [];
+
+  if (states.length === 0) return burden;
+  if (states.length === 1) return `${burden} in ${states[0].name}`;
+  if (states.length === 2) return `${burden} in ${states[0].name} and ${states[1].name}`;
+  return `${burden} across ${String(states.length)} states`;
+}
+
 /** Which page a path renders.
  *
  *  Order matters only in that the first match wins, and the patterns are
@@ -125,9 +146,7 @@ export default function App() {
             >
               ClearSkies
             </Link>
-            <p className="mt-0.5 text-xs leading-tight text-faint">
-              Cumulative environmental burden in Louisiana
-            </p>
+            <p className="mt-0.5 text-xs leading-tight text-faint">{coverage(health)}</p>
           </div>
           <Nav path={path} />
         </div>

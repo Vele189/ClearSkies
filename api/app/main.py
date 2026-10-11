@@ -28,11 +28,16 @@ vulnerable population. It is not a finding of wrongdoing by any operator.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    log.info(
-        "starting",
-        extra={"version": __version__, "pilot_state": settings.pilot_state},
-    )
+    log.info("starting", extra={"version": __version__})
     await db.connect()
+
+    # Deliberately not logging which states are scored. It is read from
+    # `scored_state` rather than from configuration, so logging it here would
+    # put a query in the lifespan: another thing to wait for on a cold start,
+    # and a database dependency in app boot that every test standing the app up
+    # then has to satisfy. /health reports coverage, read fresh, which is both
+    # the honest answer and the one somebody asks for when they want it.
+
     yield
     await db.disconnect()
     # The provider client is built on first use and lives for the process, so

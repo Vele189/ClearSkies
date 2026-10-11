@@ -12,6 +12,7 @@ function detail(): HexDetail {
     h3: H3,
     resolution: 8,
     state: "LA",
+    state_name: "Louisiana",
     parish: "St. James",
     centroid: [-90.8, 30.0],
     score: 81.4,

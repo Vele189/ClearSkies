@@ -20,8 +20,17 @@ class Settings(BaseSettings):
     # readable line locally. See app/logging_config.py.
     log_format: Literal["json", "text"] = "json"
 
-    # Locked in Phase 0. See docs/methodology.md section 4.
-    pilot_state: str = "LA"
+    # There is deliberately no pilot_state here any more.
+    #
+    # It was a single string, which cannot express "Louisiana and West
+    # Virginia", and it put the answer in the environment of whichever process
+    # happened to be reading. Since migration 0031 the `scored_state` table is
+    # the answer: a state is scored when it has a row, because that is also
+    # what decided which hexes were ranked against each other. A deploy whose
+    # environment disagreed with its database would have been wrong in the one
+    # direction nobody checks.
+    #
+    # /health reads the table. docs/expansion.md section 2.3 is the record.
 
     # Absent in Phase 0; the draft endpoint reports 503 rather than failing at import.
     openai_api_key: str = ""

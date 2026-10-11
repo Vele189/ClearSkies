@@ -422,8 +422,15 @@ export default function HexPanel({
 
         <footer className="mt-6 border-t border-border pt-3.5 text-xs leading-relaxed text-faint">
           A high score describes modeled exposure, nearby permitted sources, and a vulnerable
-          population. It is not a finding of wrongdoing by any operator. Percentiles are
-          Louisiana percentiles. Methodology version {hex.methodology_version}.
+          population. It is not a finding of wrongdoing by any operator.{" "}
+          {/* The state is named from the hexagon rather than written in, because
+              a percentile here is a percentile within this cell's state and no
+              other. Where the API did not say which state that is, the claim is
+              narrowed rather than guessed at. */}
+          {hex.state_name
+            ? `Percentiles are ${hex.state_name} percentiles.`
+            : "Percentiles are computed within one state."}{" "}
+          Methodology version {hex.methodology_version}.
         </footer>
       </div>
 

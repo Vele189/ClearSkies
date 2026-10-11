@@ -86,6 +86,17 @@ describe("Legend", () => {
     expect(pattern?.getAttribute("patternTransform")).toBe(`rotate(${String(HATCH_ANGLE_DEG)})`);
   });
 
+  it("states the rule rather than naming a state", () => {
+    // The legend sits over the whole map and does not know which hexagon is
+    // being read. With more than one state drawn there is no single state
+    // whose percentile it is showing, and reading one state's rank as
+    // another's is what section 15 calls the commonest misreading of a score
+    // like this. The detail panel names the state; this says the rule.
+    renderLegend();
+    expect(screen.getByText(/percentile within its own state/i)).toBeInTheDocument();
+    expect(screen.queryByText(/louisiana/i)).not.toBeInTheDocument();
+  });
+
   it("says why an insufficient hex is withheld rather than only that it is", () => {
     renderLegend();
     expect(screen.getByText(/excluded from validation statistics/i)).toBeInTheDocument();

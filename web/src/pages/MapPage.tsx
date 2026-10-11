@@ -85,7 +85,10 @@ export default function MapPage() {
           reader arriving at <main> otherwise finds no heading at all: the
           header's "ClearSkies" became a link to the map when routing landed,
           and a link is not a heading. */}
-      <h1 className="sr-only">Map of cumulative environmental burden in Louisiana</h1>
+      {/* No state named: this heading is the map, and which states the map
+          covers is the masthead's line, read from /health. A heading that
+          named one state would go stale where nothing checks it. */}
+      <h1 className="sr-only">Map of cumulative environmental burden</h1>
 
       <div className="min-h-0 min-w-0 flex-1">
         <MapView onSelect={handleSelect} />

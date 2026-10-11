@@ -54,6 +54,7 @@ CORE = """
     SELECT h.h3::text        AS h3,
            h.resolution,
            h.state_fips,
+           st.name           AS state_name,
            h.parish_name,
            h.centroid_in_state,
            ST_X(h.centroid)  AS lon,
@@ -86,6 +87,11 @@ CORE = """
            d.hispanic_pct,
            d.people_of_color_pct
       FROM hex h
+      -- hex.state_fips has a foreign key onto scored_state since 0031, so this
+      -- always resolves; it is a left join because a query that silently
+      -- returned no row for a real hexagon would be worse than a null name.
+      LEFT JOIN scored_state st
+             ON st.state_fips = h.state_fips
       LEFT JOIN hex_score s
              ON s.h3 = h.h3 AND s.run_id = $2
       LEFT JOIN hex_demographics d
@@ -264,6 +270,7 @@ async def load(conn: Any, h3_index: str, run: RunContext) -> HexDetail | None:
         h3=core["h3"],
         resolution=core["resolution"],
         state=core["state_fips"],
+        state_name=core["state_name"],
         parish=core["parish_name"],
         centroid=(core["lon"], core["lat"]),
         score=_float(core["score"]),

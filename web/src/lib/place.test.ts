@@ -29,3 +29,26 @@ describe("placeName", () => {
     expect(stateName("99")).toBeNull();
   });
 });
+
+describe("where the state's name comes from", () => {
+  it("prefers the name the API sent over the client's own table", () => {
+    // `scored_state` holds the names now, so the client no longer has to keep
+    // a list of FIPS codes in step with which states are scored. The local
+    // table is a fallback for an older API and for the neighbouring codes a
+    // hexagon on the state line can carry.
+    expect(
+      placeName({ parish: null, state: "54", state_name: "West Virginia" }),
+    ).toBe("West Virginia");
+  });
+
+  it("falls back to the local table when the API did not say", () => {
+    expect(placeName({ parish: null, state: "22", state_name: null })).toBe("Louisiana");
+  });
+
+  it("still refuses to print a FIPS code as a place", () => {
+    expect(placeName({ parish: null, state: "99", state_name: null })).toBe(
+      "Location not recorded",
+    );
+  });
+});
+

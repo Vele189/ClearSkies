@@ -108,7 +108,12 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
 
       <div className={cn(open ? "block" : "hidden", "px-3.5 pt-1 pb-3.5 sm:block sm:pt-3.5")}>
         <GroupLabel className="hidden sm:block">Burden score</GroupLabel>
-        <p className="mt-0.5 text-[0.6875rem] text-faint">Louisiana percentile</p>
+        {/* The rule, not a state. The legend sits over the whole map and does
+            not know which hexagon a reader is looking at; with more than one
+            state drawn there is no single state whose percentile this is, and
+            section 15 says that confusion is the commonest way a score like
+            this is misread. The panel names the state for a given cell. */}
+        <p className="mt-0.5 text-[0.6875rem] text-faint">Percentile within its own state</p>
 
         <ul className="mt-2.5 flex flex-col gap-1">
           {LEGEND_CLASSES.map((cls) => (

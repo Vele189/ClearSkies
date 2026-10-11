@@ -85,7 +85,11 @@ export interface Demographics {
 export interface HexDetail {
   h3: string;
   resolution: number;
+  /** FIPS code of the state this cell is ranked in. Not a name: see `place.ts`. */
   state: string;
+  /** That state's name, from the API. A percentile on this cell is a
+   *  percentile within this state and nowhere else. */
+  state_name: string | null;
   parish: string | null;
   centroid: [number, number];
   score: number | null;
@@ -102,10 +106,18 @@ export interface HexDetail {
   data_vintage: Record<string, string>;
 }
 
+/** A state whose hexes are percentile-ranked against each other. */
+export interface ScoredState {
+  usps: string;
+  name: string;
+}
+
 export interface Health {
   status: "ok" | "degraded";
   version: string;
-  pilot_state: string;
+  /** Read from the database rather than the API's configuration, so an empty
+   *  list means coverage is unknown rather than that nothing is scored. */
+  scored_states: ScoredState[];
   database: "connected" | "unavailable";
   extensions: { name: string; version: string }[];
   scored_hexes: number | null;

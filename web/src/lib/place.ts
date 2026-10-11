@@ -12,8 +12,13 @@
  *  identifier as though it were a place.
  */
 
-/** FIPS state codes the pilot touches. Louisiana and its neighbours, because a
- *  hexagon on the state line can carry a facility from across it. */
+/** A fallback only.
+ *
+ *  The name now travels with the hexagon: `scored_state` holds it and
+ *  `/hex` returns it as `state_name`, so the client no longer has to keep a
+ *  table of FIPS codes in step with which states are scored. This stays for
+ *  the case where an older API answers without the field, and for the
+ *  neighbouring codes a hexagon on the state line can carry. */
 const STATE_NAMES: Record<string, string> = {
   "01": "Alabama",
   "05": "Arkansas",
@@ -27,10 +32,14 @@ export function stateName(fips: string): string | null {
 }
 
 /** The heading for one hexagon: the most specific name we actually have. */
-export function placeName(hex: { parish: string | null; state: string }): string {
+export function placeName(hex: {
+  parish: string | null;
+  state: string;
+  state_name?: string | null;
+}): string {
   if (hex.parish) return `${hex.parish} Parish`;
 
-  const state = stateName(hex.state);
+  const state = hex.state_name ?? stateName(hex.state);
   if (state) return state;
 
   // An unknown code is still not a name. Saying so is better than printing it

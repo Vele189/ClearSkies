@@ -95,7 +95,12 @@ class Demographics(BaseModel):
 class HexDetail(BaseModel):
     h3: str
     resolution: int
-    state: str
+    state: str = Field(description="FIPS code of the state this cell is ranked in")
+    # The name of that state, read from `scored_state` rather than from a table
+    # of FIPS codes kept in the client. A percentile on this cell is a
+    # percentile within this state and nowhere else, so whatever renders the
+    # number needs the name beside it.
+    state_name: str | None = None
     parish: str | None
     centroid: tuple[float, float] = Field(description="lon, lat")
 
@@ -126,10 +131,26 @@ class ExtensionStatus(BaseModel):
     version: str
 
 
+class ScoredState(BaseModel):
+    """A state whose hexes are percentile-ranked against each other.
+
+    Section 9 ranks within a state and section 15 is emphatic that the result
+    does not travel between them, so a client showing a percentile has to be
+    able to say whose it is. This is the list; `HexDetail.state_name` is the
+    one for a given cell.
+    """
+
+    usps: str
+    name: str
+
+
 class Health(BaseModel):
     status: Literal["ok", "degraded"]
     version: str
-    pilot_state: str
+    # Read from `scored_state`, not from configuration: coverage is a property
+    # of the data. An empty list means the database could not be reached, which
+    # `status` and `database` already say.
+    scored_states: list[ScoredState] = Field(default_factory=list)
     database: Literal["connected", "unavailable"]
     extensions: list[ExtensionStatus]
     scored_hexes: int | None = None

@@ -1,8 +1,7 @@
 from fastapi import APIRouter
 
 from app import __version__, db
-from app.config import get_settings
-from app.schemas import ExtensionStatus, Health
+from app.schemas import ExtensionStatus, Health, ScoredState
 
 router = APIRouter(tags=["meta"])
 
@@ -15,14 +14,15 @@ async def health() -> Health:
     image from infra/postgres rather than a stock Postgres, which is the single
     most likely thing to be silently wrong about this stack.
     """
-    settings = get_settings()
     p = await db.pool()
 
     if p is None:
+        # No scored_states, because the list is read from the database and this
+        # is the branch where there isn't one. Reporting the configured value
+        # instead is how a deploy claims coverage it cannot serve.
         return Health(
             status="degraded",
             version=__version__,
-            pilot_state=settings.pilot_state,
             database="unavailable",
             extensions=[],
             notes=["Database pool not established. Scores and drill-down are unavailable."],
@@ -33,6 +33,9 @@ async def health() -> Health:
         rows = await conn.fetch("SELECT name, version FROM clearskies_extensions")
         scored = await conn.fetchval("SELECT to_regclass('public.hex_score') IS NOT NULL")
         count = await conn.fetchval("SELECT count(*) FROM hex_score") if scored else None
+        # Which states this deployment ranks hexes within. Ordered by FIPS so
+        # the list is stable between calls rather than by insertion.
+        states = await conn.fetch("SELECT usps, name FROM scored_state ORDER BY state_fips")
 
     extensions = [ExtensionStatus(name=r["name"], version=r["version"]) for r in rows]
     present = {e.name for e in extensions}
@@ -40,15 +43,20 @@ async def health() -> Health:
         if required not in present:
             notes.append(f"Extension {required!r} is missing from this database.")
 
+    if not states:
+        # Section 9 ranks within a state, so a database with none declared
+        # cannot produce a percentile that means anything.
+        notes.append("No state is declared scored. Nothing can be ranked.")
+
     if count is None:
         notes.append("No hex_score table yet. The Phase 1 pipeline has not run.")
     elif count == 0:
-        notes.append("hex_score is empty. The Phase 1 pipeline has not loaded the pilot state.")
+        notes.append("hex_score is empty. The Phase 1 pipeline has loaded no scored state.")
 
     return Health(
         status="ok" if not notes else "degraded",
         version=__version__,
-        pilot_state=settings.pilot_state,
+        scored_states=[ScoredState(usps=r["usps"], name=r["name"]) for r in states],
         database="connected",
         extensions=extensions,
         scored_hexes=count,

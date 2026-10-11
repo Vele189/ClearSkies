@@ -59,6 +59,7 @@ function hex(over: Partial<HexDetail> = {}): HexDetail {
     h3: "88444600ddfffff",
     resolution: 8,
     state: "LA",
+    state_name: "Louisiana",
     parish: "St. John the Baptist",
     centroid: [-90.555, 30.055],
     score: 78.4,
@@ -315,3 +316,28 @@ describe("HexPanel", () => {
     expect(screen.getByText(/not scored: no reason recorded/i)).toBeInTheDocument();
   });
 });
+
+// ---- Whose percentile this is -------------------------------------------
+
+describe("the state a percentile belongs to", () => {
+  it("names it from the hexagon rather than from the build", () => {
+    // Section 9 ranks within a state and section 15 says the result does not
+    // travel between them, so the panel has to say which state it ranked in.
+    // It takes the name from the API because the API reads `scored_state`;
+    // writing "Louisiana" in here would go stale on the first second state and
+    // nothing would fail.
+    const { container } = render(
+      <HexPanel hex={hex({ state_name: "West Virginia" })} onClose={() => {}} />,
+    );
+    expect(container.textContent).toContain("Percentiles are West Virginia percentiles.");
+    expect(container.textContent).not.toContain("Louisiana percentiles");
+  });
+
+  it("narrows the claim rather than guessing when the state is not given", () => {
+    const { container } = render(
+      <HexPanel hex={hex({ state_name: null })} onClose={() => {}} />,
+    );
+    expect(container.textContent).toContain("Percentiles are computed within one state.");
+  });
+});
+
