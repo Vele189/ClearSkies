@@ -57,7 +57,6 @@ sys.path.insert(0, str(REPO_ROOT / "scoring"))
 sys.path.insert(0, str(REPO_ROOT / "etl"))
 
 import asyncpg  # noqa: E402
-from burden.component import compute  # noqa: E402
 from burden.confidence import HexEvidence, confidence_for_run  # noqa: E402
 from burden.eligibility import eligible  # noqa: E402
 from burden.inputs import (  # noqa: E402
@@ -74,10 +73,7 @@ from burden.inputs import (  # noqa: E402
     source_vintages,
 )
 from burden.methodology import METHODOLOGY_VERSION  # noqa: E402
-from burden.percentile import rank_indicators  # noqa: E402
-from burden.pollution import POLLUTION_BURDEN  # noqa: E402
-from burden.population import POPULATION_CHARACTERISTICS  # noqa: E402
-from burden.score import burden_score  # noqa: E402
+from burden.states import score_by_state  # noqa: E402
 from pipeline.adapters.census_acs import INDICATORS as ACS_RECIPES  # noqa: E402
 from pipeline.dasymetric import postgis  # noqa: E402
 from pipeline.dasymetric.interpolate import (  # noqa: E402
@@ -210,9 +206,7 @@ async def hex_population(
     values = interpolate(crosswalk, estimates)[TOTAL_POPULATION]
     population = {h3: v.value for h3, v in values.items() if v.value is not None}
     worst_cv = {
-        h3: cv
-        for h3, v in values.items()
-        if (cv := max_coefficient_variation([v])) is not None
+        h3: cv for h3, v in values.items() if (cv := max_coefficient_variation([v])) is not None
     }
     return population, worst_cv
 
@@ -658,9 +652,10 @@ async def snapshots_read(
 
 WRITE_DISTRIBUTION = """
 INSERT INTO indicator_distribution
-    (run_id, indicator_id, n_hexes, n_zero, min_value, max_value, breakpoints, vintage_end)
-VALUES ($1, $2, $3, $4, $5::float8::numeric, $6::float8::numeric,
-        $7::float8[]::numeric[], $8)
+    (run_id, state_fips, indicator_id, n_hexes, n_zero, min_value, max_value,
+     breakpoints, vintage_end)
+VALUES ($1, $2, $3, $4, $5, $6::float8::numeric, $7::float8::numeric,
+        $8::float8[]::numeric[], $9)
 """
 
 
@@ -671,9 +666,7 @@ async def main() -> int:
         action="store_true",
         help="make this the run the API serves once it succeeds",
     )
-    parser.add_argument(
-        "--acs-vintage", default=ACS_VINTAGE, help="the release to score against"
-    )
+    parser.add_argument("--acs-vintage", default=ACS_VINTAGE, help="the release to score against")
     args = parser.parse_args()
 
     url = os.environ.get("DATABASE_URL", "").strip()
@@ -724,17 +717,26 @@ async def score_run(
     # The whole grid, not just the hexes with people: a cell the run knows
     # about and did not score has to say why, and the map draws it differently
     # rather than leaving a hole.
-    grid = [
-        row["h3"]
-        for row in await conn.fetch("SELECT h3::text AS h3 FROM hex ORDER BY h3")
-    ]
-    cover = {h3: population.get(h3) for h3 in grid}
+    #
+    # Each row carries the state it is ranked in. `hex.state_fips` is the state
+    # whose grid the cell belongs to, which is not the same question as whether
+    # its centroid is inside that state's line -- section 6 builds the grid over
+    # the state plus an interaction-radius buffer, and `centroid_in_state` is
+    # the other flag.
+    state_of = {
+        row["h3"]: row["state_fips"]
+        for row in await conn.fetch("SELECT h3::text AS h3, state_fips FROM hex ORDER BY h3")
+    }
+    cover = {h3: population.get(h3) for h3 in sorted(state_of)}
 
+    # The grid-wide eligibility, used for two things that are not per state:
+    # deciding which hexes the indicator queries below have to fetch values
+    # for, and section 12's confidence terms, none of which is a rank. Section
+    # 5's threshold is a property of one hex's population, so this set is the
+    # union of the per-state ones by construction rather than by coincidence.
     eligibility = eligible(cover)
     scored = eligibility.scored
-    print(
-        f"section 5: {len(scored)} hexes scored, {len(eligibility.excluded)} excluded"
-    )
+    print(f"section 5: {len(scored)} hexes scored, {len(eligibility.excluded)} excluded")
     if not scored:
         print("nothing to score", file=sys.stderr)
         return 1
@@ -742,19 +744,13 @@ async def score_run(
     values: dict[str, dict[str, float | None]] = {}
     acs_values, tract_cvs = await acs_indicators(conn, crosswalk, acs_vintage=acs_vintage)
     values.update(acs_values)
-    values.update(
-        await facility_indicators(
-            conn, as_of=as_of, hexes=scored, loaded="F1" in loaded
-        )
-    )
+    values.update(await facility_indicators(conn, as_of=as_of, hexes=scored, loaded="F1" in loaded))
     values.update(
         await exposure_indicators(
             conn, tri_year=TRI_REPORTING_YEAR, hexes=scored, e3_loaded="E3" in loaded
         )
     )
-    values.update(
-        await modelled_exposure(conn, crosswalk, vintage_year=EXPOSURE_VINTAGE_YEAR)
-    )
+    values.update(await modelled_exposure(conn, crosswalk, vintage_year=EXPOSURE_VINTAGE_YEAR))
     present = sorted(
         indicator
         for indicator, row in values.items()
@@ -762,13 +758,8 @@ async def score_run(
     )
     print(f"{len(present)} indicators computed: {', '.join(present)}")
 
-    rankings = rank_indicators(values, scored=scored)
-    pollution = compute(POLLUTION_BURDEN, rankings, scored=scored)
-    characteristics = compute(POPULATION_CHARACTERISTICS, rankings, scored=scored)
-
     observed_by_hex = {
-        h3: frozenset(i for i in present if values[i].get(h3) is not None)
-        for h3 in scored
+        h3: frozenset(i for i in present if values[i].get(h3) is not None) for h3 in scored
     }
     # Section 12's two spatial inputs, both over the tracts that actually meet
     # this hex. `mean_block_area` used to be a dict comprehension over every
@@ -784,29 +775,31 @@ async def score_run(
     # with the measurement. Passing None here instead pins the term at its 0.05
     # floor, and under a geometric mean that alone caps every hex's confidence
     # near 0.55 before the other three terms are applied.
-    nearest_monitor = {
-        row["h3"]: float(row["km"]) for row in await conn.fetch(NEAREST_MONITOR)
-    }
+    nearest_monitor = {row["h3"]: float(row["km"]) for row in await conn.fetch(NEAREST_MONITOR)}
     evidence = [
         HexEvidence(
             h3=h3,
             observed_indicators=observed_by_hex[h3],
             high_cv_population_share=high_cv_share[h3],
-            mean_block_area_km2=(
-                area / 1e6 if (area := mean_block_area.get(h3)) else None
-            ),
+            mean_block_area_km2=(area / 1e6 if (area := mean_block_area.get(h3)) else None),
             nearest_monitor_km=nearest_monitor.get(h3),
         )
         for h3 in scored
     ]
     confidence = confidence_for_run(evidence, vintages=vintages, as_of=as_of)
 
-    run = burden_score(
-        eligibility=eligibility,
-        pollution=pollution,
-        population=characteristics,
-        confidence=confidence,
+    # Section 9, once per state. Every indicator percentile, the 0-to-10
+    # rescale of section 10 step 3 and the score's own percentile are all ranked
+    # within a state; `burden.states` is the loop and the reasoning.
+    state_runs = score_by_state(
+        cover=cover, state_of=state_of, values=values, confidence=confidence
     )
+    for state_run in state_runs:
+        ranked = len([row for row in state_run.run.hexes if row.score is not None])
+        print(
+            f"  state {state_run.state_fips}: {len(state_run.run.hexes)} hexes, "
+            f"{ranked} ranked against each other"
+        )
 
     run_id: int = await conn.fetchval(
         OPEN_RUN,
@@ -817,18 +810,21 @@ async def score_run(
 
     try:
         async with conn.transaction():
-            await _write(
-                conn,
-                run_id,
-                run,
-                rankings,
-                values,
-                population,
-                worst_cv,
-                mean_block_area,
-                acs_vintage,
-            )
-            await _write_distributions(conn, run_id, rankings, vintages)
+            for state_run in state_runs:
+                await _write(
+                    conn,
+                    run_id,
+                    state_run.run,
+                    state_run.rankings,
+                    values,
+                    population,
+                    worst_cv,
+                    mean_block_area,
+                    acs_vintage,
+                )
+                await _write_distributions(
+                    conn, run_id, state_run.state_fips, state_run.rankings, vintages
+                )
         await conn.execute(CLOSE_RUN, run_id, "succeeded", len(scored))
         if promote:
             async with conn.transaction():
@@ -838,8 +834,10 @@ async def score_run(
         await conn.execute(CLOSE_RUN, run_id, "failed", None)
         raise
 
+    written = sum(len(state_run.run.hexes) for state_run in state_runs)
     print(
-        f"run {run_id}: wrote {len(run.hexes)} hex_score rows, {len(scored)} of them scored"
+        f"run {run_id}: wrote {written} hex_score rows across "
+        f"{len(state_runs)} state(s), {len(scored)} of them scored"
     )
     if promote:
         print(f"run {run_id} is now the current run")
@@ -849,16 +847,18 @@ async def score_run(
 async def _write_distributions(
     conn: asyncpg.Connection,
     run_id: int,
+    state_fips: str,
     rankings: Mapping[str, Any],
     vintages: Mapping[str, date],
 ) -> None:
     """The distribution each indicator's percentiles were ranked against.
 
     A percentile means nothing beside the distribution that produced it, which
-    is why migration 0009 stores one row per indicator per run. The ranking
-    already carries it and this run was discarding it: the table has been empty
-    on every run so far, so a stored score could not be re-derived and the
-    section 9 denominators were unrecoverable after the fact.
+    is why migration 0009 stores one row per indicator per run -- and, since
+    0031, per state. The ranking already carries it and this run was discarding
+    it: the table has been empty on every run so far, so a stored score could
+    not be re-derived and the section 9 denominators were unrecoverable after
+    the fact.
 
     An indicator with no vintage is skipped rather than given today's date.
     `vintage_end` is NOT NULL and drives the recency term; inventing one would
@@ -868,6 +868,7 @@ async def _write_distributions(
     rows = [
         (
             run_id,
+            state_fips,
             indicator,
             ranking.distribution.n,
             ranking.distribution.n_zero,
@@ -884,7 +885,9 @@ async def _write_distributions(
 
     unknown = sorted(set(rankings) - set(vintages))
     if unknown:
-        print(f"  no vintage for {', '.join(unknown)}; distribution rows omitted")
+        print(
+            f"  state {state_fips}: no vintage for {', '.join(unknown)}; distribution rows omitted"
+        )
 
 
 async def _write(
@@ -900,10 +903,7 @@ async def _write(
 ) -> None:
     scored = {row.h3 for row in run.hexes if row.score is not None}
 
-    rates = {
-        name: values.get(name, {})
-        for name in ("S1", "S2", "P1", "P2", "P3", "P4", "P5")
-    }
+    rates = {name: values.get(name, {}) for name in ("S1", "S2", "P1", "P2", "P3", "P4", "P5")}
     await conn.executemany(
         WRITE_DEMOGRAPHICS,
         [
