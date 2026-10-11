@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from pipeline.adapters.census_block import (
+    DISTRICT_OF_COLUMBIA_POPULATION_2020,
     LOUISIANA_POPULATION_2020,
     CensusBlock,
     CensusBlockAdapter,
@@ -111,12 +112,31 @@ def test_the_natural_key_is_the_block_geoid() -> None:
 def test_the_population_note_states_the_statewide_comparison() -> None:
     """CS-112 asks for the total to be recorded, not eyeballed."""
     exact = [block(population=LOUISIANA_POPULATION_2020)]
-    assert "matches" in _population_note(exact)
+    assert "matches" in _population_note(exact, pilot_state="LA")
 
     short = [block(population=1_000)]
-    note = _population_note(short)
+    note = _population_note(short, pilot_state="LA")
     assert "DOES NOT MATCH" in note
     assert "4,657,757" in note, "the published figure is named, not just the delta"
+
+
+def test_the_population_note_compares_against_the_state_it_loaded() -> None:
+    """The District's load totalled exactly its published 689,545 and was
+    reported as 85% off Louisiana's figure, because the check named one state
+    whatever it had pulled. A check that reports the wrong state's number is
+    worse than none: somebody decides it is noise, and next time decides that
+    about a real one."""
+    dc = [block(population=DISTRICT_OF_COLUMBIA_POPULATION_2020)]
+    note = _population_note(dc, pilot_state="DC")
+    assert "matches" in note
+    assert "689,545" in note
+    assert "4,657,757" not in note
+
+
+def test_a_state_with_no_published_figure_says_the_check_did_not_run() -> None:
+    note = _population_note([block(population=123)], pilot_state="WV")
+    assert "did not run" in note
+    assert "DOES NOT MATCH" not in note
 
 
 def test_the_adapter_declares_no_indicator() -> None:

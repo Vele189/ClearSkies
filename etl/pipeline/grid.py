@@ -68,6 +68,24 @@ RESOLUTION = 8
 #: cells were. Source: Census state area measurements.
 LOUISIANA_AREA_KM2 = 135_659.0
 
+#: The District's, from the same source.
+DISTRICT_OF_COLUMBIA_AREA_KM2 = 177.0
+
+#: Keyed by state FIPS, because the CS-007 check is "does this state's grid
+#: cover this state", and a build that measured one state against another's
+#: published figure would pass no matter what it had loaded. That is not
+#: hypothetical: the first District build reported 135,830 km² against
+#: Louisiana's 135,659 and called itself ok, because it had measured both
+#: states at once.
+#:
+#: Short on purpose, like the adapters' state tables. A state with no published
+#: figure cannot have its boundary checked, and `build_grid` refuses rather
+#: than skipping the check quietly.
+PUBLISHED_AREA_KM2: dict[str, float] = {
+    "22": LOUISIANA_AREA_KM2,
+    "11": DISTRICT_OF_COLUMBIA_AREA_KM2,
+}
+
 #: How far the loaded total may sit from the published figure before the build
 #: refuses to call itself sane. Generous, because the grid tiles the boundary
 #: with hexagons rather than following it: the edge is a staircase either way.
@@ -95,6 +113,7 @@ class Connection(Protocol):
 class GridReport:
     """What one build produced, and whether it looks right."""
 
+    state_fips: str
     in_pilot: int
     fringe: int
     area_km2: float
@@ -109,8 +128,13 @@ class GridReport:
         return self.area_km2 / self.in_pilot if self.in_pilot else 0.0
 
     @property
+    def published_km2(self) -> float:
+        return PUBLISHED_AREA_KM2[self.state_fips]
+
+    @property
     def area_error(self) -> float:
-        return abs(self.area_km2 - LOUISIANA_AREA_KM2) / LOUISIANA_AREA_KM2
+        published = self.published_km2
+        return abs(self.area_km2 - published) / published
 
     @property
     def plausible(self) -> bool:
@@ -119,8 +143,8 @@ class GridReport:
     def summary(self) -> str:
         verdict = "ok" if self.plausible else "IMPLAUSIBLE"
         return (
-            f"{self.total} cells: {self.in_pilot} in pilot state, {self.fringe} on the line. "
-            f"{self.area_km2:,.0f} km² against {LOUISIANA_AREA_KM2:,.0f} published "
+            f"{self.total} cells: {self.in_pilot} in state, {self.fringe} on the line. "
+            f"{self.area_km2:,.0f} km² against {self.published_km2:,.0f} published "
             f"({self.area_error:.1%} off, {verdict}). "
             f"mean cell {self.mean_cell_km2:.3f} km², {self.parishes} parishes assigned."
         )
@@ -194,9 +218,18 @@ ON CONFLICT (h3) DO UPDATE SET
 # The fringe was dilated blindly, so most of it is a ring of cells that never
 # touch the state. A cell is kept only if its hexagon actually overlaps a tract,
 # which the GiST index on census_tract.geom answers cheaply.
+# `h.state_fips = $1` is load-bearing and was not always there.
+#
+# Without it this DELETE considered every buffer cell in the table and kept only
+# the ones intersecting a tract of the state being built. With one state that
+# was right. Building the District with it missing deleted all 1,699 of
+# Louisiana's buffer cells -- none of them intersects a District tract -- and
+# cascaded their hex_score rows away with them. A state's build may only prune
+# its own fringe.
 PRUNE = """
 DELETE FROM hex h
-WHERE NOT h.centroid_in_state
+WHERE h.state_fips = $1
+  AND NOT h.centroid_in_state
   AND NOT EXISTS (
       SELECT 1 FROM census_tract t
       WHERE t.state_fips = $1 AND ST_Intersects(t.geom, h.boundary)
@@ -232,6 +265,7 @@ SELECT
              FILTER (WHERE centroid_in_state), 0) / 1e6          AS area_km2,
     count(DISTINCT county_fips)                                 AS parishes
 FROM hex
+WHERE state_fips = $1
 """
 
 
@@ -420,6 +454,14 @@ async def build_grid(
     table that references `hex` would start accepting rows against a set of
     cells that is about to change.
     """
+    if state_fips not in PUBLISHED_AREA_KM2:
+        known = ", ".join(sorted(PUBLISHED_AREA_KM2))
+        raise LookupError(
+            f"no published area for state {state_fips!r}, so the CS-007 boundary "
+            f"check cannot run and the build would report a number nothing "
+            f"compares it to. Add it to PUBLISHED_AREA_KM2. Known: {known}"
+        )
+
     raw = await connection.fetchval(BOUNDARY, state_fips)
     if raw is None:
         raise LookupError(
@@ -444,10 +486,11 @@ async def build_grid(
 
         await connection.execute(PRUNE, state_fips)
         await assign_parishes(connection, state_fips=state_fips)
-        measured = await connection.fetchrow(MEASURE)
+        measured = await connection.fetchrow(MEASURE, state_fips)
 
     assert measured is not None
     return GridReport(
+        state_fips=state_fips,
         in_pilot=measured["in_pilot"],
         fringe=measured["fringe"],
         area_km2=float(measured["area_km2"]),

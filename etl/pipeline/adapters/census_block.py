@@ -91,6 +91,24 @@ MAX_PAGES = 400
 #: parish is one whose weights would be quietly wrong everywhere downstream.
 LOUISIANA_POPULATION_2020 = 4_657_757
 
+#: The District's, from the same release.
+DISTRICT_OF_COLUMBIA_POPULATION_2020 = 689_545
+
+#: Keyed by USPS, because CS-112's check is "did this state's blocks all
+#: arrive", and comparing one state's total against another's published figure
+#: reports a fault that is not there and hides one that is. The District's load
+#: totalled 689,545 -- exactly right -- and was reported as 85% off Louisiana's
+#: figure.
+#:
+#: A state absent here cannot be checked. The note says so rather than
+#: measuring against an arbitrary state, because a check that reports the wrong
+#: state's number is worse than no check: somebody has to decide it is noise,
+#: and next time they will decide that about a real one.
+POPULATION_2020: dict[str, int] = {
+    "LA": LOUISIANA_POPULATION_2020,
+    "DC": DISTRICT_OF_COLUMBIA_POPULATION_2020,
+}
+
 #: How far the summed block population may sit from the published figure. Tight
 #: on purpose — these are counts of the same universe from the same release, so
 #: they should agree exactly and any drift is a loading fault rather than
@@ -226,7 +244,7 @@ class CensusBlockAdapter(SourceAdapter[RawBlock]):
             artifacts=tuple(artifacts),
             notes=(
                 f"{len(records)} blocks over {len({r.tract_geoid for r in records})} tracts.",
-                _population_note(records),
+                _population_note(records, pilot_state=ctx.pilot_state),
             ),
         )
 
@@ -282,7 +300,7 @@ def _raw_block(feature: Mapping[str, Any]) -> RawBlock | None:
     )
 
 
-def _population_note(records: Sequence[RawBlock]) -> str:
+def _population_note(records: Sequence[RawBlock], *, pilot_state: str) -> str:
     """CS-112's statewide check, reported rather than enforced.
 
     A note and not a rejection: the adapter cannot tell a genuinely changed
@@ -291,9 +309,17 @@ def _population_note(records: Sequence[RawBlock]) -> str:
     The gate's row-count expectation is what refuses an obviously short pull.
     """
     total = sum(record.population for record in records)
-    error = abs(total - LOUISIANA_POPULATION_2020) / LOUISIANA_POPULATION_2020
+
+    published = POPULATION_2020.get(pilot_state)
+    if published is None:
+        return (
+            f"Block population totals {total:,}. No published 2020 figure for "
+            f"{pilot_state} to check it against, so CS-112's check did not run."
+        )
+
+    error = abs(total - published) / published
     verdict = "matches" if error <= POPULATION_TOLERANCE else "DOES NOT MATCH"
     return (
-        f"Block population totals {total:,} against {LOUISIANA_POPULATION_2020:,} "
-        f"published for the 2020 census, {error:.2%} apart: {verdict}."
+        f"Block population totals {total:,} against {published:,} "
+        f"published for {pilot_state} in the 2020 census, {error:.2%} apart: {verdict}."
     )

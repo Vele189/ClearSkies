@@ -15,7 +15,10 @@ import h3
 import pytest
 
 from pipeline.grid import (
+    DISTRICT_OF_COLUMBIA_AREA_KM2,
     LOUISIANA_AREA_KM2,
+    MEASURE,
+    PRUNE,
     RESOLUTION,
     GridReport,
     build_grid,
@@ -180,11 +183,13 @@ async def test_build_refuses_a_boundary_that_yields_no_cells() -> None:
 
 def test_the_area_check_can_actually_fail() -> None:
     """A sanity check that never fails is decoration."""
-    good = GridReport(in_pilot=171_725, fringe=1_699, area_km2=135_653.0, parishes=64)
+    good = GridReport(
+        state_fips="22", in_pilot=171_725, fringe=1_699, area_km2=135_653.0, parishes=64
+    )
     assert good.plausible
     assert good.area_error < 0.001
 
-    half = GridReport(in_pilot=85_000, fringe=800, area_km2=67_000.0, parishes=64)
+    half = GridReport(state_fips="22", in_pilot=85_000, fringe=800, area_km2=67_000.0, parishes=64)
     assert not half.plausible
     assert "IMPLAUSIBLE" in half.summary()
 
@@ -219,8 +224,21 @@ async def test_export_is_json_serialisable_in_the_shape_tiles_reads() -> None:
     assert list(reloaded["hexes"]) == ["88444c16b3fffff"]
 
 
+def test_a_state_is_checked_against_its_own_published_area() -> None:
+    """The District's grid measured against Louisiana's figure passed at 0.1%
+    off while containing both states, which is a check that cannot fail. Each
+    state is compared with its own."""
+    dc = GridReport(state_fips="11", in_pilot=246, fringe=48, area_km2=177.0, parishes=1)
+    assert dc.published_km2 == DISTRICT_OF_COLUMBIA_AREA_KM2
+    assert dc.plausible
+
+    # Louisiana's area, reported for the District, is not plausible for it.
+    wrong = GridReport(state_fips="11", in_pilot=246, fringe=48, area_km2=135_659.0, parishes=1)
+    assert not wrong.plausible
+
+
 def test_report_arithmetic() -> None:
-    report = GridReport(in_pilot=100, fringe=10, area_km2=79.0, parishes=64)
+    report = GridReport(state_fips="22", in_pilot=100, fringe=10, area_km2=79.0, parishes=64)
     assert report.total == 110
     assert report.mean_cell_km2 == pytest.approx(0.79)
 
@@ -302,3 +320,32 @@ async def test_the_soft_check_reports_rather_than_raising() -> None:
     assert (
         await scored_state_name(StateLedger(declared=LA_DECLARED), state_fips="22") == "Louisiana"
     )
+
+
+# ---- A build may only touch its own state -------------------------------
+#
+# These assert on the SQL text, which is weaker than exercising it, and the
+# reason is that the statements are a DELETE and an aggregate executed by
+# Postgres: there is nothing to simulate without a database, and CI's
+# `database` job is where they actually run. A text assertion still pins the
+# clause whose absence did the damage.
+
+
+def test_the_prune_only_touches_the_state_being_built() -> None:
+    """What this is here for.
+
+    The DELETE used to consider every fringe cell in the table and keep only
+    the ones intersecting a tract of the state being built. With one state that
+    was right. Building the District deleted all 1,699 of Louisiana's buffer
+    cells, because none of them intersects a District tract, and cascaded their
+    hex_score rows away. A build may only prune its own fringe.
+    """
+    assert "h.state_fips = $1" in PRUNE
+    assert "NOT h.centroid_in_state" in PRUNE
+
+
+def test_the_measurement_only_counts_the_state_being_built() -> None:
+    """Same bug, quieter: the first District build measured both states at once
+    and reported 135,830 km² against Louisiana's 135,659, which it called ok.
+    A check that cannot fail is not a check."""
+    assert "WHERE state_fips = $1" in MEASURE
