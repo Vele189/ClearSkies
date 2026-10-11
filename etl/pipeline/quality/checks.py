@@ -40,9 +40,10 @@ from pipeline.quality.results import CheckResult, Severity
 PILOT_ENVELOPE: dict[str, tuple[float, float, float, float]] = {
     # south, north, west, east
     "LA": (28.83, 33.10, -94.14, -88.73),
+    "DC": (38.70, 39.09, -77.24, -76.79),
 }
 
-PILOT_STATE_FIPS: dict[str, str] = {"LA": "22"}
+PILOT_STATE_FIPS: dict[str, str] = {"LA": "22", "DC": "11"}
 
 # Methodology section 5. A cell at another resolution in a hex-keyed table is a
 # join that will silently return nothing later.

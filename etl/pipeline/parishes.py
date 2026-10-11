@@ -99,7 +99,16 @@ LOUISIANA_PARISHES: dict[str, str] = {
 #: branch. The grid asks for the state it is building and gets nothing for a
 #: state nobody has tabulated, which leaves `parish_name` null -- the state it
 #: was already in.
-BY_STATE: dict[str, dict[str, str]] = {"22": LOUISIANA_PARISHES}
+#: The District is one county, coextensive with the state. It is tabulated
+#: anyway rather than left to fall through to a null name: the grid reads this
+#: for every cell it builds, and "District of Columbia" is a name a reader
+#: recognises where a null leaves the panel with nothing.
+DISTRICT_OF_COLUMBIA: dict[str, str] = {"001": "District of Columbia"}
+
+BY_STATE: dict[str, dict[str, str]] = {
+    "22": LOUISIANA_PARISHES,
+    "11": DISTRICT_OF_COLUMBIA,
+}
 
 
 def names_for(state_fips: str) -> dict[str, str]:

@@ -1,0 +1,31 @@
+-- 0032: the District of Columbia is scored
+--
+-- A row here is what makes a state scored. 0031 made that true and seeded
+-- Louisiana; this is the second state, and it is a migration for the same
+-- reason the first was: the date a state was activated is what dates every
+-- validation result that follows it, and `database.md` section 3 does not
+-- allow a schema fact to exist because somebody ran a statement once.
+--
+-- **This activates no pre-registered validation site, and that is why it is
+-- first.** `docs/validation/sites.yml` keys its out-of-state sites on
+-- `activate_when: "scoring coverage includes <ST>"`, and the ten of them are in
+-- MI, PA, TX, CA, WV, AL, NC and IN. None is in the District. So this state
+-- adds coverage and exercises the multi-state machinery without spending
+-- anything Appendix A is keeping score of, which `docs/expansion.md` section 3
+-- argues is exactly what the first additional state should do. West Virginia,
+-- which does activate N-INSTITUTE, comes after the machinery has been proven.
+--
+-- **What it is good for instead.** The District's 206 tracts cover 158 km², so
+-- most of them are smaller than one resolution-8 cell. Section 6 chose
+-- hexagons because Louisiana's tracts vary in area by three orders of
+-- magnitude, and the case it was worried about was the rural tract larger than
+-- any sensible cell. This is the inverse, and `tract_hex_weight` has never
+-- been exercised on it. At roughly 214 cells a run takes minutes, so it is
+-- cheap to get wrong.
+--
+-- Nothing else in this migration. The grid, the tract load and the scoring run
+-- are separate and deliberate steps; `pipeline grid` refuses to build for a
+-- state with no row here, which is the check this row satisfies.
+
+INSERT INTO scored_state (state_fips, usps, name)
+VALUES ('11', 'DC', 'District of Columbia');

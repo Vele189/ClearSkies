@@ -66,7 +66,7 @@ BLOCK_LAYER = 10
 
 VINTAGE = "dec2020_pl94171"
 
-STATE_FIPS: Mapping[str, str] = {"LA": "22"}
+STATE_FIPS: Mapping[str, str] = {"LA": "22", "DC": "11"}
 
 #: Blocks are far smaller polygons than tracts, so a page holds more of them
 #: before the response approaches the size the firewall in front of TIGERweb
