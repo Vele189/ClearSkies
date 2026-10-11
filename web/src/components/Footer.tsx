@@ -10,8 +10,8 @@
  */
 export default function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs text-slate-600">
-      <p className="mx-auto max-w-5xl">
+    <footer className="border-t border-border bg-sunken px-5 py-4">
+      <p className="mx-auto max-w-5xl text-xs leading-relaxed text-muted-foreground">
         Burden scores describe patterns in public environmental records. They are not
         findings of wrongdoing by any facility or operator, and nothing here is legal
         advice. Generated documents are drafts requiring human review.

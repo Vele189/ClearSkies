@@ -68,3 +68,23 @@ export function contrastRatio(a: Oklch, b: Oklch): number {
 /** WCAG AA: 4.5 for body text, 3.0 for large text and UI components. */
 export const AA_BODY = 4.5;
 export const AA_LARGE = 3.0;
+
+/** One `--color-<semantic>: var(--color-<target>)` alias as `index.css` writes
+ *  it, e.g. `body` -> `slate-700`.
+ *
+ *  The theme names colours semantically and resolves every one of them onto a
+ *  Tailwind palette entry. Parsing the aliases rather than restating them is
+ *  what lets the contrast suite assert on the names the components actually
+ *  use: a component says `text-body`, and the pair that gets measured is
+ *  whichever shade `--color-body` currently points at. Repointing it to a
+ *  lighter shade therefore fails this suite instead of failing a reader.
+ */
+const ALIAS = /--color-([a-z][a-z-]*):\s*var\(--color-([a-z]+(?:-\d+)?)\)/g;
+
+export function parseSemanticAliases(css: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of css.matchAll(ALIAS)) {
+    out[m[1]] = m[2];
+  }
+  return out;
+}

@@ -1,9 +1,10 @@
+import { cn } from "@/lib/utils.ts";
 import { PAGES } from "../lib/pages.ts";
 import Link from "./Link.tsx";
 
 export default function Nav({ path }: { path: string }) {
   return (
-    <nav aria-label="Main" className="flex items-center gap-1">
+    <nav aria-label="Main" className="-mb-px flex items-center gap-x-1 overflow-x-auto">
       {PAGES.map((page) => {
         const current = page.path === path;
         return (
@@ -12,15 +13,15 @@ export default function Nav({ path }: { path: string }) {
             to={page.path}
             // aria-current is what tells a screen reader which page this is.
             // Colour alone would not, and colour alone is also what a reader
-            // with low vision does not get.
+            // with low vision does not get. The weight change and the rule
+            // under the label are the two visual carriers alongside it.
             aria-current={current ? "page" : undefined}
-            className={
-              "rounded px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 " +
-              "focus-visible:outline-sky-700 " +
-              (current
-                ? "font-semibold text-slate-900 underline decoration-2 underline-offset-4"
-                : "text-slate-600 hover:text-slate-900 hover:underline")
-            }
+            className={cn(
+              "border-b-2 px-2.5 py-3 text-sm whitespace-nowrap transition-colors",
+              current
+                ? "border-primary font-semibold text-foreground"
+                : "border-transparent text-muted-foreground hover:border-border-strong hover:text-foreground",
+            )}
           >
             {page.label}
           </Link>

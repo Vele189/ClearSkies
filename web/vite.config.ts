@@ -1,9 +1,14 @@
+import path from "node:path";
+
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Matches the "@/*" in tsconfig. Vite resolves imports itself, so the
+  // compiler knowing about the alias is not enough for the bundle.
+  resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
   server: { port: 5173 },
   build: { outDir: "dist", sourcemap: true },
   optimizeDeps: {

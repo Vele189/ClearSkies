@@ -2,8 +2,34 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import HexPanel from "../components/HexPanel.tsx";
 import MapView from "../components/MapView.tsx";
+import { Mono } from "../components/Prose.tsx";
+import { Button } from "../components/ui/button.tsx";
+import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ApiError, getHex } from "../lib/api.ts";
 import type { HexDetail } from "../lib/types.ts";
+
+/** What the rail shows while a hexagon is on its way.
+ *
+ *  The skeleton is decorative and `aria-hidden`; the sentence above it is the
+ *  live region, and it names the hexagon being fetched. A reader who clicks
+ *  twice quickly needs to know which of the two they are waiting on.
+ */
+function RailLoading({ h3 }: { h3: string }) {
+  return (
+    <div className="p-5">
+      <p role="status" className="text-sm text-muted-foreground">
+        Loading hexagon <Mono className="text-faint">{h3}</Mono>…
+      </p>
+      <div className="mt-5 space-y-3">
+        <Skeleton className="h-7 w-28" />
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-4/5" />
+        <Skeleton className="mt-6 h-3.5 w-2/3" />
+        <Skeleton className="h-3.5 w-full" />
+      </div>
+    </div>
+  );
+}
 
 export default function MapPage() {
   const [hex, setHex] = useState<HexDetail | null>(null);
@@ -60,38 +86,43 @@ export default function MapPage() {
           header's "ClearSkies" became a link to the map when routing landed,
           and a link is not a heading. */}
       <h1 className="sr-only">Map of cumulative environmental burden in Louisiana</h1>
-        <div className="min-h-0 min-w-0 flex-1">
-          <MapView onSelect={handleSelect} />
-        </div>
-        {/* A fixed-width rail alongside the map on a desktop viewport; a sheet
-            over the bottom half of it on a phone, where 24rem of the 20rem-wide
-            screen would leave no map at all. */}
-        {(hex || error || loading) && (
-          <div className="h-[55%] w-full shrink-0 border-t border-slate-200 md:h-auto md:w-[24rem] md:border-t-0">
-            {hex ? (
-              // Keyed on the hexagon so that everything under the panel starts
-              // again for a new one. A draft written about the last hex must not
-              // stay on screen under this one's heading.
-              <HexPanel key={hex.h3} hex={hex} onClose={close} standalone />
-            ) : (
-              <aside className="h-full bg-white p-5 md:border-l md:border-slate-200">
-                {loading ? (
-                  <p role="status" className="text-sm text-slate-500">
-                    Loading hexagon <span className="font-mono text-xs">{loading}</span>…
+
+      <div className="min-h-0 min-w-0 flex-1">
+        <MapView onSelect={handleSelect} />
+      </div>
+
+      {/* A fixed-width rail alongside the map on a desktop viewport; a sheet
+          over the bottom half of it on a phone, where 24rem of the 20rem-wide
+          screen would leave no map at all. */}
+      {(hex || error || loading) && (
+        <div
+          data-scroll-contain
+          className="h-[55%] w-full shrink-0 overflow-y-auto border-t border-border bg-card
+                     md:h-auto md:w-[25rem] md:border-t-0 md:border-l md:shadow-[-1px_0_0_0_var(--color-border)]"
+        >
+          {hex ? (
+            // Keyed on the hexagon so that everything under the panel starts
+            // again for a new one. A draft written about the last hex must not
+            // stay on screen under this one's heading.
+            <HexPanel key={hex.h3} hex={hex} onClose={close} standalone />
+          ) : (
+            <aside className="h-full">
+              {loading ? (
+                <RailLoading h3={loading} />
+              ) : (
+                <div className="p-5">
+                  <p role="status" className="text-sm text-body">
+                    {error}
                   </p>
-                ) : (
-                  <p className="text-sm text-slate-700">{error}</p>
-                )}
-                <button
-                  onClick={close}
-                  className="mt-3 rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100"
-                >
-                  Close
-                </button>
-              </aside>
-            )}
-          </div>
-        )}
+                  <Button variant="outline" size="sm" onClick={close} className="mt-4">
+                    Close
+                  </Button>
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
+      )}
     </div>
   );
 }

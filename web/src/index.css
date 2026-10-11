@@ -1,9 +1,209 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* Self-hosted rather than pulled from a font CDN.
+ *
+ * A tool built for people living next to refineries should not announce every
+ * one of its readers to a third party in order to render its headings, and a
+ * face served from our own origin still renders where the CDN is blocked,
+ * throttled or down. The variable files are one request each for the whole
+ * weight range, so the privacy position costs nothing in bytes. */
+@import "@fontsource-variable/libre-franklin";
+@import "@fontsource-variable/source-serif-4";
+@import "@fontsource-variable/jetbrains-mono";
+
 @import "maplibre-gl/dist/maplibre-gl.css";
 
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
+/* ---------------------------------------------------------------------------
+ * Theme
+ *
+ * Two rules govern everything below.
+ *
+ * **Every colour is an alias onto a Tailwind palette entry, never a raw hex.**
+ * `src/contrast.test.ts` resolves these aliases against the palette Tailwind
+ * actually ships and asserts WCAG AA on each pair the UI renders. A literal
+ * value here would be a colour the contrast suite cannot see, which is how a
+ * redesign quietly drops below 4.5:1. The alias syntax is load-bearing: the
+ * parser in `lib/contrast.ts` reads exactly `--color-x: var(--color-y-NNN)`.
+ *
+ * **There is no dark theme, and that is a decision rather than a gap.**
+ * `docs/frontend.md` section 4 requires every legend swatch to be blended
+ * against white by the same amount the map blends its fill, so a reader can
+ * match a hexagon to a class. `blendOnWhite` in `lib/ramp.ts` is that
+ * blend. A dark surface would make every swatch wrong about the map it is
+ * explaining, and the ramp itself is specified against a light basemap. A dark
+ * mode is a ramp decision, not a styling one, and belongs to CS-210.
+ * ------------------------------------------------------------------------ */
+
+@theme {
+  /* Libre Franklin for the interface: a Franklin Gothic descendant, which is
+   * the register US public-information design has used for a century. It is
+   * sober where a geometric sans would read as a product launch. */
+  --font-sans:
+    "Libre Franklin Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Source Serif 4 for the written pages. Methodology, the model card and
+   * provenance are long-form argument rather than UI, and a serif at a
+   * generous measure is read for minutes rather than scanned for seconds. */
+  --font-serif: "Source Serif 4 Variable", ui-serif, Georgia, "Times New Roman", serif;
+
+  /* JetBrains Mono for H3 indices, SHA prefixes and indicator ids. These are
+   * strings a reader compares character by character or copies, which is what
+   * a monospace is for. */
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* -- Surfaces ----------------------------------------------------------- */
+  --color-background: var(--color-white);
+  --color-card: var(--color-white);
+  --color-sunken: var(--color-slate-50);
+
+  /* -- Text --------------------------------------------------------------- */
+  /* Headings and anything a reader is meant to land on first. */
+  --color-foreground: var(--color-slate-900);
+  /* Body copy. Pure black on white at a long measure is harsher than it needs
+   * to be; slate-700 clears AA comfortably and is easier over paragraphs. */
+  --color-body: var(--color-slate-700);
+  /* Labels, nav, secondary rows. */
+  --color-muted-foreground: var(--color-slate-600);
+  /* The quietest text that is still text. Nothing below this carries meaning:
+   * slate-400 measured 2.63:1 and the contrast suite's comment records why it
+   * was taken off anything readable. */
+  --color-faint: var(--color-slate-500);
+
+  /* -- Lines -------------------------------------------------------------- */
+  --color-border: var(--color-slate-200);
+  --color-border-strong: var(--color-slate-300);
+  /* An input's border identifies the control, so WCAG 1.4.11 applies to it and
+   * it is darker than a decorative rule by that much. */
+  --color-input: var(--color-slate-500);
+
+  /* -- Accent ------------------------------------------------------------- */
+  /* Cool, because the map is warm. The ramp runs yellow to dark red, and an
+   * interface accent anywhere near that range competes with the data for the
+   * reader's eye. */
+  --color-link: var(--color-sky-800);
+  --color-ring: var(--color-sky-700);
+  --color-primary: var(--color-slate-900);
+  --color-primary-foreground: var(--color-white);
+  --color-secondary: var(--color-slate-100);
+  --color-secondary-foreground: var(--color-slate-900);
+  --color-accent: var(--color-slate-100);
+  --color-accent-foreground: var(--color-slate-900);
+  --color-destructive: var(--color-rose-700);
+
+  /* -- Status, shared by the provenance page and the deployment banner ----- */
+  --color-ok-surface: var(--color-emerald-50);
+  --color-ok-foreground: var(--color-emerald-900);
+  --color-ok-border: var(--color-emerald-200);
+  --color-warn-surface: var(--color-amber-50);
+  --color-warn-foreground: var(--color-amber-900);
+  --color-warn-border: var(--color-amber-200);
+  --color-bad-surface: var(--color-rose-50);
+  --color-bad-foreground: var(--color-rose-900);
+  --color-bad-border: var(--color-rose-200);
+  /* The draft notice is the one rule in the application drawn at 2px,
+   * because it is the one notice that must survive being skimmed. */
+  --color-warn-border-strong: var(--color-amber-400);
+  /* A citation chip is a link in a tint, so it reads as followable before
+   * it is read as text. */
+  --color-citation-surface: var(--color-sky-50);
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  /* Tailwind 4 defaults a bare `border` to currentColor, which lands as black
+   * rules wherever a width is set without a colour. */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+    /* Figures line up in a column wherever they appear. Scores, percentiles,
+     * record counts and distances are all compared down a list, and
+     * proportional digits make that comparison worse for no benefit. */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus indicator for the whole application.
+   *
+   * Declaring it here rather than on each control is what stops a new button
+   * shipping without one, which is the commonest way a keyboard reader loses
+   * their place. Two solid pixels with an offset reads against every surface
+   * the app has, and `--color-ring` is held to the 3:1 of WCAG 1.4.11 by the
+   * contrast suite. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* The map canvas takes focus programmatically when a search result selects a
+   * hexagon, and a ring around the whole viewport is noise rather than
+   * information. */
+  .maplibregl-canvas:focus-visible {
+    outline: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-weight: 600;
+    /* Display faces set at heading sizes need the tracking pulled in; the
+     * default spacing is tuned for body copy. */
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+  }
+
+  /* Long-form copy wants its orphans handled; UI labels do not, and `pretty`
+   * on a short label costs layout work for nothing. */
+  p {
+    text-wrap: pretty;
+  }
+
+  /* An ordinary scroll inside the hexagon rail should not drag the map behind
+   * it once it reaches the end. */
+  [data-scroll-contain] {
+    overscroll-behavior: contain;
+  }
+}
+
+@layer utilities {
+  /* The measure for running text. Roughly 68 characters, which is inside the
+   * 45-to-75 band that typographic convention and WCAG 1.4.8 both land on. */
+  .measure {
+    max-width: 68ch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::after,
+  ::before {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

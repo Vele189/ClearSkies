@@ -1,4 +1,8 @@
+import { ArrowLeft } from "lucide-react";
+
 import Link from "../components/Link.tsx";
+import { Mono } from "../components/Prose.tsx";
+import { Button } from "../components/ui/button.tsx";
 
 /** A path nothing answers.
  *
@@ -8,20 +12,24 @@ import Link from "../components/Link.tsx";
  */
 export default function NotFound({ path }: { path: string }) {
   return (
-    <div>
-      <h1 className="text-xl font-semibold text-slate-900">Nothing at this address</h1>
-      <p className="mt-3 text-sm text-slate-700">
-        There is no page at <span className="font-mono text-xs">{path}</span>.
+    <div className="py-6">
+      <p className="text-xs font-semibold tracking-[0.06em] text-faint uppercase">
+        No such page
       </p>
-      <p className="mt-6 text-sm">
-        <Link
-          to="/"
-          className="text-sky-800 underline focus-visible:outline-2 focus-visible:outline-offset-2
-                     focus-visible:outline-sky-700"
-        >
+      <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Nothing at this address</h1>
+      <p className="measure mt-4 font-serif text-[1.0625rem] leading-[1.7] text-body">
+        There is no page at <Mono className="text-muted-foreground">{path}</Mono>.
+      </p>
+      <Button asChild variant="outline" className="mt-7">
+        {/* asChild over `Link`, not over a bare `<a>`: it has to render an
+            anchor so a reader can middle-click it and a screen reader
+            announces a link, and it has to be the router's anchor or the
+            click leaves the application and reloads it. */}
+        <Link to="/">
+          <ArrowLeft aria-hidden="true" />
           Back to the map
         </Link>
-      </p>
+      </Button>
     </div>
   );
 }

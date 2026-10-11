@@ -1,8 +1,10 @@
+import { TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import Footer from "./components/Footer.tsx";
 import Link from "./components/Link.tsx";
 import Nav from "./components/Nav.tsx";
+import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert.tsx";
 import { getHealth } from "./lib/api.ts";
 import { match, useRoute, useScrollReset } from "./lib/router.ts";
 import type { Health } from "./lib/types.ts";
@@ -37,11 +39,15 @@ function Banner({ health }: { health: Health | null }) {
     messages.push(...health.notes);
   }
 
+  // A full-bleed strip rather than an inset card: it is a statement about the
+  // whole deployment, so it spans the whole width and squares off its corners
+  // and side borders, keeping only the rule that separates it from the header.
   return (
-    <div className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-sm text-amber-900">
-      <span className="font-semibold">Not everything is running. </span>
-      {messages.join(" ")}
-    </div>
+    <Alert variant="warn" className="rounded-none border-x-0 border-t-0 px-5 py-2.5">
+      <TriangleAlert aria-hidden="true" />
+      <AlertTitle>Not everything is running</AlertTitle>
+      <AlertDescription>{messages.join(" ")}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -94,28 +100,35 @@ export default function App() {
   const full = isFullBleed(path);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-background">
       {/* First in the tab order and invisible until focused, which is the one
           way a keyboard reader gets past a nav on every single page. */}
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50
-                   focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm
-                   focus:shadow focus:outline-2 focus:outline-sky-700"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50
+                   focus:rounded-md focus:border focus:border-border-strong focus:bg-card
+                   focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground
+                   focus:shadow-lg"
       >
         Skip to content
       </a>
 
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-slate-200 px-5 py-3">
-        <Link
-          to="/"
-          className="text-base font-semibold text-slate-900 focus-visible:outline-2
-                     focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-        >
-          ClearSkies
-        </Link>
-        <p className="text-sm text-slate-500">Cumulative environmental burden in Louisiana</p>
-        <div className="ml-auto">
+      <header className="border-b border-border bg-card">
+        {/* items-end rather than baseline: the nav's active tab is marked with
+            a rule along its own bottom edge, which only meets the header's
+            border if the nav sits on it. */}
+        <div className="flex flex-wrap items-end justify-between gap-x-8 px-5">
+          <div className="py-3">
+            <Link
+              to="/"
+              className="text-[1.0625rem] leading-tight font-semibold tracking-tight text-foreground"
+            >
+              ClearSkies
+            </Link>
+            <p className="mt-0.5 text-xs leading-tight text-faint">
+              Cumulative environmental burden in Louisiana
+            </p>
+          </div>
           <Nav path={path} />
         </div>
       </header>
@@ -129,10 +142,10 @@ export default function App() {
         className={
           full
             ? "relative flex min-h-0 flex-1 flex-col"
-            : "flex-1 overflow-y-auto px-5 py-8"
+            : "flex-1 overflow-y-auto px-5 py-10 sm:py-12"
         }
       >
-        {full ? routeTo(path) : <div className="mx-auto max-w-3xl">{routeTo(path)}</div>}
+        {full ? routeTo(path) : <div className="mx-auto max-w-4xl">{routeTo(path)}</div>}
       </main>
 
       <Footer />

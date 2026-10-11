@@ -1,7 +1,11 @@
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import HexPanel from "../components/HexPanel.tsx";
 import Link from "../components/Link.tsx";
+import { Mono } from "../components/Prose.tsx";
+import { Button } from "../components/ui/button.tsx";
+import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ApiError, getHex } from "../lib/api.ts";
 import { navigate } from "../lib/router.ts";
 import type { HexDetail } from "../lib/types.ts";
@@ -40,39 +44,51 @@ export default function HexPage({ h3 }: { h3: string }) {
 
   return (
     <div>
-      <h1 className="mb-1 text-xl font-semibold text-slate-900">One hexagon</h1>
-      <p className="mb-4 text-sm text-slate-500">
-        <span className="font-mono text-xs">{h3}</span>
-      </p>
+      <header className="mb-6">
+        <p className="text-xs font-semibold tracking-[0.06em] text-faint uppercase">
+          One hexagon
+        </p>
+        {/* The index is the heading, because it is what identifies this page.
+            The previous title was "One hexagon" on every hexagon, which gave
+            a reader with twenty tabs open twenty identical ones. */}
+        <h1 className="mt-1.5 text-2xl font-semibold sm:text-3xl">
+          <Mono>{h3}</Mono>
+        </h1>
+      </header>
 
       {error !== null && (
         <div>
-          <p role="status" className="text-sm text-slate-700">
+          <p role="status" className="text-sm text-body">
             {error}
           </p>
-          <p className="mt-4 text-sm">
-            <Link
-              to="/"
-              className="text-sky-800 underline focus-visible:outline-2
-                         focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-            >
+          <Button asChild variant="outline" className="mt-5">
+            {/* The router's anchor, so the click navigates in place. */}
+            <Link to="/">
+              <ArrowLeft aria-hidden="true" />
               Back to the map
             </Link>
-          </p>
+          </Button>
         </div>
       )}
 
       {error === null && hex === null && (
-        <p role="status" className="text-sm text-slate-500">
-          Loading hexagon…
-        </p>
+        <div>
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading hexagon…
+          </p>
+          <div className="mt-5 space-y-3">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-3.5 w-full max-w-md" />
+            <Skeleton className="h-3.5 w-2/3 max-w-sm" />
+          </div>
+        </div>
       )}
 
       {hex !== null && (
         // Bordered rather than bare: the panel was drawn as a rail beside a map
         // and keeps that shape here, which is also what makes it one component
         // in two places rather than two components that drift.
-        <div className="rounded border border-slate-200">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <HexPanel
             key={hex.h3}
             hex={hex}

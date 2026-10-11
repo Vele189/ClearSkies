@@ -1,5 +1,7 @@
+import { ExternalLink as ExternalLinkIcon, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { cn } from "@/lib/utils.ts";
 import {
   COMPONENT_LABELS,
   bandReading,
@@ -16,17 +18,59 @@ import {
 import { placeName } from "../lib/place.ts";
 import { BAND_LABELS, GROUP_LABELS } from "../lib/types.ts";
 import DraftPanel from "./DraftPanel.tsx";
-import Link from "./Link.tsx";
-import type { ComponentScore, HexDetail, IndicatorValue } from "../lib/types.ts";
+import { TextLink } from "./Link.tsx";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import { Separator } from "./ui/separator.tsx";
+import type { ComponentScore, ConfidenceBand, HexDetail, IndicatorValue } from "../lib/types.ts";
+
+/** The small-caps rule that opens each block of the panel.
+ *
+ *  The level is passed rather than fixed, because the document outline is not
+ *  a styling decision: "How this score was reached" is a section of the
+ *  hexagon, and the groups inside it are subsections of that.
+ */
+function SectionLabel({
+  as: Tag = "h4",
+  className,
+  children,
+}: {
+  as?: "h3" | "h4";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tag
+      className={cn(
+        "text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase",
+        className,
+      )}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+/** How the confidence band is badged. Never the only carrier: the band is
+ *  printed in words inside the badge, and `bandReading` states it as a
+ *  sentence besides. */
+const BAND_VARIANT: Record<ConfidenceBand, "default" | "warn" | "bad"> = {
+  high: "default",
+  moderate: "default",
+  low: "warn",
+  insufficient: "bad",
+};
 
 function Bar({ percentile, observed }: { percentile: number | null; observed: boolean }) {
   if (!observed || percentile === null) {
-    return <span className="text-xs text-slate-500 italic">not observed</span>;
+    return <span className="text-xs text-faint italic">not observed</span>;
   }
+  // aria-hidden: the ordinal is printed in the same row, so announcing the bar
+  // as well would read every indicator's rank twice.
   return (
-    <div className="h-2 w-full rounded-sm bg-slate-100">
+    <div aria-hidden="true" className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
       <div
-        className="h-2 rounded-sm bg-slate-700"
+        className="h-full rounded-full bg-body"
         style={{ width: `${String(Math.max(1, percentile))}%` }}
       />
     </div>
@@ -41,14 +85,14 @@ function IndicatorRow({
   vintage: string | null;
 }) {
   return (
-    <li className="grid grid-cols-[1fr_5rem] items-center gap-3 py-1.5">
-      <div>
-        <div className="text-sm text-slate-800">
-          <span className="mr-1.5 font-mono text-xs text-slate-500">{indicator.id}</span>
+    <li className="grid grid-cols-[1fr_4rem] items-start gap-3 py-2.5">
+      <div className="min-w-0">
+        <div className="text-sm text-foreground">
+          <span className="mr-1.5 font-mono text-[0.6875rem] text-faint">{indicator.id}</span>
           {indicator.name}
         </div>
         <Bar percentile={indicator.percentile} observed={indicator.observed} />
-        <div className="mt-0.5 text-xs text-slate-500">
+        <div className="mt-1 text-xs text-faint">
           {indicator.source}
           {vintage && <span> &middot; {vintage}</span>}
         </div>
@@ -56,13 +100,13 @@ function IndicatorRow({
           // Methodology section 9 requires this on the panel rather than
           // smoothed over. Without it the percentile reads as a ranking, when
           // for a hex with nothing nearby it is only the size of the zero block.
-          <p className="mt-0.5 text-xs text-amber-800">
+          <p className="mt-1.5 rounded border border-warn-border bg-warn-surface px-2 py-1.5 text-xs leading-relaxed text-warn-foreground">
             No qualifying facility within 10 km. This percentile reflects how many other
             hexagons are also at zero, not how this one compares on burden.
           </p>
         )}
       </div>
-      <div className="text-right text-sm tabular-nums text-slate-600">
+      <div className="pt-0.5 text-right text-sm font-medium text-body">
         {indicator.observed && indicator.percentile !== null
           ? ordinal(indicator.percentile)
           : "—"}
@@ -78,29 +122,27 @@ function ComponentWaterfall({ component }: { component: ComponentScore }) {
   const dropped = droppedGroups(component.groups);
 
   return (
-    <section className="mb-4">
-      <h4 className="flex items-baseline justify-between text-sm font-semibold text-slate-900">
+    <section className="mt-4 first:mt-0">
+      <h4 className="flex items-baseline justify-between gap-3 text-sm font-semibold">
         <span>{COMPONENT_LABELS[component.component]}</span>
-        <span className="tabular-nums text-slate-600">{component.score.toFixed(1)} / 10</span>
+        <span className="text-muted-foreground">{component.score.toFixed(1)} / 10</span>
       </h4>
 
-      <ul className="mt-1.5">
+      <ul className="mt-2">
         {component.groups.map((group) => (
           <li
             key={group.group}
-            className="grid grid-cols-[1fr_3rem_3.5rem] items-center gap-2 py-1 text-sm"
+            className="grid grid-cols-[1fr_2.75rem_3.25rem] items-start gap-2 py-1.5 text-sm"
           >
-            <div>
-              <div className="text-slate-800">{GROUP_LABELS[group.group]}</div>
-              <div className="text-xs text-slate-500">
+            <div className="min-w-0">
+              <div className="text-foreground">{GROUP_LABELS[group.group]}</div>
+              <div className="text-xs text-faint">
                 {group.indicators_present} of {group.indicators_required} indicators needed
                 {!group.computable && " — not computable, dropped"}
               </div>
             </div>
-            <div className="text-right text-xs tabular-nums text-slate-500">
-              &times;{group.weight.toFixed(1)}
-            </div>
-            <div className="text-right text-sm tabular-nums text-slate-700">
+            <div className="text-right text-xs text-faint">&times;{group.weight.toFixed(1)}</div>
+            <div className="text-right text-sm font-medium text-body">
               {group.computable && group.mean_percentile !== null
                 ? ordinal(group.mean_percentile)
                 : "—"}
@@ -109,19 +151,22 @@ function ComponentWaterfall({ component }: { component: ComponentScore }) {
         ))}
       </ul>
 
-      <div className="mt-1 border-t border-slate-200 pt-1.5 text-xs text-slate-600">
+      <div className="mt-2 border-t border-border pt-2 text-xs leading-relaxed text-muted-foreground">
         {raw === null ? (
           <p>No group in this component was computable.</p>
         ) : (
           <p>
             Weighted mean of the groups above:{" "}
-            <span className="tabular-nums text-slate-800">{raw.toFixed(1)}th percentile</span>,
+            <span className="font-medium text-foreground">{raw.toFixed(1)}th percentile</span>,
             rescaled to{" "}
-            <span className="tabular-nums text-slate-800">{component.score.toFixed(1)} / 10</span>.
+            <span className="font-medium text-foreground">
+              {component.score.toFixed(1)} / 10
+            </span>
+            .
           </p>
         )}
         {dropped.length > 0 && (
-          <p className="mt-1">
+          <p className="mt-1.5">
             {dropped.map((g) => GROUP_LABELS[g.group]).join(" and ")}{" "}
             {dropped.length === 1 ? "was" : "were"} left out of that mean rather than counted as
             zero, which would have read as an absence of burden.
@@ -137,40 +182,36 @@ function ConfidenceBreakdown({ hex }: { hex: HexDetail }) {
   const weakest = weakestTerm(hex.confidence);
 
   return (
-    <section className="mb-5">
-      <h4 className="mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-        Confidence
-      </h4>
-      <p className="text-sm text-slate-700">{bandReading(hex.confidence.band)}</p>
+    <section>
+      <SectionLabel>Confidence</SectionLabel>
+      <p className="mt-2 text-sm leading-relaxed text-body">{bandReading(hex.confidence.band)}</p>
 
-      <ul className="mt-2">
+      <ul className="mt-2.5">
         {terms.map((term) => (
           <li
             key={term.id}
-            className="grid grid-cols-[1fr_2.5rem_3rem] items-center gap-2 py-1 text-sm"
+            className="grid grid-cols-[1fr_2.5rem_3rem] items-start gap-2 py-1.5 text-sm"
           >
-            <div>
-              <div className="text-slate-800">{term.label}</div>
-              <div className="text-xs text-slate-500">{term.meaning}</div>
+            <div className="min-w-0">
+              <div className="text-foreground">{term.label}</div>
+              <div className="text-xs text-faint">{term.meaning}</div>
             </div>
-            <div className="text-right text-xs tabular-nums text-slate-500">
-              &times;{term.weight.toFixed(2)}
-            </div>
-            <div className="text-right tabular-nums text-slate-700">{term.value.toFixed(2)}</div>
+            <div className="text-right text-xs text-faint">&times;{term.weight.toFixed(2)}</div>
+            <div className="text-right font-medium text-body">{term.value.toFixed(2)}</div>
           </li>
         ))}
       </ul>
 
-      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+      <p className="mt-2.5 border-t border-border pt-2.5 text-xs leading-relaxed text-muted-foreground">
         The four combine as a weighted geometric mean, not an average, so one weak term is not
         smoothed away by three healthy ones. The weakest here is{" "}
-        <span className="text-slate-700">{weakest.label.toLowerCase()}</span> at{" "}
-        <span className="tabular-nums text-slate-700">{weakest.value.toFixed(2)}</span>
+        <span className="font-medium text-foreground">{weakest.label.toLowerCase()}</span> at{" "}
+        <span className="font-medium text-foreground">{weakest.value.toFixed(2)}</span>
         {weakest.id === "monitor" && hex.confidence.nearest_monitor_km !== null && (
           <>
             {" "}
             — the nearest PM2.5 monitor is{" "}
-            <span className="tabular-nums text-slate-700">
+            <span className="font-medium text-foreground">
               {hex.confidence.nearest_monitor_km.toFixed(0)} km
             </span>{" "}
             away
@@ -219,47 +260,43 @@ export default function HexPanel({
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}
-      className="flex h-full w-full flex-col overflow-y-auto bg-white focus:outline-none md:border-l md:border-slate-200"
+      className="flex h-full w-full flex-col bg-card focus:outline-none"
     >
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+      <header className="sticky top-0 z-10 border-b border-border bg-card/95 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="font-mono text-xs text-slate-500">{hex.h3}</div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              {placeName(hex)}
-            </h2>
+          <div className="min-w-0">
+            <div className="font-mono text-[0.6875rem] tracking-tight text-faint">{hex.h3}</div>
+            <h2 className="mt-0.5 text-lg leading-snug font-semibold">{placeName(hex)}</h2>
             {standalone && (
               // A map click is not an address. This gives the reader one they
               // can send to somebody, return to, or open without a map --
               // which is also the non-map path CS-401 asks for.
-              <Link
-                to={`/hex/${hex.h3}`}
-                className="text-xs text-sky-800 underline focus-visible:outline-2
-                           focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-              >
+              <TextLink to={`/hex/${hex.h3}`} className="mt-1 inline-block text-xs">
                 Open on its own page
-              </Link>
+              </TextLink>
             )}
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 focus:ring-2 focus:ring-slate-400 focus:outline-none"
             aria-label="Close panel"
+            className="-mt-1 -mr-1 shrink-0"
           >
-            Close
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         </div>
 
         {/* Section 12: for the low and insufficient bands the caveat leads,
             rather than sitting under a number the reader has already taken in. */}
         {caveatLeads && (
-          <p className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="mt-3.5 rounded-md border border-warn-border bg-warn-surface px-3 py-2.5 text-sm leading-relaxed text-warn-foreground">
             {bandReading(hex.confidence.band)}
           </p>
         )}
 
         {hex.score === null ? (
-          <p className="mt-3 text-sm text-slate-600">
+          <p className="mt-3.5 text-sm text-muted-foreground">
             {/* The reason is what makes this sentence useful, and it is
                 optional on the response. Without it the panel says plainly that
                 none was recorded rather than trailing off after a colon. */}
@@ -267,11 +304,11 @@ export default function HexPanel({
             {hex.no_score_reason ? hex.no_score_reason.replace(/_/g, " ") : "no reason recorded"}
           </p>
         ) : (
-          <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-3xl font-semibold tabular-nums text-slate-900">
+          <div className="mt-3.5 flex items-end gap-3.5">
+            <span className="text-[2.75rem] leading-none font-semibold tracking-tight text-foreground">
               {hex.score.toFixed(1)}
             </span>
-            <span className="text-sm text-slate-600">
+            <span className="pb-1 text-sm leading-snug text-muted-foreground">
               {hex.percentile === null
                 ? "statewide percentile not reported"
                 : `${ordinal(hex.percentile)} percentile statewide`}
@@ -279,36 +316,42 @@ export default function HexPanel({
           </div>
         )}
 
-        <p className="mt-2 text-xs text-slate-500">
-          {BAND_LABELS[hex.confidence.band]} ({hex.confidence.value.toFixed(2)})
-          {dropped > 0 && ` · ${String(dropped)} of ${String(hex.indicators.length)} indicators unavailable`}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <Badge variant={BAND_VARIANT[hex.confidence.band]}>
+            {BAND_LABELS[hex.confidence.band]} ({hex.confidence.value.toFixed(2)})
+          </Badge>
+          {dropped > 0 && (
+            <span className="text-xs text-faint">
+              {dropped} of {hex.indicators.length} indicators unavailable
+            </span>
+          )}
+        </div>
       </header>
 
-      <div className="px-5 py-4">
+      <div className="px-5 py-5">
         {hex.components.length > 0 && (
-          <section className="mb-5">
-            <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-              How this score was reached
-            </h3>
+          <section>
+            <SectionLabel as="h3">How this score was reached</SectionLabel>
 
-            {hex.components.map((component) => (
-              <ComponentWaterfall key={component.component} component={component} />
-            ))}
+            <div className="mt-3">
+              {hex.components.map((component) => (
+                <ComponentWaterfall key={component.component} component={component} />
+              ))}
+            </div>
 
-            <p className="mb-3 text-xs leading-relaxed text-slate-500">
+            <p className="mt-3.5 text-xs leading-relaxed text-faint">
               Each component is rescaled against the highest value anywhere in the state. That
               statewide maximum is not part of this response, so the rescaling step is the one
               part of the arithmetic above that cannot be checked here.
             </p>
 
             {product !== null && hex.components.length === 2 && (
-              <div className="rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                <p className="tabular-nums">
+              <div className="mt-3.5 rounded-md border border-border bg-sunken px-3.5 py-3">
+                <p className="text-sm text-body">
                   {hex.components.map((c) => c.score.toFixed(1)).join(" × ")} ={" "}
-                  <span className="font-semibold text-slate-900">{product.toFixed(1)}</span>
+                  <span className="font-semibold text-foreground">{product.toFixed(1)}</span>
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   The two components multiply rather than add. A hexagon in the 95th percentile
                   for pollution and the 20th for vulnerability scores about 19; one in the 60th
                   for both scores about 36. The second is higher, and that is the model working
@@ -319,17 +362,17 @@ export default function HexPanel({
           </section>
         )}
 
+        <Separator className="my-6" />
+
         <ConfidenceBreakdown hex={hex} />
 
         {groups.map((group) => {
           const rows = hex.indicators.filter((i) => i.group === group);
           if (rows.length === 0) return null;
           return (
-            <section key={group} className="mb-5">
-              <h4 className="mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                {GROUP_LABELS[group]}
-              </h4>
-              <ul className="divide-y divide-slate-100">
+            <section key={group} className="mt-6">
+              <SectionLabel>{GROUP_LABELS[group]}</SectionLabel>
+              <ul className="mt-1 divide-y divide-border">
                 {rows.map((i) => (
                   <IndicatorRow
                     key={i.id}
@@ -343,22 +386,21 @@ export default function HexPanel({
         })}
 
         {hex.facilities.length > 0 && (
-          <section className="mb-5">
-            <h4 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-              Contributing facilities
-            </h4>
-            <ul className="space-y-2">
+          <section className="mt-6">
+            <SectionLabel>Contributing facilities</SectionLabel>
+            <ul className="mt-2 space-y-2.5">
               {hex.facilities.map((f) => (
                 <li key={f.registry_id} className="text-sm">
                   <a
                     href={f.echo_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-slate-800 underline decoration-slate-300 hover:decoration-slate-800 focus:ring-2 focus:ring-slate-400 focus:outline-none"
+                    className="inline-flex items-baseline gap-1 font-medium text-link underline decoration-from-font underline-offset-2 hover:no-underline"
                   >
                     {f.name}
+                    <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0 self-center" />
                   </a>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-faint">
                     {f.program} &middot; {f.distance_km.toFixed(1)} km
                   </div>
                 </li>
@@ -367,20 +409,18 @@ export default function HexPanel({
           </section>
         )}
 
-        <section className="mb-5">
-          <h4 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-            Who lives here
-          </h4>
-          <p className="text-sm text-slate-700">
+        <section className="mt-6">
+          <SectionLabel>Who lives here</SectionLabel>
+          <p className="mt-2 text-sm text-body">
             Population {hex.demographics.population.toLocaleString()}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs leading-relaxed text-faint">
             Recorded and displayed, never an input to the score. Keeping race out of the
             arithmetic is what makes the disparity finding an independent result.
           </p>
         </section>
 
-        <footer className="border-t border-slate-200 pt-3 text-xs leading-relaxed text-slate-500">
+        <footer className="mt-6 border-t border-border pt-3.5 text-xs leading-relaxed text-faint">
           A high score describes modeled exposure, nearby permitted sources, and a vulnerable
           population. It is not a finding of wrongdoing by any operator. Percentiles are
           Louisiana percentiles. Methodology version {hex.methodology_version}.

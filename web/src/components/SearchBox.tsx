@@ -1,4 +1,7 @@
+import { Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+
+import { cn } from "@/lib/utils.ts";
 
 import { searchPlaces } from "../lib/geocode.ts";
 import type { Place } from "../lib/geocode.ts";
@@ -105,28 +108,37 @@ export default function SearchBox({ onPick }: Props) {
   const open = results.length > 0;
 
   return (
-    <div className="pointer-events-auto absolute top-2 left-2 z-10 w-[min(20rem,calc(100vw-5rem))] sm:top-3 sm:left-3">
-      <input
-        ref={inputRef}
-        type="search"
-        role="combobox"
-        aria-label="Search for a place"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        aria-activedescendant={open && active >= 0 ? `${listId}-${String(active)}` : undefined}
-        autoComplete="off"
-        placeholder="Search a place, or paste 30.05, -90.55"
-        value={query}
-        onChange={(event) => {
-          handleChange(event.target.value);
-        }}
-        onKeyDown={handleKeyDown}
-        className="w-full rounded-md border border-slate-500 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur-sm placeholder:text-slate-500 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none"
-      />
+    <div className="pointer-events-auto absolute top-2 left-2 z-10 w-[min(22rem,calc(100vw-5rem))] sm:top-3 sm:left-3">
+      <div className="relative">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint"
+        />
+        <input
+          ref={inputRef}
+          type="search"
+          role="combobox"
+          aria-label="Search for a place"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={open && active >= 0 ? `${listId}-${String(active)}` : undefined}
+          autoComplete="off"
+          placeholder="Search a place, or paste 30.05, -90.55"
+          value={query}
+          onChange={(event) => {
+            handleChange(event.target.value);
+          }}
+          onKeyDown={handleKeyDown}
+          className="h-10 w-full rounded-lg border border-input bg-card/95 pr-3 pl-9 text-sm
+                     text-foreground shadow-md ring-1 ring-black/5 backdrop-blur-sm
+                     placeholder:text-faint
+                     [&::-webkit-search-cancel-button]:cursor-pointer"
+        />
+      </div>
 
       {(open || error || pending) && (
-        <div className="mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="mt-1.5 overflow-hidden rounded-lg border border-border bg-card shadow-lg ring-1 ring-black/5">
           {open ? (
             <ul id={listId} role="listbox" aria-label="Search results">
               {results.map((place, i) => (
@@ -142,19 +154,20 @@ export default function SearchBox({ onPick }: Props) {
                     choose(place);
                   }}
                   onMouseEnter={() => setActive(i)}
-                  className={`cursor-pointer px-3 py-2 text-sm ${
-                    i === active ? "bg-slate-100" : ""
-                  }`}
+                  className={cn(
+                    "cursor-pointer px-3 py-2 text-sm",
+                    i === active && "bg-accent",
+                  )}
                 >
-                  <span className="text-slate-900">{place.name}</span>
+                  <span className="font-medium text-foreground">{place.name}</span>
                   {place.context && (
-                    <span className="ml-1.5 text-xs text-slate-500">{place.context}</span>
+                    <span className="ml-1.5 text-xs text-muted-foreground">{place.context}</span>
                   )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="px-3 py-2 text-sm text-slate-500" role="status">
+            <p className="px-3 py-2 text-sm text-muted-foreground" role="status">
               {pending ? "Searching…" : error}
             </p>
           )}

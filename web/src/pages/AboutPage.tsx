@@ -1,14 +1,15 @@
-import Link from "../components/Link.tsx";
+import { TextLink } from "../components/Link.tsx";
 import { PageTitle, Point, Prose, Section } from "../components/Prose.tsx";
-
-const LINK =
-  "text-sky-800 underline focus-visible:outline-2 focus-visible:outline-offset-2 " +
-  "focus-visible:outline-sky-700";
 
 export default function AboutPage() {
   return (
     <div>
-      <PageTitle>About ClearSkies</PageTitle>
+      <PageTitle
+        lede="A cumulative environmental burden score for every hexagon in Louisiana, built
+              only from public records, with its own uncertainty stated alongside it."
+      >
+        About ClearSkies
+      </PageTitle>
 
       <Prose>
         <p>
@@ -62,17 +63,17 @@ export default function AboutPage() {
         <p>
           Every upstream dataset is US public-domain government data. The code is MIT
           licensed. The{" "}
-          <Link to="/provenance" className={LINK}>
+          <TextLink to="/provenance">
             sources page
-          </Link>{" "}
+          </TextLink>{" "}
           records each source, when it was last fetched and its known gaps;{" "}
-          <Link to="/methodology" className={LINK}>
+          <TextLink to="/methodology">
             the methodology
-          </Link>{" "}
+          </TextLink>{" "}
           covers how the score is built, and{" "}
-          <Link to="/model-card" className={LINK}>
+          <TextLink to="/model-card">
             the model card
-          </Link>{" "}
+          </TextLink>{" "}
           covers the drafting assistant.
         </p>
       </Section>

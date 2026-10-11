@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 
+import { ExternalLink } from "../components/Link.tsx";
+import { Mono, PageTitle, Point, Prose, Section } from "../components/Prose.tsx";
+import { Badge } from "../components/ui/badge.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card.tsx";
+import { Separator } from "../components/ui/separator.tsx";
+import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ApiError, getProvenance } from "../lib/api.ts";
 import type { PullStatus, Provenance, SourcePull } from "../lib/types.ts";
 
@@ -10,22 +16,29 @@ import type { PullStatus, Provenance, SourcePull } from "../lib/types.ts";
  *  manifests; this is the reader's.
  */
 
-const STATUS: Record<PullStatus, { label: string; className: string; meaning: string }> = {
+/** The badge variant per state, and the sentence that says what the state
+ *  means. The variant carries no information on its own: every badge prints
+ *  its status in words, because a reader who cannot separate amber from rose
+ *  still has to be able to tell "Partial" from "Failed". */
+const STATUS: Record<
+  PullStatus,
+  { label: string; variant: "ok" | "warn" | "bad"; meaning: string }
+> = {
   ok: {
     label: "Loaded",
-    className: "bg-emerald-50 text-emerald-900 ring-emerald-200",
+    variant: "ok",
     meaning: "The last pull completed and every record it fetched was loaded.",
   },
   partial: {
     label: "Partial",
-    className: "bg-amber-50 text-amber-900 ring-amber-200",
+    variant: "warn",
     meaning:
       "The last pull completed, and some records were rejected as malformed. " +
       "What loaded is sound; there is less of it than upstream published.",
   },
   stale: {
     label: "Served from a snapshot",
-    className: "bg-amber-50 text-amber-900 ring-amber-200",
+    variant: "warn",
     meaning:
       "The source could not be reached, so the last good copy was used instead. " +
       "The data is real and it is older than the date below, and the confidence " +
@@ -33,7 +46,7 @@ const STATUS: Record<PullStatus, { label: string; className: string; meaning: st
   },
   failed: {
     label: "Failed",
-    className: "bg-rose-50 text-rose-900 ring-rose-200",
+    variant: "bad",
     meaning:
       "The last attempt did not load anything. Whatever this source feeds is as " +
       "old as the pull before it, or absent.",
@@ -47,106 +60,100 @@ function when(iso: string): string {
     : at.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-function StatusTag({ status }: { status: PullStatus }) {
-  const { label, className } = STATUS[status];
+/** One labelled figure in the source's summary row. */
+function Fact({ term, children }: { term: string; children: React.ReactNode }) {
   return (
-    <span
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${className}`}
-    >
-      {label}
-    </span>
+    <div>
+      <dt className="text-[0.6875rem] font-semibold tracking-[0.06em] text-faint uppercase">
+        {term}
+      </dt>
+      <dd className="mt-1 text-sm text-foreground">{children}</dd>
+    </div>
   );
 }
 
 function Source({ pull }: { pull: SourcePull }) {
+  const status = STATUS[pull.status];
   return (
-    <article className="border-t border-slate-200 py-5">
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-base font-semibold text-slate-900">{pull.title}</h3>
-        <StatusTag status={pull.status} />
-      </header>
+    <Card className="mt-5">
+      <CardHeader className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <CardTitle>{pull.title}</CardTitle>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </CardHeader>
 
-      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-slate-500">Release</dt>
-        {/* The upstream release, not the download time. A 2019 assessment
-            pulled last night is 2019 data, and reporting the pull date as the
-            vintage would make the map look six years fresher than it is. */}
-        <dd className="text-slate-900">{pull.vintage}</dd>
+      <CardContent className="pt-4">
+        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+          {/* The upstream release, not the download time. A 2019 assessment
+              pulled last night is 2019 data, and reporting the pull date as the
+              vintage would make the map look six years fresher than it is. */}
+          <Fact term="Release">{pull.vintage}</Fact>
+          <Fact term="Last pull">{when(pull.pulled_at)}</Fact>
+          <Fact term="Records loaded">
+            {pull.records.toLocaleString()}
+            {pull.rejected > 0 && (
+              <span className="block text-xs text-muted-foreground">
+                {pull.rejected.toLocaleString()} rejected as malformed
+              </span>
+            )}
+          </Fact>
+        </dl>
 
-        <dt className="text-slate-500">Last pull</dt>
-        <dd className="text-slate-900">{when(pull.pulled_at)}</dd>
+        <Separator className="my-4" />
 
-        <dt className="text-slate-500">Records loaded</dt>
-        <dd className="text-slate-900">
-          {pull.records.toLocaleString()}
-          {pull.rejected > 0 && (
-            <span className="text-slate-500">
-              {" "}
-              · {pull.rejected.toLocaleString()} rejected as malformed
-            </span>
-          )}
-        </dd>
-      </dl>
+        <p className="text-sm leading-relaxed text-body">{status.meaning}</p>
 
-      <p className="mt-3 text-sm text-slate-700">{STATUS[pull.status].meaning}</p>
+        {pull.known_gaps.length > 0 && (
+          <div className="mt-5 rounded-md border border-border bg-sunken px-4 py-3.5">
+            <h4 className="text-sm font-semibold">What this source does not cover</h4>
+            <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-body">
+              {pull.known_gaps.map((gap, index) => (
+                <li key={index} className="flex gap-2.5">
+                  <span aria-hidden="true" className="text-border-strong select-none">
+                    —
+                  </span>
+                  <span>
+                    {gap.detail}
+                    {gap.affects.length > 0 && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        Affects {gap.affects.join(", ")}.
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {pull.known_gaps.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-sm font-semibold text-slate-900">What this source does not cover</h4>
-          <ul className="mt-1 space-y-1 text-sm text-slate-700">
-            {pull.known_gaps.map((gap, index) => (
-              <li key={index} className="flex gap-2">
-                <span aria-hidden="true" className="text-slate-400">
-                  •
-                </span>
-                <span>
-                  {gap.detail}
-                  {gap.affects.length > 0 && (
-                    <span className="text-slate-500">
-                      {" "}
-                      Affects {gap.affects.join(", ")}.
-                    </span>
+        {pull.notes.length > 0 && (
+          <ul className="mt-4 space-y-1 text-sm leading-relaxed text-muted-foreground">
+            {pull.notes.map((note, index) => (
+              <li key={index}>{note}</li>
+            ))}
+          </ul>
+        )}
+
+        {pull.artifacts.length > 0 && (
+          <details className="group mt-4">
+            <summary className="w-fit cursor-pointer rounded text-sm font-medium text-muted-foreground hover:text-foreground">
+              Files downloaded ({pull.artifacts.length})
+            </summary>
+            <ul className="mt-2.5 space-y-1.5 text-xs text-muted-foreground">
+              {pull.artifacts.map((artifact) => (
+                <li key={artifact.sha256} className="break-all">
+                  <Mono className="text-faint">{artifact.short_sha}</Mono>{" "}
+                  <ExternalLink href={artifact.url}>{artifact.url}</ExternalLink>
+                  {artifact.from_snapshot && (
+                    <span className="text-faint"> — served from a stored copy</span>
                   )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {pull.notes.length > 0 && (
-        <ul className="mt-3 space-y-1 text-sm text-slate-600">
-          {pull.notes.map((note, index) => (
-            <li key={index}>{note}</li>
-          ))}
-        </ul>
-      )}
-
-      {pull.artifacts.length > 0 && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-slate-600 hover:text-slate-900">
-            Files downloaded ({pull.artifacts.length})
-          </summary>
-          <ul className="mt-2 space-y-1 text-xs text-slate-600">
-            {pull.artifacts.map((artifact) => (
-              <li key={artifact.sha256} className="break-all">
-                <span className="font-mono">{artifact.short_sha}</span>{" "}
-                <a
-                  href={artifact.url}
-                  className="text-sky-800 underline focus-visible:outline-2
-                             focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-                >
-                  {artifact.url}
-                </a>
-                {artifact.from_snapshot && (
-                  <span className="text-slate-500"> — served from a stored copy</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </article>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -169,60 +176,69 @@ export default function ProvenancePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900">Where the data comes from</h1>
+      <PageTitle
+        lede="Every number on the map traces back to a public record. This page is generated
+              from the pipeline's own manifests, so it says what actually happened on the
+              last run rather than what is supposed to happen."
+      >
+        Where the data comes from
+      </PageTitle>
 
-      <p className="mt-3 text-sm text-slate-700">
-        Every number on the map traces back to a public record. This page is generated
-        from the pipeline's own manifests, so it says what actually happened on the last
-        run rather than what is supposed to happen. Each source shows the upstream
-        release it carries, when it was last fetched, and what it does not cover.
-      </p>
-
-      <h2 className="mt-8 text-base font-semibold text-slate-900">
-        Two things worth knowing before reading the table
-      </h2>
-
-      <p className="mt-2 text-sm text-slate-700">
-        <strong className="font-semibold">A missing value is never shown as a zero.</strong>{" "}
-        They mean opposite things. Zero released is a measurement; no report filed is an
-        absence. Where a value is missing the indicator is marked unavailable for that
-        hexagon and left out of its score, and the hexagon's confidence value falls to
-        record that less was known about it. A hexagon is never made to look clean by
-        data that was never collected.
-      </p>
-
-      <p className="mt-3 text-sm text-slate-700">
-        <strong className="font-semibold">Measured air quality is sparse.</strong> Louisiana
-        has a few dozen air monitors for a state of 52,000 square miles, so most places
-        are nowhere near one. That is why measured readings are a secondary input and
-        modeled exposure is the primary one: the model covers everywhere evenly, and the
-        monitors cover where the monitors are. A hexagon far from a monitor still gets a
-        score, and its confidence value carries the distance.
-      </p>
-
-      <h2 className="mt-8 text-base font-semibold text-slate-900">Sources</h2>
-
-      {error !== null && (
-        <p role="status" className="mt-3 text-sm text-slate-700">
-          {error}
+      <Prose>
+        <p>
+          Each source below shows the upstream release it carries, when it was last
+          fetched, and what it does not cover.
         </p>
-      )}
+      </Prose>
 
-      {error === null && data === null && (
-        <p role="status" className="mt-3 text-sm text-slate-500">
-          Loading the source records…
-        </p>
-      )}
+      <Section title="Two things worth knowing before reading the table">
+        <Point label="A missing value is never shown as a zero.">
+          They mean opposite things. Zero released is a measurement; no report filed is an
+          absence. Where a value is missing the indicator is marked unavailable for that
+          hexagon and left out of its score, and the hexagon's confidence value falls to
+          record that less was known about it. A hexagon is never made to look clean by
+          data that was never collected.
+        </Point>
+        <Point label="Measured air quality is sparse.">
+          Louisiana has a few dozen air monitors for a state of 52,000 square miles, so
+          most places are nowhere near one. That is why measured readings are a secondary
+          input and modeled exposure is the primary one: the model covers everywhere
+          evenly, and the monitors cover where the monitors are. A hexagon far from a
+          monitor still gets a score, and its confidence value carries the distance.
+        </Point>
+      </Section>
 
-      {data !== null && data.sources.length === 0 && (
-        <p className="mt-3 text-sm text-slate-700">
-          No source has been pulled into this deployment yet, so there is nothing to
-          report. An empty table here means the pipeline has not run, not that the
-          sources are empty.
-        </p>
-      )}
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold">Sources</h2>
 
-      {data?.sources.map((pull) => <Source key={pull.source} pull={pull} />)}
+        {error !== null && (
+          <p role="status" className="mt-3 text-sm text-body">
+            {error}
+          </p>
+        )}
+
+        {error === null && data === null && (
+          <div className="mt-3">
+            <p role="status" className="text-sm text-muted-foreground">
+              Loading the source records…
+            </p>
+            <div className="mt-4 space-y-3">
+              <Skeleton className="h-28 w-full rounded-lg" />
+              <Skeleton className="h-28 w-full rounded-lg" />
+            </div>
+          </div>
+        )}
+
+        {data !== null && data.sources.length === 0 && (
+          <p className="measure mt-3 font-serif text-[1.0625rem] leading-[1.7] text-body">
+            No source has been pulled into this deployment yet, so there is nothing to
+            report. An empty table here means the pipeline has not run, not that the
+            sources are empty.
+          </p>
+        )}
+
+        {data?.sources.map((pull) => <Source key={pull.source} pull={pull} />)}
+      </section>
     </div>
   );
 }

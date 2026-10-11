@@ -1,4 +1,4 @@
-import Link from "../components/Link.tsx";
+import { TextLink } from "../components/Link.tsx";
 import { PageTitle, Point, Prose, Section } from "../components/Prose.tsx";
 
 /** What the drafting assistant does, will not do, and where it fails (CS-405).
@@ -140,13 +140,9 @@ export default function ModelCardPage() {
         </p>
         <p>
           How the score itself is built is on{" "}
-          <Link
-            to="/methodology"
-            className="text-sky-800 underline focus-visible:outline-2
-                       focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-          >
+          <TextLink to="/methodology">
             the methodology page
-          </Link>
+          </TextLink>
           .
         </p>
       </Section>

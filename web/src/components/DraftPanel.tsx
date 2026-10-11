@@ -25,6 +25,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { cn } from "@/lib/utils.ts";
+import { Button } from "./ui/button.tsx";
+
 import { ApiError, postDraft } from "../lib/api.ts";
 import {
   allCitations,
@@ -64,7 +67,10 @@ function CitationLink({ citation }: { citation: Citation }) {
 
   if (href === null) {
     return (
-      <span className="rounded bg-slate-100 px-1 font-mono text-xs text-slate-700" title={citation.proposition}>
+      <span
+        className="rounded bg-secondary px-1 font-mono text-[0.6875rem] text-body"
+        title={citation.proposition}
+      >
         {label}
       </span>
     );
@@ -75,7 +81,8 @@ function CitationLink({ citation }: { citation: Citation }) {
       target="_blank"
       rel="noreferrer"
       title={citation.proposition}
-      className="rounded bg-sky-50 px-1 font-mono text-xs text-sky-800 underline decoration-dotted hover:bg-sky-100"
+      className="rounded bg-citation-surface px-1 font-mono text-[0.6875rem] text-link
+                 underline decoration-dotted underline-offset-2 hover:no-underline"
     >
       {label}
     </a>
@@ -86,7 +93,7 @@ function Paragraphs({ document }: { document: DraftDocument }) {
   return (
     <>
       {document.paragraphs.map((paragraph, i) => (
-        <p key={i} className="mb-3 text-sm leading-relaxed text-slate-800">
+        <p key={i} className="mb-3.5 text-sm leading-relaxed text-body">
           {paragraph.text}
           {paragraph.citations.length > 0 && (
             <span className="ml-1.5 inline-flex flex-wrap gap-1 align-baseline">
@@ -113,14 +120,14 @@ function Heading({ document }: { document: DraftDocument }) {
   return (
     <div className="mb-4">
       {document.headline && (
-        <h3 className="mb-1 text-base font-semibold text-slate-900">{document.headline}</h3>
+        <h3 className="mb-1 text-base leading-snug font-semibold">{document.headline}</h3>
       )}
       {document.area_description && (
-        <p className="mb-2 text-sm text-slate-600">{document.area_description}</p>
+        <p className="mb-2 text-sm text-muted-foreground">{document.area_description}</p>
       )}
       {rows.map(([label, value]) => (
-        <p key={label} className="text-sm text-slate-700">
-          <span className="text-slate-500">{label}: </span>
+        <p key={label} className="text-sm text-body">
+          <span className="text-faint">{label}: </span>
           {value}
         </p>
       ))}
@@ -132,23 +139,23 @@ function Extras({ document }: { document: DraftDocument }) {
   return (
     <>
       {document.what_this_means && (
-        <section className="mb-4 rounded border border-slate-200 bg-slate-50 p-3">
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <section className="mb-4 rounded-md border border-border bg-sunken p-3.5">
+          <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             What this means
           </h4>
-          <p className="text-sm text-slate-800">{document.what_this_means}</p>
+          <p className="text-sm text-body">{document.what_this_means}</p>
         </section>
       )}
 
       {document.key_figures && document.key_figures.length > 0 && (
         <section className="mb-4">
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             Key figures
           </h4>
           <ul className="space-y-1">
             {document.key_figures.map((figure, i) => (
-              <li key={i} className="text-sm text-slate-800">
-                <span className="text-slate-500">{figure.label}: </span>
+              <li key={i} className="text-sm text-body">
+                <span className="text-faint">{figure.label}: </span>
                 <span className="font-medium">
                   {figure.value}
                   {figure.unit ? ` ${figure.unit}` : ""}
@@ -165,14 +172,14 @@ function Extras({ document }: { document: DraftDocument }) {
           the page and in anything copied or downloaded. */}
       {document.legal_basis && document.legal_basis.length > 0 && (
         <section className="mb-4">
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             Legal basis
           </h4>
           <ul className="space-y-1">
             {document.legal_basis.map((citation, i) => (
-              <li key={i} className="text-sm text-slate-800">
+              <li key={i} className="text-sm text-body">
                 <CitationLink citation={citation} />
-                <span className="ml-1 text-slate-600">{citation.proposition}</span>
+                <span className="ml-1 text-muted-foreground">{citation.proposition}</span>
               </li>
             ))}
           </ul>
@@ -181,12 +188,12 @@ function Extras({ document }: { document: DraftDocument }) {
 
       {document.what_you_can_do && document.what_you_can_do.length > 0 && (
         <section className="mb-4">
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             What you can do
           </h4>
           <ul className="list-disc space-y-1 pl-5">
             {document.what_you_can_do.map((step, i) => (
-              <li key={i} className="text-sm text-slate-800">
+              <li key={i} className="text-sm text-body">
                 {step}
               </li>
             ))}
@@ -195,12 +202,12 @@ function Extras({ document }: { document: DraftDocument }) {
       )}
 
       {document.requested_action && (
-        <p className="mb-4 text-sm font-medium text-slate-900">{document.requested_action}</p>
+        <p className="mb-4 text-sm font-medium text-foreground">{document.requested_action}</p>
       )}
 
       {document.relief_sought && (
-        <p className="mb-4 text-sm text-slate-800">
-          <span className="text-slate-500">Relief sought: </span>
+        <p className="mb-4 text-sm text-body">
+          <span className="text-faint">Relief sought: </span>
           {document.relief_sought}
         </p>
       )}
@@ -209,19 +216,19 @@ function Extras({ document }: { document: DraftDocument }) {
           the corpus for this reason, and a reader who takes a complaint to a
           court has been sent somewhere that will not hear it. */}
       {document.filing_note && (
-        <p className="mb-4 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+        <p className="mb-4 rounded-md border border-warn-border bg-warn-surface p-2.5 text-xs leading-relaxed text-warn-foreground">
           {document.filing_note}
         </p>
       )}
 
       {document.caveats && document.caveats.length > 0 && (
-        <section className="mb-4 rounded border border-amber-200 bg-amber-50 p-3">
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-800">
+        <section className="mb-4 rounded-md border border-warn-border bg-warn-surface p-3.5">
+          <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-warn-foreground uppercase">
             Caveats
           </h4>
           <ul className="list-disc space-y-1 pl-5">
             {document.caveats.map((caveat, i) => (
-              <li key={i} className="text-xs text-amber-900">
+              <li key={i} className="text-xs leading-relaxed text-warn-foreground">
                 {caveat}
               </li>
             ))}
@@ -274,9 +281,10 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
           renderDraftText repeats it at the top of anything that leaves here. */}
       <div
         role="note"
-        className="mb-4 rounded border-2 border-amber-400 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950"
+        className="mb-4 rounded-md border-2 border-warn-border-strong bg-warn-surface p-3.5
+                   text-xs leading-relaxed text-warn-foreground"
       >
-        <span className="font-bold uppercase tracking-wide">Draft for human review. </span>
+        <span className="font-bold tracking-[0.04em] uppercase">Draft for human review. </span>
         {document_.draft_notice.replace("DRAFT FOR HUMAN REVIEW. ", "")}
       </div>
 
@@ -284,11 +292,11 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
       <Extras document={document_} />
       <Paragraphs document={document_} />
 
-      <section className="mt-5 border-t border-slate-200 pt-3">
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <section className="mt-6 border-t border-border pt-3.5">
+        <h4 className="mb-2 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
           Citations ({citations.length})
         </h4>
-        <p className="mb-2 text-xs text-slate-500">
+        <p className="mb-2.5 text-xs leading-relaxed text-faint">
           Every one was checked against the EPA data and the statute corpus before this was
           shown. Follow them.
         </p>
@@ -296,7 +304,7 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
           {citations.map((citation, i) => (
             <li key={i} className="text-xs">
               <CitationLink citation={citation} />
-              <span className="ml-1 text-slate-600">{citation.proposition}</span>
+              <span className="ml-1 text-muted-foreground">{citation.proposition}</span>
             </li>
           ))}
         </ul>
@@ -304,29 +312,27 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
 
       {/* Copy and download. There is no send, publish or share-to-agency
           control here or anywhere else in this application. */}
-      <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
-        <button
-          onClick={copy}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-        >
+      <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-3.5">
+        <Button variant="outline" size="sm" onClick={copy}>
           {copied === "yes" ? "Copied" : "Copy"}
-        </button>
-        <button
-          onClick={download}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-        >
+        </Button>
+        <Button variant="outline" size="sm" onClick={download}>
           Download
-        </button>
+        </Button>
       </div>
 
       {copied === "failed" && (
-        <p role="status" className="mt-2 text-xs text-amber-800">
+        <p
+          role="status"
+          className="mt-2.5 rounded border border-warn-border bg-warn-surface px-2.5 py-1.5
+                     text-xs leading-relaxed text-warn-foreground"
+        >
           The browser would not let the page write to the clipboard. Select the draft above and
           copy it yourself, or use Download.
         </p>
       )}
 
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+      <p className="mt-4 text-[0.6875rem] leading-relaxed text-faint">
         Hexagon {stamped.h3} · confidence {stamped.confidence_band} · methodology{" "}
         {stamped.methodology_version} · corpus {stamped.corpus_version} · prompt{" "}
         {stamped.prompt_version} · {stamped.model}
@@ -338,22 +344,22 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
 
 function Refused({ refusal }: { refusal: Refusal }) {
   return (
-    <div role="status" className="rounded border border-slate-300 bg-slate-50 p-4">
-      <h4 className="mb-1 text-sm font-semibold text-slate-900">
+    <div role="status" className="rounded-md border border-border-strong bg-sunken p-4">
+      <h4 className="mb-1.5 text-sm font-semibold">
         No draft was written for this
       </h4>
-      <p className="text-sm text-slate-700">{refusal.explanation}</p>
+      <p className="text-sm leading-relaxed text-body">{refusal.explanation}</p>
       {refusal.missing.length > 0 && (
         <>
-          <p className="mt-2 text-xs text-slate-500">What was missing:</p>
-          <ul className="list-disc pl-5 text-xs text-slate-600">
+          <p className="mt-2.5 text-xs text-faint">What was missing:</p>
+          <ul className="list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">
             {refusal.missing.map((item, i) => (
               <li key={i}>{item}</li>
             ))}
           </ul>
         </>
       )}
-      <p className="mt-3 text-xs text-slate-500">
+      <p className="mt-3.5 text-xs leading-relaxed text-faint">
         This is the assistant declining rather than failing. It writes from a fixed set of
         statutes and this hexagon&apos;s data, and will not write a document it cannot support
         from them.
@@ -368,11 +374,11 @@ function Failed({ status, detail }: { status: number; detail: string }) {
   // from the status code.
   const tone =
     status === 409
-      ? "border-slate-300 bg-slate-50 text-slate-700"
-      : "border-amber-300 bg-amber-50 text-amber-900";
+      ? "border-border-strong bg-sunken text-body"
+      : "border-warn-border bg-warn-surface text-warn-foreground";
 
   return (
-    <div role="status" className={`rounded border p-4 text-sm ${tone}`}>
+    <div role="status" className={cn("rounded-md border p-4 text-sm leading-relaxed", tone)}>
       <p>{detail}</p>
     </div>
   );
@@ -434,9 +440,9 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
   );
 
   return (
-    <section className="border-t border-slate-200 px-5 py-4">
-      <h3 className="mb-1 text-sm font-semibold text-slate-900">Draft a document</h3>
-      <p className="mb-3 text-xs leading-relaxed text-slate-500">
+    <section className="border-t border-border bg-sunken px-5 py-5">
+      <h3 className="text-sm font-semibold">Draft a document</h3>
+      <p className="mt-1 mb-3.5 text-xs leading-relaxed text-muted-foreground">
         A first draft for you to check and rewrite, built from this hexagon&apos;s data and a
         fixed corpus of statutes. Never sent anywhere.
       </p>
@@ -446,13 +452,13 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
           their neighbourhood, which deserves a sentence rather than a disabled
           button with no reason on it. */}
       {insufficient ? (
-        <div role="status" className="rounded border border-slate-300 bg-slate-50 p-3">
-          <p className="text-sm text-slate-700">
+        <div role="status" className="rounded-md border border-border-strong bg-card p-3.5">
+          <p className="text-sm leading-relaxed text-body">
             There is not enough data behind this hexagon&apos;s score to stand behind a document
             built on it. Drafting from it would give you something that looks well supported and
             is not.
           </p>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2.5 text-xs leading-relaxed text-faint">
             The confidence breakdown above shows which inputs are missing. Nearby hexagons with
             better coverage can be drafted from.
           </p>
@@ -469,12 +475,14 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
                   onClick={() => generate(documentType)}
                   disabled={busy}
                   aria-busy={thisOne}
-                  className="rounded border border-slate-300 p-2 text-left hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                  className="rounded-md border border-input bg-card p-2.5 text-left
+                             transition-colors hover:border-foreground disabled:cursor-wait
+                             disabled:opacity-60"
                 >
-                  <span className="block text-sm font-medium text-slate-800">
+                  <span className="block text-sm font-medium text-foreground">
                     {DOCUMENT_TYPE_LABELS[documentType]}
                   </span>
-                  <span className="block text-xs text-slate-500">
+                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
                     {thisOne ? "Writing and checking every citation…" : DOCUMENT_TYPE_BLURBS[documentType]}
                   </span>
                 </button>
@@ -483,7 +491,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
           </div>
 
           {status.kind === "generating" && (
-            <p role="status" className="mt-3 text-xs text-slate-500">
+            <p role="status" className="mt-3.5 text-xs leading-relaxed text-faint">
               This takes a few seconds. The draft is written, then every citation in it is
               checked against the data and the statute corpus before you see it.
             </p>

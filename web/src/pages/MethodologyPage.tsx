@@ -1,5 +1,5 @@
 import { PageTitle, Point, Prose, Section } from "../components/Prose.tsx";
-import Link from "../components/Link.tsx";
+import { TextLink } from "../components/Link.tsx";
 
 /** How the score is built, and what it does and does not mean.
  *
@@ -113,13 +113,9 @@ export default function MethodologyPage() {
         <p>
           Five public sources: EPA compliance records, the Toxics Release Inventory,
           modeled air toxics exposure, measured air quality, and census demographics.{" "}
-          <Link
-            to="/provenance"
-            className="text-sky-800 underline focus-visible:outline-2
-                       focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-          >
+          <TextLink to="/provenance">
             The sources page
-          </Link>{" "}
+          </TextLink>{" "}
           shows when each was last pulled and what it does not cover.
         </p>
       </Section>
