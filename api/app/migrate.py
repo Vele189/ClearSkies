@@ -25,6 +25,7 @@ Usage::
     python -m app.migrate down --to 0007
     python -m app.migrate verify
     python -m app.migrate new add_facility_naics
+    python -m app.migrate forget 0028 0029
 """
 
 import argparse
@@ -270,6 +271,60 @@ async def up(
     return pending
 
 
+async def forget(
+    conn: Any, migrations: tuple[Migration, ...], versions: list[str]
+) -> list[tuple[str, str]]:
+    """Remove ledger rows for migrations whose files no longer exist.
+
+    This exists because of a situation the rest of this module cannot get out
+    of. `up` refuses to apply anything while `drift` reports a problem, and
+    "recorded as applied but its file is gone" is one of those problems. So a
+    ledger naming a migration nobody has the file for blocks every future
+    migration, including one written to clean up after it. The repair cannot be
+    a migration; it has to be an operation on the ledger itself.
+
+    It is deliberately not a general "edit the ledger" command.
+
+    **A version that still has a file is refused.** Forgetting one of those
+    would make the next `up` re-apply a migration that is already in the
+    database, which is how a ledger stops describing the schema. Reverting a
+    migration that exists is what `down` is for, and this is not a shortcut to
+    it.
+
+    **A version that is not in the ledger is refused too**, rather than passing
+    silently. Being asked to forget something already absent means the caller
+    believes something about this database that is not true, and the useful
+    response is to say so.
+
+    So the only thing it can do is the thing it is for: drop rows for versions
+    that are recorded, whose files are gone, leaving the schema untouched. The
+    effects of those lost migrations are a separate question, answered by a
+    normal forward migration -- see 0030 and docs/expansion.md section 2.2.
+    """
+    known = {m.version for m in migrations}
+    held = sorted(v for v in versions if v in known)
+    if held:
+        raise MigrationError(
+            "refusing to forget " + ", ".join(held) + ": each still has a file in "
+            "api/migrations, so the next `up` would re-apply it. Revert with `down`."
+        )
+
+    await _ensure_ledger(conn)
+    rows = await conn.fetch(
+        "SELECT version, slug FROM schema_migration WHERE version = ANY($1::text[]) "
+        "ORDER BY version",
+        versions,
+    )
+    missing = sorted(set(versions) - {row["version"] for row in rows})
+    if missing:
+        raise MigrationError(
+            "not recorded as applied: " + ", ".join(missing) + ". Nothing to forget."
+        )
+
+    await conn.execute("DELETE FROM schema_migration WHERE version = ANY($1::text[])", versions)
+    return [(row["version"], row["slug"]) for row in rows]
+
+
 async def down(
     conn: Any, migrations: tuple[Migration, ...], to: str | None = None
 ) -> list[Migration]:
@@ -383,6 +438,17 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"{len(applied)} migrations applied, every checksum matches")
         return 0
 
+    if args.command == "forget":
+        conn = await _connect(dsn)
+        try:
+            forgotten = await forget(conn, migrations, args.versions)
+        finally:
+            await conn.close()
+        for version, slug in forgotten:
+            print(f"  forgot {version}_{slug}")
+        print(f"{len(forgotten)} ledger row{'' if len(forgotten) == 1 else 's'} removed")
+        return 0
+
     conn = await _connect(dsn)
     try:
         if args.command == "up":
@@ -428,6 +494,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     new_parser = sub.add_parser("new", help="scaffold the next migration")
     new_parser.add_argument("slug", help="e.g. add_facility_naics")
+
+    forget_parser = sub.add_parser(
+        "forget", help="drop ledger rows for migrations whose files are gone"
+    )
+    forget_parser.add_argument("versions", nargs="+", help="e.g. 0028 0029")
 
     return parser.parse_args(argv)
 

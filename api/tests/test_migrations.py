@@ -18,6 +18,7 @@ from app.migrate import (
     discover,
     down,
     drift,
+    forget,
     migration_dsn,
     new,
     out_of_order,
@@ -84,8 +85,30 @@ def write(directory: Path, name: str, body: str = "SELECT 1;\n") -> Path:
 # ---- The set that ships -------------------------------------------------
 
 
+# Two numbers are spent and their files are gone.
+#
+# 0028 `tract_health` and 0029 `drop_low_value_indexes` were applied to
+# dev-seed on 2026-10-01 through the runner, from a working tree that was never
+# committed. They exist in no commit on any ref and in no dangling object. The
+# checksum is sha256 of the up file, so no reconstruction can be proved
+# identical; 0030 restates their effects from the live schema instead and
+# deletes their ledger rows. The numbers are not reused: `out_of_order()`
+# rejects a pending migration below the highest applied one, and a future
+# migration numbered 0028 would make this history unreadable.
+# docs/expansion.md section 2.2 is the record.
+#
+# The gap is named here rather than the check loosened. Exactly these two
+# numbers may be missing; a third gap is a third accident and still fails.
+SPENT_VERSIONS = ("0028", "0029")
+
+
 def test_shipped_migrations_are_numbered_from_one_without_gaps() -> None:
-    assert [m.version for m in SHIPPED] == [f"{n:04d}" for n in range(1, len(SHIPPED) + 1)]
+    expected = [
+        f"{n:04d}"
+        for n in range(1, len(SHIPPED) + len(SPENT_VERSIONS) + 1)
+        if f"{n:04d}" not in SPENT_VERSIONS
+    ]
+    assert [m.version for m in SHIPPED] == expected
 
 
 def test_every_shipped_migration_is_reversible() -> None:
@@ -291,7 +314,15 @@ class FakeConn:
         self.executed.append(query)
 
     async def fetch(self, query: str, *args: object) -> list[dict[str, str]]:
-        return [{"version": v, "checksum": c} for v, c in self.applied.items()]
+        rows = [{"version": v, "checksum": c, "slug": "thing"} for v, c in self.applied.items()]
+        # `forget` asks for specific versions with `version = ANY($1)`. Honouring
+        # that is what lets a test tell "removed the one row" from "removed
+        # everything"; a stub that ignores its arguments cannot show the
+        # difference, and the difference is the whole point of the command.
+        if args and isinstance(args[0], list):
+            wanted = set(args[0])
+            rows = [row for row in rows if row["version"] in wanted]
+        return rows
 
     def transaction(self) -> object:
         class Transaction:
@@ -410,3 +441,60 @@ def test_the_flag_beats_both_settings() -> None:
 def test_a_command_is_required() -> None:
     with pytest.raises(SystemExit):
         parse_args([])
+
+
+# ---- forget: the one way out of a ledger that blocks every migration ------
+
+
+async def test_a_ledger_naming_a_fileless_migration_blocks_every_migration(
+    tmp_path: Path,
+) -> None:
+    """The loop `forget` exists for.
+
+    `up` refuses while anything has drifted, and a migration recorded as
+    applied whose file is gone is drift. So the blockage cannot be cleared by
+    writing another migration: that one cannot be applied either.
+    """
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+    conn = FakeConn({"0001": migrations[0].checksum, "0002": "whatever"})
+
+    with pytest.raises(MigrationError, match="0002 is recorded as applied but its file is gone"):
+        await up(conn, migrations)
+    assert not any("INSERT INTO schema_migration" in q for q in conn.executed)
+
+
+async def test_forget_drops_the_ledger_row_for_a_migration_whose_file_is_gone(
+    tmp_path: Path,
+) -> None:
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+    conn = FakeConn({"0001": migrations[0].checksum, "0002": "whatever"})
+
+    assert await forget(conn, migrations, ["0002"]) == [("0002", "thing")]
+    assert any("DELETE FROM schema_migration" in q for q in conn.executed)
+
+
+async def test_forget_refuses_a_version_that_still_has_a_file(tmp_path: Path) -> None:
+    """Otherwise the next `up` re-applies a migration already in the database,
+    which is the ledger stopping describing the schema -- the thing it is for."""
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+    conn = FakeConn({"0001": migrations[0].checksum})
+
+    with pytest.raises(MigrationError, match="refusing to forget 0001"):
+        await forget(conn, migrations, ["0001"])
+    assert not any("DELETE" in q for q in conn.executed)
+
+
+async def test_forget_refuses_a_version_that_is_not_recorded(tmp_path: Path) -> None:
+    """Being asked to forget something already absent means the caller believes
+    something untrue about this database, and saying so is more use than
+    succeeding."""
+    pair(tmp_path, "0001")
+    migrations = discover(tmp_path)
+    conn = FakeConn({"0001": migrations[0].checksum})
+
+    with pytest.raises(MigrationError, match="not recorded as applied: 0099"):
+        await forget(conn, migrations, ["0099"])
+    assert not any("DELETE" in q for q in conn.executed)
