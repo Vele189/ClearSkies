@@ -88,8 +88,22 @@ def test_the_client_is_the_first_forwarded_hop_when_there_is_one() -> None:
 
 @pytest.fixture
 def limited(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """A deployment configured with a key and a limit of two drafts."""
+    """A deployment configured with a key, a limit of two drafts, and no database.
+
+    The database is pointed at nothing on purpose. These tests are about the
+    limiter and nothing else, and the assertions below read 503 for a request
+    that got past it -- which is only true while /draft cannot reach a database.
+    Inheriting DATABASE_URL from the environment made that depend on which Neon
+    branch the developer's .env happened to name: against an empty branch the
+    request failed and the test passed, and against a populated one it returned
+    a real draft and the test failed, having first spent money at the API.
+    A test that costs a different amount depending on whose machine it runs on
+    is not a test of the limiter.
+    """
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/nothing")
+    monkeypatch.setenv("DATABASE_URL_UNPOOLED", "")
+    monkeypatch.setenv("DB_CONNECT_TIMEOUT", "1")
     monkeypatch.setenv("DRAFT_RATE_LIMIT", "2")
     monkeypatch.setenv("DRAFT_RATE_WINDOW_S", "3600")
     get_settings.cache_clear()
