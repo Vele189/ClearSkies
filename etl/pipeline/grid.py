@@ -228,7 +228,8 @@ MEASURE = """
 SELECT
     count(*) FILTER (WHERE centroid_in_state)                      AS in_pilot,
     count(*) FILTER (WHERE NOT centroid_in_state)                  AS fringe,
-    COALESCE(SUM(ST_Area(boundary::geography)) FILTER (WHERE centroid_in_state), 0) / 1e6 AS area_km2,
+    COALESCE(SUM(ST_Area(boundary::geography))
+             FILTER (WHERE centroid_in_state), 0) / 1e6          AS area_km2,
     count(DISTINCT county_fips)                                 AS parishes
 FROM hex
 """
@@ -320,6 +321,77 @@ async def _export_unscored(connection: Connection) -> dict[str, Any]:
         "scored": False,
         "hexes": {row["h3"]: {"no_score_reason": UNSCORED_REASON} for row in rows},
     }
+
+
+SCORED_STATE = """
+    SELECT name FROM scored_state WHERE state_fips = $1
+"""
+
+DECLARED_STATES = """
+    SELECT state_fips, usps, name FROM scored_state ORDER BY state_fips
+"""
+
+
+async def scored_state_name(connection: Connection, *, state_fips: str) -> str | None:
+    """The declared name of a state, or None if it is not declared scored.
+
+    Returns None rather than raising when the table itself is absent, which is
+    a database older than migration 0031 rather than an undeclared state. The
+    caller decides whether that is fatal.
+    """
+    if not await connection.fetchval("SELECT to_regclass('public.scored_state') IS NOT NULL"):
+        return None
+    name: str | None = await connection.fetchval(SCORED_STATE, state_fips)
+    return name
+
+
+async def require_scored_state(connection: Connection, *, state_fips: str) -> str:
+    """Refuse to build a grid for a state nobody has declared scored.
+
+    Two reasons, and the second is the one that matters.
+
+    `hex.state_fips` references `scored_state` since migration 0031, so the
+    INSERT below would fail on the foreign key partway through a build that has
+    already computed every cell. A check up front costs one query and turns a
+    confusing mid-run constraint violation into a sentence naming the missing
+    row.
+
+    And declaring a state is not bookkeeping. `docs/validation/sites.yml` keys
+    its out-of-state sites on `activate_when: "scoring coverage includes <ST>"`,
+    so the row is what activates pre-registered validation targets that were
+    fixed before any score existed precisely so they could not be chosen
+    afterwards. That is a deliberate act. It should not be a side effect of
+    running a grid build, which is why this refuses rather than inserting the
+    row itself.
+    """
+    name = await scored_state_name(connection, state_fips=state_fips)
+    if name is not None:
+        return name
+
+    if not await connection.fetchval("SELECT to_regclass('public.scored_state') IS NOT NULL"):
+        raise SystemExit(
+            "this database has no scored_state table, so it predates migration "
+            "0031. Apply migrations before building a grid: "
+            "`python -m app.migrate up` from api/."
+        )
+
+    declared = await connection.fetch(DECLARED_STATES)
+    listed = (
+        ", ".join(f"{r['state_fips']} ({r['usps']}, {r['name']})" for r in declared)
+        if declared
+        else "none"
+    )
+    raise SystemExit(
+        f"state {state_fips} is not declared scored, so its cells have nowhere to "
+        f"belong: hex.state_fips references scored_state since migration 0031 and "
+        f"the build would fail on the foreign key after computing every cell.\n\n"
+        f"Declaring a state also activates its pre-registered validation sites "
+        f"(docs/validation/sites.yml, activate_when), so it is a deliberate act "
+        f"rather than something a grid build does on your behalf:\n\n"
+        f"    INSERT INTO scored_state (state_fips, usps, name)\n"
+        f"    VALUES ('{state_fips}', '??', '??');\n\n"
+        f"Declared: {listed}"
+    )
 
 
 async def assign_parishes(connection: Connection, *, state_fips: str = "22") -> int:

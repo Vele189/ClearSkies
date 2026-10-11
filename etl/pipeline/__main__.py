@@ -266,6 +266,8 @@ async def _grid(
         assign_parishes,
         build_grid,
         cells_for,
+        require_scored_state,
+        scored_state_name,
     )
 
     connection = _LazyConnection(database_url)
@@ -275,11 +277,21 @@ async def _grid(
         # rewrite every row that references it. This re-runs one idempotent
         # UPDATE instead.
         if names_only:
+            await require_scored_state(connection, state_fips=state_fips)
             changed = await assign_parishes(connection, state_fips=state_fips)
             print(f"{changed} cells given a parish and its name. Nothing else written.")
             return 0
 
         if dry_run:
+            # A dry run writes nothing, so an undeclared state is not fatal
+            # here -- but learning it now is better than learning it after the
+            # real build has computed every cell.
+            if await scored_state_name(connection, state_fips=state_fips) is None:
+                print(
+                    f"note: state {state_fips} is not declared scored; a real build "
+                    "would refuse. See scored_state.",
+                    file=sys.stderr,
+                )
             raw = await connection.fetchval(BOUNDARY, state_fips)
             if raw is None:
                 print(f"no census_tract rows for state {state_fips}", file=sys.stderr)
@@ -290,6 +302,9 @@ async def _grid(
                 f"{len(fringe)} adjacent before pruning. Nothing written."
             )
             return 0
+
+        name = await require_scored_state(connection, state_fips=state_fips)
+        print(f"building the grid for {name} ({state_fips})")
         report = await build_grid(connection, state_fips=state_fips)
     finally:
         await connection.close()

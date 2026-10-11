@@ -20,7 +20,9 @@ from pipeline.grid import (
     GridReport,
     build_grid,
     cells_for,
+    require_scored_state,
     rows_for,
+    scored_state_name,
 )
 
 # A square degree in the Gulf, well clear of any real coastline, so the counts
@@ -221,3 +223,82 @@ def test_report_arithmetic() -> None:
     report = GridReport(in_pilot=100, fringe=10, area_km2=79.0, parishes=64)
     assert report.total == 110
     assert report.mean_cell_km2 == pytest.approx(0.79)
+
+
+# ---- The grid will not build for a state nobody declared -----------------
+
+
+class StateLedger:
+    """Enough asyncpg to answer the two questions the guard asks.
+
+    `FakeConnection` above answers every `fetchval` with its boundary, which
+    cannot distinguish "is there a scored_state table" from "what is this
+    state called". The guard's whole job is telling those apart.
+    """
+
+    def __init__(
+        self, *, table: bool = True, declared: dict[str, tuple[str, str]] | None = None
+    ) -> None:
+        self.table = table
+        self.declared = declared or {}
+
+    async def fetchval(self, query: str, *args: Any) -> Any:
+        if "to_regclass" in query:
+            return self.table
+        if "FROM scored_state WHERE state_fips" in query:
+            entry = self.declared.get(str(args[0]))
+            return entry[1] if entry else None
+        raise AssertionError(f"unexpected query: {query}")
+
+    async def fetch(self, query: str, *args: Any) -> Any:
+        return [
+            {"state_fips": fips, "usps": usps, "name": name}
+            for fips, (usps, name) in sorted(self.declared.items())
+        ]
+
+
+LA_DECLARED = {"22": ("LA", "Louisiana")}
+
+
+async def test_a_declared_state_gives_its_name_back() -> None:
+    conn = StateLedger(declared=LA_DECLARED)
+    assert await require_scored_state(conn, state_fips="22") == "Louisiana"
+
+
+async def test_an_undeclared_state_refuses_before_computing_a_single_cell() -> None:
+    """hex.state_fips references scored_state since 0031, so the build would
+    fail on the foreign key after doing all the work. And declaring a state
+    activates its pre-registered validation sites, so the guard refuses rather
+    than inserting the row itself."""
+    conn = StateLedger(declared=LA_DECLARED)
+
+    with pytest.raises(SystemExit) as raised:
+        await require_scored_state(conn, state_fips="11")
+
+    message = str(raised.value)
+    assert "state 11 is not declared scored" in message
+    # It names what *is* declared, because the commonest cause is a typo in the
+    # FIPS code rather than a state nobody meant to add.
+    assert "22 (LA, Louisiana)" in message
+    # And it points at the validation consequence rather than only the key.
+    assert "activate_when" in message
+
+
+async def test_a_database_without_the_table_is_told_to_migrate() -> None:
+    """A missing table is a database older than 0031, which is a different
+    problem from an undeclared state and has a different fix."""
+    conn = StateLedger(table=False)
+
+    with pytest.raises(SystemExit, match="predates migration"):
+        await require_scored_state(conn, state_fips="22")
+
+
+async def test_the_soft_check_reports_rather_than_raising() -> None:
+    """`--dry-run` writes nothing, so it warns and carries on. Learning it then
+    is still better than learning it after a real build has computed every
+    cell."""
+    assert await scored_state_name(StateLedger(table=False), state_fips="22") is None
+    assert await scored_state_name(StateLedger(), state_fips="11") is None
+    assert (
+        await scored_state_name(StateLedger(declared=LA_DECLARED), state_fips="22") == "Louisiana"
+    )
