@@ -73,7 +73,7 @@ async def seed_hex(
     latitude, longitude = h3.cell_to_latlng(cell)
     await conn.execute(
         """
-        INSERT INTO hex (h3, resolution, centroid, boundary, state_fips, in_pilot_state)
+        INSERT INTO hex (h3, resolution, centroid, boundary, state_fips, centroid_in_state)
         VALUES ($1, 8, ST_SetSRID(ST_MakePoint($3, $2), 4326),
                 ST_GeomFromText($4, 4326), '22', true)
         -- Both anchors are real Louisiana locations, so on a database that has

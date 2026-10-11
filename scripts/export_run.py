@@ -77,7 +77,10 @@ SELECT s.h3::text        AS h3,
        s.confidence_band AS confidence_band,
        s.score IS NOT NULL  AS scored,
        s.no_score_reason AS no_score_reason,
-       NOT h.in_pilot_state AS outside_pilot_state
+       -- The column is centroid_in_state since 0031; the JSON key keeps its
+       -- name, because tiles/robustness-values.json carries it and
+       -- scripts/run_robustness.py reads it by that name.
+       NOT h.centroid_in_state AS outside_pilot_state
   FROM hex_score s
   JOIN hex h ON h.h3 = s.h3
   LEFT JOIN hex_demographics d ON d.run_id = s.run_id AND d.h3 = s.h3

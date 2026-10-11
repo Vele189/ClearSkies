@@ -201,7 +201,7 @@ def test_a_hex_across_the_state_line_says_so() -> None:
         population=population({"inside": 5.0}),
     ).by_h3()
 
-    assert result["texas"].no_score_reason == "outside_pilot_state"
+    assert result["texas"].no_score_reason == "outside_scored_states"
     assert result["texas"].score is None
 
 
@@ -264,7 +264,7 @@ def test_being_over_the_line_outranks_being_empty() -> None:
     # Mississippi.
     grid = eligible({"town": 900.0, "over_the_line": 0.0}, outside_pilot_state=["over_the_line"])
 
-    assert grid.reasons()["over_the_line"] == "outside_pilot_state"
+    assert grid.reasons()["over_the_line"] == "outside_scored_states"
 
 
 def test_all_four_reasons_are_reachable_in_one_run() -> None:
@@ -280,7 +280,7 @@ def test_all_four_reasons_are_reachable_in_one_run() -> None:
     )
 
     assert run.reasons() == {
-        "outside_pilot_state": 1,
+        "outside_scored_states": 1,
         "low_population": 1,
         "insufficient_pollution_data": 1,
         "insufficient_population_data": 1,
@@ -558,7 +558,7 @@ def test_a_run_from_populations_and_indicators_through_to_rows() -> None:
     assert run.scored_hexes() == 3
     assert run.distribution.n == 3
     assert by_h3["marsh"].no_score_reason == "low_population"
-    assert by_h3["texas"].no_score_reason == "outside_pilot_state"
+    assert by_h3["texas"].no_score_reason == "outside_scored_states"
     # The industrial cell is worst on both halves, so it takes the top score and
     # the top percentile of the three.
     assert by_h3["industrial"].score == pytest.approx(100.0)

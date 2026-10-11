@@ -55,7 +55,7 @@ CORE = """
            h.resolution,
            h.state_fips,
            h.parish_name,
-           h.in_pilot_state,
+           h.centroid_in_state,
            ST_X(h.centroid)  AS lon,
            ST_Y(h.centroid)  AS lat,
 

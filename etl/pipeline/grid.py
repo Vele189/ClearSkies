@@ -26,7 +26,7 @@ straddles the state line out of the grid entirely, and
 `pipeline.dasymetric.postgis` warns what that costs: the population of a block on
 the line lands in no hexagon and surfaces as `uncovered_blocks`. So the grid also
 holds the ring of cells that overlap the state without being centred in it, and
-`in_pilot_state` is what tells them apart. CS-201 filters on that flag when it
+`centroid_in_state` is what tells them apart. CS-201 filters on that flag when it
 computes percentiles; the interpolation does not, and neither does a proximity
 query. A column that were always true would make both the flag and its partial
 index pointless.
@@ -181,14 +181,14 @@ def rows_for(
 # is what makes a rebuild idempotent: CS-007 asks that re-running not duplicate
 # rows, and a grid is a fixed set that should converge rather than accumulate.
 INSERT = """
-INSERT INTO hex (h3, resolution, centroid, boundary, state_fips, in_pilot_state)
+INSERT INTO hex (h3, resolution, centroid, boundary, state_fips, centroid_in_state)
 VALUES ($1::h3_cell, $2, ST_GeomFromEWKT($3), ST_GeomFromEWKT($4), $5, $6)
 ON CONFLICT (h3) DO UPDATE SET
     resolution     = EXCLUDED.resolution,
     centroid       = EXCLUDED.centroid,
     boundary       = EXCLUDED.boundary,
     state_fips     = EXCLUDED.state_fips,
-    in_pilot_state = EXCLUDED.in_pilot_state
+    centroid_in_state = EXCLUDED.centroid_in_state
 """
 
 # The fringe was dilated blindly, so most of it is a ring of cells that never
@@ -196,7 +196,7 @@ ON CONFLICT (h3) DO UPDATE SET
 # which the GiST index on census_tract.geom answers cheaply.
 PRUNE = """
 DELETE FROM hex h
-WHERE NOT h.in_pilot_state
+WHERE NOT h.centroid_in_state
   AND NOT EXISTS (
       SELECT 1 FROM census_tract t
       WHERE t.state_fips = $1 AND ST_Intersects(t.geom, h.boundary)
@@ -226,9 +226,9 @@ WHERE ST_Contains(t.geom, h.centroid)
 
 MEASURE = """
 SELECT
-    count(*) FILTER (WHERE in_pilot_state)                      AS in_pilot,
-    count(*) FILTER (WHERE NOT in_pilot_state)                  AS fringe,
-    COALESCE(SUM(ST_Area(boundary::geography)) FILTER (WHERE in_pilot_state), 0) / 1e6 AS area_km2,
+    count(*) FILTER (WHERE centroid_in_state)                      AS in_pilot,
+    count(*) FILTER (WHERE NOT centroid_in_state)                  AS fringe,
+    COALESCE(SUM(ST_Area(boundary::geography)) FILTER (WHERE centroid_in_state), 0) / 1e6 AS area_km2,
     count(DISTINCT county_fips)                                 AS parishes
 FROM hex
 """
@@ -242,7 +242,7 @@ UNSCORED_REASON = "pipeline_not_run"
 EXPORT = """
 SELECT h3::text AS h3
 FROM hex
-WHERE in_pilot_state
+WHERE centroid_in_state
 ORDER BY h3
 """
 
@@ -260,7 +260,7 @@ SELECT h.h3::text        AS h3,
        s.no_score_reason AS no_score_reason
   FROM hex h
   JOIN hex_score s ON s.h3 = h.h3
- WHERE h.in_pilot_state
+ WHERE h.centroid_in_state
    AND s.run_id = (SELECT run_id FROM pipeline_run WHERE is_current)
  ORDER BY h.h3
 """

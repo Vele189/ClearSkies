@@ -27,7 +27,7 @@ through, ranked over the hexes that actually got a score, so a hex the run could
 not score is in no denominator here either.
 
 **Four reasons a hex has no score, and one column to hold them.** Section 5
-supplies two before anything is computed: `outside_pilot_state` for a cell whose
+supplies two before anything is computed: `outside_scored_states` for a cell whose
 centroid is over the line, `low_population` for one with fewer than 25
 residents. The components supply the other two when a hex is in scope and
 populated but too thinly described: `insufficient_pollution_data` and

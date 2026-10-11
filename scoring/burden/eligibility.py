@@ -35,7 +35,7 @@ in hand.
 land area plus coastal water out to the boundary, and a hex straddling the line
 is included only if its centroid falls inside. That test is geometry and is done
 upstream, where PostGIS and the grid cover are; what arrives here is the list of
-hexes that failed it, and they leave with `outside_pilot_state`. The reason wins
+hexes that failed it, and they leave with `outside_scored_states`. The reason wins
 over `low_population` when both would apply, because a cell in Mississippi is
 not a Louisiana cell that happens to be empty, and calling it one would invite
 the question of why the pilot is scoring Mississippi at all.
@@ -61,7 +61,7 @@ NoScoreReason = Literal[
     "low_population",
     "insufficient_pollution_data",
     "insufficient_population_data",
-    "outside_pilot_state",
+    "outside_scored_states",
 ]
 
 
@@ -116,7 +116,7 @@ def eligible(
         # across the state line is out of scope whatever its population says,
         # and a bad estimate there is not this run's problem to report.
         if h3 in outside:
-            excluded.append(ExcludedHex(h3=h3, reason="outside_pilot_state", population=people))
+            excluded.append(ExcludedHex(h3=h3, reason="outside_scored_states", population=people))
             continue
 
         if people is not None and not math.isfinite(people):

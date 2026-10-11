@@ -18,7 +18,7 @@ NoScoreReason = Literal[
     "low_population",
     "insufficient_pollution_data",
     "insufficient_population_data",
-    "outside_pilot_state",
+    "outside_scored_states",
 ]
 
 

@@ -80,7 +80,7 @@ async def seed_hex(conn: asyncpg.Connection, anchor: tuple[float, float]) -> str
     await conn.execute(
         """
         INSERT INTO hex (h3, resolution, centroid, boundary, state_fips, county_fips,
-                         parish_name, in_pilot_state, land_fraction)
+                         parish_name, centroid_in_state, land_fraction)
         VALUES ($1, 8, ST_SetSRID(ST_MakePoint($3, $2), 4326),
                 ST_GeomFromText($4, 4326), '22', '033', 'East Baton Rouge', true, 0.98)
         ON CONFLICT (h3) DO UPDATE
@@ -94,7 +94,7 @@ async def seed_hex(conn: asyncpg.Connection, anchor: tuple[float, float]) -> str
                 state_fips = EXCLUDED.state_fips,
                 county_fips = EXCLUDED.county_fips,
                 parish_name = EXCLUDED.parish_name,
-                in_pilot_state = EXCLUDED.in_pilot_state,
+                centroid_in_state = EXCLUDED.centroid_in_state,
                 land_fraction = EXCLUDED.land_fraction
         """,
         cell,
