@@ -17,13 +17,20 @@ cd "$(dirname "$0")"
 PORT="${PORT:-8000}"
 PY=.venv/bin/python
 
+# Create the virtualenv rather than telling somebody to. This script runs from
+# two places -- api/ in the monorepo and the root of the clearskies-api deploy
+# repository -- and `make install` only exists in the first of them, so an
+# instruction naming it is wrong half the time. `cd` above put us next to
+# pyproject.toml either way, which is all the install needs.
 if [[ ! -x "$PY" ]]; then
-    echo "no virtualenv at api/.venv. Run \`make install\` from the repository root." >&2
-    exit 1
+    echo "no virtualenv here; creating one (this takes a minute)..."
+    python3 -m venv .venv
+    .venv/bin/pip install -q --upgrade pip
+    .venv/bin/pip install -q -e ".[dev]"
 fi
 
 if [[ ! -e .env ]]; then
-    echo "no api/.env. Copy .env.example and set DATABASE_URL." >&2
+    echo "no .env in $(pwd). Copy .env.example and set DATABASE_URL." >&2
     exit 1
 fi
 
@@ -85,7 +92,7 @@ if grep -q "^  pending " <<<"$status"; then
     echo "refusing to start: the schema is behind this code." >&2
     grep "^  pending \|^  drift " <<<"$status" >&2
     echo >&2
-    echo "  $PY -m app.migrate up" >&2
+    echo "  $PY -m app.migrate up   (from $(pwd))" >&2
     exit 1
 elif grep -q "^  drift " <<<"$status"; then
     echo >&2

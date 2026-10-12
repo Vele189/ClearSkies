@@ -27,7 +27,7 @@ fi
 api="$(grep -E '^VITE_API_BASE_URL=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'" )"
 api="${api:-http://localhost:8000}"
 if ! curl -fsS -o /dev/null --max-time 3 "${api}/health" 2>/dev/null; then
-    echo "warning: no API answering at ${api}. Start it with api/start." >&2
+    echo "warning: no API answering at ${api}. Start it with api/start.sh." >&2
 fi
 
 echo "frontend on http://localhost:${PORT}  (use localhost, not 127.0.0.1)"

@@ -333,11 +333,11 @@ install: $(VENV) $(ETL_VENV) $(SCORING_VENV) $(ASSISTANT_VENV) ## Install Python
 
 .PHONY: api
 api: $(VENV) ## Run the API on :8000, docs at /docs
-	./$(API)/start
+	./$(API)/start.sh
 
 .PHONY: web
 web: ## Run the Vite dev server on :5173
-	./$(WEB)/start
+	./$(WEB)/start.sh
 
 # ---- Containers and the deploy repositories ----------------------------
 #
