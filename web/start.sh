@@ -30,5 +30,22 @@ if ! curl -fsS -o /dev/null --max-time 3 "${api}/health" 2>/dev/null; then
     echo "warning: no API answering at ${api}. Start it with api/start.sh." >&2
 fi
 
+# --strictPort, and a check before it.
+#
+# Vite's default is to take the next free port when the one it was asked for is
+# busy, and to say so only in its own banner. A second dev server therefore
+# comes up on 5174 looking healthy, while the API's CORS_ORIGINS names 5173 and
+# nothing else -- so every request from it is blocked and the page reports "the
+# API is not reachable", which is true and points at entirely the wrong thing.
+# Better to refuse the port than to serve a page that cannot reach anything.
+if curl -fsS -o /dev/null --max-time 2 "http://localhost:${PORT}/" 2>/dev/null; then
+    echo "something is already serving http://localhost:${PORT}." >&2
+    echo "  Stop it first: pkill -f 'vite --port ${PORT}'" >&2
+    echo "  A second server would take the next free port, which the API's" >&2
+    echo "  CORS_ORIGINS does not name, and the page would report the API" >&2
+    echo "  unreachable while the API is fine." >&2
+    exit 1
+fi
+
 echo "frontend on http://localhost:${PORT}  (use localhost, not 127.0.0.1)"
-exec npm run dev -- --port "$PORT"
+exec npm run dev -- --port "$PORT" --strictPort
