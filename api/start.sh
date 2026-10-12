@@ -22,11 +22,25 @@ PY=.venv/bin/python
 # repository -- and `make install` only exists in the first of them, so an
 # instruction naming it is wrong half the time. `cd` above put us next to
 # pyproject.toml either way, which is all the install needs.
+# uv first, and not only because it is faster. `python3 -m venv` needs
+# ensurepip, which Debian and Ubuntu package separately as python3-venv; where
+# that is not installed the stdlib route fails with an apt command the person
+# running this may not be able to run. uv carries its own and needs neither.
 if [[ ! -x "$PY" ]]; then
-    echo "no virtualenv here; creating one (this takes a minute)..."
-    python3 -m venv .venv
-    .venv/bin/pip install -q --upgrade pip
-    .venv/bin/pip install -q -e ".[dev]"
+    echo "no virtualenv here; creating one..."
+    if command -v uv >/dev/null 2>&1; then
+        uv venv .venv >/dev/null
+        uv pip install --python .venv/bin/python -q -e ".[dev]"
+    elif python3 -m venv .venv 2>/dev/null; then
+        .venv/bin/pip install -q -e ".[dev]"
+    else
+        rm -rf .venv
+        echo "cannot create a virtualenv in $(pwd)." >&2
+        echo "  python3 -m venv needs ensurepip, which Debian ships as python3-venv." >&2
+        echo "  Either install that, or install uv, which needs neither:" >&2
+        echo "    curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
+        exit 1
+    fi
 fi
 
 if [[ ! -e .env ]]; then
