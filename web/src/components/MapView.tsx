@@ -6,7 +6,7 @@ import {
   removeProtocol,
 } from "maplibre-gl";
 import type { MapLayerMouseEvent } from "maplibre-gl";
-import { Protocol } from "pmtiles";
+import { PMTiles, Protocol } from "pmtiles";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Place } from "../lib/geocode.ts";
@@ -23,9 +23,18 @@ import SearchBox from "./SearchBox.tsx";
 
 const DEFAULT_BASEMAP = "https://tiles.openfreemap.org/styles/positron";
 
-// Louisiana, roughly. Phase 2 fits these to the scored extent instead.
+// Where the map opens before it knows what it is showing.
+//
+// Louisiana, roughly, and only until the archive's own header says otherwise:
+// the view is fitted to the scored extent below. These two remain because a
+// deployment with no archive configured still has to put the camera somewhere,
+// and a reader who sees the pilot state while the banner explains that no tiles
+// are loaded is better served than one looking at the middle of the ocean.
 const CENTER: [number, number] = [-91.5, 30.6];
 const ZOOM = 6.6;
+
+//: Breathing room around the scored extent, in pixels.
+const FIT_PADDING = 48;
 
 const SOURCE_ID = "clearskies-hexes";
 const FILL_LAYER_ID = "clearskies-hex-fill";
@@ -132,7 +141,38 @@ export default function MapView({ onSelect }: Props) {
       const hatch = hatchImage();
       if (!map.hasImage(HATCH_IMAGE_ID)) map.addImage(HATCH_IMAGE_ID, hatch);
 
+      // One PMTiles instance, shared with the protocol, so reading the header
+      // does not open the archive a second time.
+      const archive = new PMTiles(tilesUrl);
+      protocol.add(archive);
       map.addSource(SOURCE_ID, { type: "vector", url: `pmtiles://${tilesUrl}` });
+
+      // Frame what is actually scored, rather than the state this started as.
+      //
+      // The bounds come from the archive's header, which is metadata rather
+      // than data: it is exact, it costs no tile reads, and it is right the
+      // first time a second state is added without anybody editing a constant.
+      // Two distant states fit to a view holding both, which is honest about
+      // the coverage even though most of what it shows is between them.
+      //
+      // A header that will not load is not worth failing the map over. The
+      // camera stays where it opened and the tile-failure notice, which is
+      // driven by the source rather than by this, says what went wrong.
+      void archive
+        .getHeader()
+        .then((header) => {
+          if (map.getContainer() === null) return;
+          map.fitBounds(
+            [
+              [header.minLon, header.minLat],
+              [header.maxLon, header.maxLat],
+            ],
+            { padding: FIT_PADDING, duration: 0 },
+          );
+        })
+        .catch(() => {
+          /* keep CENTER/ZOOM; the notice below reports the archive itself */
+        });
 
       map.addLayer({
         id: FILL_LAYER_ID,

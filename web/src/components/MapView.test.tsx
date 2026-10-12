@@ -14,6 +14,8 @@ class FakeMap {
   listeners = new Map<string, { fn: Listener; layer?: string; once: boolean }[]>();
   layers = new Set<string>();
   tilesLoaded = true;
+  fits: { bounds: unknown; options: unknown }[] = [];
+  container: HTMLElement | null = document.createElement("div");
   rendered: { properties: Record<string, unknown> }[] = [];
   flights: unknown[] = [];
   queried: unknown[] = [];
@@ -87,6 +89,12 @@ class FakeMap {
   flyTo(options: unknown) {
     this.flights.push(options);
   }
+  fitBounds(bounds: unknown, options: unknown) {
+    this.fits.push({ bounds, options });
+  }
+  getContainer() {
+    return this.container;
+  }
 }
 
 vi.mock("maplibre-gl", () => ({
@@ -99,9 +107,16 @@ vi.mock("maplibre-gl", () => ({
   removeProtocol: vi.fn(),
 }));
 
+//: Louisiana's bounds, as the real archive's header carries them.
+const ARCHIVE_BOUNDS = { minLon: -94.14, minLat: 28.83, maxLon: -88.73, maxLat: 33.1 };
+
 vi.mock("pmtiles", () => ({
-  Protocol: vi.fn(function (this: { tile: unknown }) {
+  Protocol: vi.fn(function (this: { tile: unknown; add: unknown }) {
     this.tile = vi.fn();
+    this.add = vi.fn();
+  }),
+  PMTiles: vi.fn(function (this: { getHeader: unknown }) {
+    this.getHeader = vi.fn(() => Promise.resolve(ARCHIVE_BOUNDS));
   }),
 }));
 
@@ -151,6 +166,24 @@ describe("MapView", () => {
   it("is a named region a screen reader can land on", () => {
     loadedMap();
     expect(screen.getByRole("region", { name: "Burden score map" })).toBeInTheDocument();
+  });
+
+  it("frames what is scored rather than the state it started as", async () => {
+    // The camera used to open on two constants holding Louisiana, with a
+    // comment saying a later phase would fit them to the scored extent. Once a
+    // second state was loaded the map opened over the pilot state and a reader
+    // could not see that anywhere else had been scored at all.
+    //
+    // The bounds come from the archive's own header, which is metadata rather
+    // than data: exact, free of tile reads, and right the first time a state is
+    // added without anybody editing a number here.
+    const { map } = loadedMap();
+    await vi.waitFor(() => expect(map.fits).toHaveLength(1));
+
+    expect(map.fits[0].bounds).toEqual([
+      [ARCHIVE_BOUNDS.minLon, ARCHIVE_BOUNDS.minLat],
+      [ARCHIVE_BOUNDS.maxLon, ARCHIVE_BOUNDS.maxLat],
+    ]);
   });
 
   it("selects the hexagon a reader clicks", () => {
