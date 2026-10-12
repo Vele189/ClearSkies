@@ -723,10 +723,16 @@ async def score_run(
     # its centroid is inside that state's line -- section 6 builds the grid over
     # the state plus an interaction-radius buffer, and `centroid_in_state` is
     # the other flag.
-    state_of = {
-        row["h3"]: row["state_fips"]
-        for row in await conn.fetch("SELECT h3::text AS h3, state_fips FROM hex ORDER BY h3")
-    }
+    grid_rows = await conn.fetch(
+        "SELECT h3::text AS h3, state_fips, centroid_in_state FROM hex ORDER BY h3"
+    )
+    state_of = {row["h3"]: row["state_fips"] for row in grid_rows}
+    # Section 6 ranks only the cells whose centroid is inside their state. The
+    # rest are the interaction-radius buffer: they exist so a facility across
+    # the line can reach a cell that is inside, and they are not places this
+    # project ranks. Omitting this put 26 cells centred in Maryland and
+    # Virginia inside the District's denominator.
+    centroid_in_state = {row["h3"]: row["centroid_in_state"] for row in grid_rows}
     cover = {h3: population.get(h3) for h3 in sorted(state_of)}
 
     # The grid-wide eligibility, used for two things that are not per state:
@@ -792,12 +798,18 @@ async def score_run(
     # rescale of section 10 step 3 and the score's own percentile are all ranked
     # within a state; `burden.states` is the loop and the reasoning.
     state_runs = score_by_state(
-        cover=cover, state_of=state_of, values=values, confidence=confidence
+        cover=cover,
+        state_of=state_of,
+        centroid_in_state=centroid_in_state,
+        values=values,
+        confidence=confidence,
     )
     for state_run in state_runs:
         ranked = len([row for row in state_run.run.hexes if row.score is not None])
+        buffer = len([h3 for h3 in state_run.run.by_h3() if not centroid_in_state[h3]])
         print(
-            f"  state {state_run.state_fips}: {len(state_run.run.hexes)} hexes, "
+            f"  state {state_run.state_fips}: {len(state_run.run.hexes)} hexes "
+            f"({buffer} in the buffer, outside the denominator), "
             f"{ranked} ranked against each other"
         )
 
@@ -825,7 +837,15 @@ async def score_run(
                 await _write_distributions(
                     conn, run_id, state_run.state_fips, state_run.rankings, vintages
                 )
-        await conn.execute(CLOSE_RUN, run_id, "succeeded", len(scored))
+        # The number actually ranked, summed over the states, not the size of
+        # the grid-wide eligible set. The two parted company when section 6's
+        # buffer stopped being ranked: `scored` still counts a cell that met
+        # section 5's population threshold while sitting outside the state, and
+        # run 81 recorded 20,129 against 20,103 truly ranked.
+        ranked_total = sum(
+            1 for state_run in state_runs for row in state_run.run.hexes if row.score is not None
+        )
+        await conn.execute(CLOSE_RUN, run_id, "succeeded", ranked_total)
         if promote:
             async with conn.transaction():
                 await conn.execute(DEMOTE_RUNS)

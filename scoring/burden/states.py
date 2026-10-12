@@ -27,6 +27,22 @@ because its divisor is "the highest value anywhere in the state" -- a single
 rather than the results being merged. And the score's own percentile, ranked
 through the same machinery in `burden_score`.
 
+**A state's denominator is the cells inside it.** Section 6 builds the grid
+over a state's area plus an interaction-radius buffer and says the quiet part
+outright: "Hexes intersecting the state line are included if their centroid
+falls inside Louisiana; percentiles are computed over included hexes only." The
+buffer cells exist so a facility across the line can still reach a cell that is
+inside; they are not themselves places this project ranks.
+
+That has to be passed in, and it is a required argument rather than an optional
+one. Louisiana hid the omission for months: its buffer cells receive no
+interpolated population, because population arrives through census blocks and
+blocks stop at the state line, so every one of them fell below section 5's
+twenty-five residents and was excluded for being empty rather than for being
+outside. The District is small and dense enough that its boundary blocks
+straddle into the buffer, and 26 cells centred in Maryland and Virginia were
+ranked inside the District's denominator before this argument existed.
+
 **Confidence is not per state.** Section 12's four terms are coverage, recency,
 spatial support and monitor distance. None of them is a rank, so none of them
 changes with who else is in the denominator, and computing them once over the
@@ -67,6 +83,7 @@ def score_by_state(
     *,
     cover: Mapping[str, float | None],
     state_of: Mapping[str, str],
+    centroid_in_state: Mapping[str, bool],
     values: Mapping[str, Mapping[str, float | None]],
     confidence: Mapping[str, HexConfidence] | None = None,
 ) -> tuple[StateRun, ...]:
@@ -79,11 +96,15 @@ def score_by_state(
     6 builds the grid over the state plus an interaction-radius buffer, and
     `hex.centroid_in_state` is the other question.
 
-    A hex in `cover` with no entry in `state_of` is an error rather than a hex
-    quietly dropped from every denominator. Being unable to say which state a
-    cell is ranked in is being unable to rank it, and a run that silently
-    omitted it would produce percentiles over a denominator smaller than the
-    grid it reported.
+    `centroid_in_state` is `hex.centroid_in_state`: whether each cell's centre
+    falls inside the state whose grid it belongs to. Cells where it is false
+    leave with `outside_scored_states` and are in no state's denominator.
+
+    A hex in `cover` with no entry in `state_of` or `centroid_in_state` is an
+    error rather than a hex quietly dropped from every denominator. Being unable
+    to say which state a cell is ranked in is being unable to rank it, and a run
+    that silently omitted it would produce percentiles over a denominator
+    smaller than the grid it reported.
 
     A state whose hexes are all excluded by section 5 still comes back, with a
     run holding its exclusions and no scored rows. The grid has to account for
@@ -91,6 +112,16 @@ def score_by_state(
     did not score, and the map draws them -- so dropping such a state here
     would lose rows rather than save work.
     """
+    unplaced = sorted(h3 for h3 in cover if h3 not in centroid_in_state)
+    if unplaced:
+        shown = ", ".join(unplaced[:5])
+        more = f" and {len(unplaced) - 5} more" if len(unplaced) > 5 else ""
+        raise ValueError(
+            f"{len(unplaced)} hexes do not say whether their centroid is inside "
+            f"their state: {shown}{more}. Section 6 ranks only the cells that are, "
+            "so a missing flag is a cell that would be ranked or dropped by accident."
+        )
+
     orphans = sorted(h3 for h3 in cover if h3 not in state_of)
     if orphans:
         shown = ", ".join(orphans[:5])
@@ -103,7 +134,11 @@ def score_by_state(
     runs: list[StateRun] = []
     for state_fips in sorted({state_of[h3] for h3 in cover}):
         members = {h3: people for h3, people in cover.items() if state_of[h3] == state_fips}
-        eligibility = eligible(members)
+        # The buffer. `eligible` keeps the argument's old name because it
+        # mirrors the run-JSON key `run_robustness.py` reads; the reason it
+        # writes is `outside_scored_states`.
+        outside = [h3 for h3 in members if not centroid_in_state[h3]]
+        eligibility = eligible(members, outside_pilot_state=outside)
         scored = eligibility.scored
 
         rankings = rank_indicators(values, scored=scored)

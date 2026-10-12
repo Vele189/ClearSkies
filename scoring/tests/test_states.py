@@ -52,6 +52,11 @@ def values_for(levels: Mapping[str, float]) -> dict[str, dict[str, float | None]
     return {indicator: dict(levels) for indicator in INDICATORS}
 
 
+def all_inside(levels: Mapping[str, float]) -> dict[str, bool]:
+    """Every hex centred in its own state, which is the ordinary case."""
+    return dict.fromkeys(levels, True)
+
+
 def unpartitioned(levels: Mapping[str, float]):
     """The run as it was computed before 0031: one universe, one denominator."""
     cover = {h3: POPULATION for h3 in levels}
@@ -90,6 +95,7 @@ def test_one_state_reproduces_the_unpartitioned_run_exactly() -> None:
     after = score_by_state(
         cover=cover,
         state_of=dict.fromkeys(levels, "22"),
+        centroid_in_state=all_inside(levels),
         values=values_for(levels),
     )
 
@@ -102,6 +108,7 @@ def test_one_state_keeps_the_distributions_it_was_ranked_against() -> None:
     levels = {"a": 1.0, "b": 2.0, "c": 3.0}
     after = score_by_state(
         cover={h3: POPULATION for h3 in levels},
+        centroid_in_state=all_inside(levels),
         state_of=dict.fromkeys(levels, "22"),
         values=values_for(levels),
     )
@@ -131,6 +138,7 @@ def test_each_state_is_ranked_against_itself_and_not_the_other() -> None:
         run.state_fips: run
         for run in score_by_state(
             cover={h3: POPULATION for h3 in levels},
+            centroid_in_state=all_inside(levels),
             state_of=state_of,
             values=values_for(levels),
         )
@@ -167,6 +175,7 @@ def test_a_state_is_rescaled_against_its_own_maximum() -> None:
         run.state_fips: run
         for run in score_by_state(
             cover={h3: POPULATION for h3 in levels},
+            centroid_in_state=all_inside(levels),
             state_of={**dict.fromkeys(la, "22"), **dict.fromkeys(wv, "54")},
             values=values_for(levels),
         )
@@ -182,6 +191,7 @@ def test_states_come_back_in_state_fips_order() -> None:
     levels = {"b": 1.0, "a": 2.0}
     runs = score_by_state(
         cover={h3: POPULATION for h3 in levels},
+        centroid_in_state=all_inside(levels),
         state_of={"b": "54", "a": "22"},
         values=values_for(levels),
     )
@@ -198,6 +208,7 @@ def test_a_hex_with_no_state_is_an_error_rather_than_a_dropped_row() -> None:
     with pytest.raises(ValueError, match="no state to be ranked in"):
         score_by_state(
             cover={h3: POPULATION for h3 in levels},
+            centroid_in_state=all_inside(levels),
             state_of={"placed": "22"},
             values=values_for(levels),
         )
@@ -212,6 +223,7 @@ def test_a_state_with_nothing_scored_still_accounts_for_its_hexes() -> None:
         for run in score_by_state(
             cover={"la": POPULATION, "empty_1": 0.0, "empty_2": 1.0},
             state_of={"la": "22", "empty_1": "54", "empty_2": "54"},
+            centroid_in_state={"la": True, "empty_1": True, "empty_2": True},
             values=values_for({"la": 1.0, "empty_1": 2.0, "empty_2": 3.0}),
         )
     }
@@ -221,3 +233,62 @@ def test_a_state_with_nothing_scored_still_accounts_for_its_hexes() -> None:
     assert [h.h3 for h in wv.hexes] == ["empty_1", "empty_2"]
     assert all(h.score is None for h in wv.hexes)
     assert all(h.no_score_reason == "low_population" for h in wv.hexes)
+
+
+# ---- The buffer is not part of any state's denominator ------------------
+
+
+def test_a_buffer_cell_is_not_ranked_even_when_it_has_people() -> None:
+    """Section 6: "percentiles are computed over included hexes only".
+
+    The buffer exists so a facility across the line can reach a cell that is
+    inside. Louisiana hid the omission because its buffer cells receive no
+    interpolated population at all -- population arrives through census blocks,
+    which stop at the line -- so they were excluded for being empty rather than
+    for being outside. The District's boundary blocks straddle into the buffer,
+    and 26 cells centred in Maryland and Virginia were ranked inside the
+    District's denominator before this was passed in.
+    """
+    levels = {"in_1": 1.0, "in_2": 2.0, "in_3": 3.0, "over_the_line": 4.0}
+    runs = score_by_state(
+        cover={h3: POPULATION for h3 in levels},
+        state_of=dict.fromkeys(levels, "11"),
+        centroid_in_state={"in_1": True, "in_2": True, "in_3": True, "over_the_line": False},
+        values=values_for(levels),
+    )
+
+    assert len(runs) == 1
+    rows = runs[0].run.by_h3()
+
+    # Ranked against three, not four.
+    assert runs[0].rankings["E1"].distribution.n == 3
+    assert rows["over_the_line"].score is None
+    assert rows["over_the_line"].no_score_reason == "outside_scored_states"
+
+    # And the cell with the highest value inside is the top of the state,
+    # rather than second to a cell that is not in it.
+    inside = {h3: row.percentile for h3, row in rows.items() if row.percentile is not None}
+    assert max(inside, key=lambda h3: inside[h3]) == "in_3"
+
+
+def test_a_buffer_cell_still_gets_a_row_saying_why() -> None:
+    """It is in the grid, so hex_score has to account for it. The map draws it
+    as not scored rather than leaving a hole."""
+    levels = {"inside": 1.0, "outside": 2.0}
+    runs = score_by_state(
+        cover={h3: POPULATION for h3 in levels},
+        state_of=dict.fromkeys(levels, "11"),
+        centroid_in_state={"inside": True, "outside": False},
+        values=values_for(levels),
+    )
+    assert sorted(h.h3 for h in runs[0].run.hexes) == ["inside", "outside"]
+
+
+def test_a_hex_with_no_centroid_flag_is_an_error() -> None:
+    with pytest.raises(ValueError, match="whether their centroid is inside"):
+        score_by_state(
+            cover={"a": POPULATION, "b": POPULATION},
+            state_of={"a": "11", "b": "11"},
+            centroid_in_state={"a": True},
+            values=values_for({"a": 1.0, "b": 2.0}),
+        )

@@ -182,6 +182,82 @@ has been published.
 
 ---
 
+### 2.5 The invariant section 2.4 missed
+
+Section 2.4's test passes, and it caught nothing. Every bug the District
+actually found was outside the scoring partition:
+
+| Where | What |
+|---|---|
+| `grid.py` `PRUNE` | Deleted all 1,699 of Louisiana's buffer cells, cascading 1,699 `hex_score` and 1,737 `tract_hex_weight` rows |
+| `grid.py` `MEASURE` | Measured both states against Louisiana's published area and passed at 0.1% |
+| `census_block.py` | Reported the District's exactly-correct 689,545 as 85% off Louisiana's figure |
+| `burden/states.py` | Ranked 26 cells centred in Maryland and Virginia inside the District's denominator |
+
+Three of the four are one failure mode: **a check that silently became
+incapable of failing.** The area check could not have failed whatever the grid
+contained. The population check named the wrong state's number, which is worse
+than no check, because somebody has to decide it is noise and next time will
+decide that about a real one. And the prune raised nothing while deleting.
+That is the same shape as `indicator_distribution` before 0031, so it is a
+class and not a coincidence.
+
+**The invariant.** Building or re-scoring state A leaves every row keyed to
+state B unchanged. It is cheap to check and it is now measured rather than
+asserted. Between run 80 and run 81 — which differ only by the buffer fix —
+Louisiana's 19,881 ranked cells came back:
+
+| Column | Rows moved |
+|---|---|
+| `percentile` | **0** (max delta 0.0000000000) |
+| `score` | **0** |
+| `pollution_burden` | **0** |
+| `exposures_mean` | **0** |
+| `c_recency` | 19,881, max delta 0.0004 |
+
+Everything rank-derived is bit-identical. The recency term moved because run 80
+ran at 23:48 UTC and run 81 after midnight, and section 12 measures recency
+from the run date — which is the term doing exactly what it is specified to do.
+A comparison across two runs has to expect it, and a comparison that found
+anything else moving would be reporting a partition fault.
+
+**A rule for published figures.** Any constant compared against loaded data is
+keyed by the thing it describes, and a missing key refuses rather than falling
+through to another state's number. Two of the four bugs were precisely this.
+`PUBLISHED_AREA_KM2` and `POPULATION_2020` now follow it.
+
+### 2.6 The database is ahead of this repository, three times over
+
+The scored run the API serves cannot be reproduced from this repository.
+
+| Run | methodology | indicators | git_sha | In this repo? |
+|---|---|---|---|---|
+| 79 (current) | **0.3.0** | **18 of 18** | `64b5bb34` | **no — on no ref** |
+| 81 | 0.2.0 | 15 of 15 | `cd54bd9` | yes |
+
+The repository's `METHODOLOGY_VERSION` is `0.2.0` and `api/app/indicators.py`
+declares fifteen indicators. Run 79 was scored by code at a methodology three
+of whose indicators exist nowhere here.
+
+That makes three instances of one pattern, all found in a day:
+
+1. Migrations 0028 and 0029, applied from a working tree never committed, files gone (section 2.2).
+2. Louisiana's census blocks, loaded once from a source whose rows were absent ever since — its crosswalk survived as an artifact of a load that could not be repeated, until it had to be.
+3. Run 79, above.
+
+Each was invisible until something forced it: a migration that could not apply,
+an interpolation with no blocks to read, a regression test with no valid
+baseline. **Comparing run 81 to run 79 was never a regression test**, and the
+19,871 moved percentiles it reported are 18 indicators becoming 15, not the
+partition. Section 2.4's real check is the one in 2.5.
+
+This is the decision expansion is actually waiting on, and it is not a coding
+one. Either 0.3.0 and its three extra indicators are reconstructed and
+committed, or 0.2.0 is accepted as the reproducible truth and a run is promoted
+deliberately in the knowledge that the published score gets thinner. Loading
+more states on top of an unreproducible baseline makes the problem wider rather
+than older.
+
 ## 3. The order states arrive, and why it is not by size
 
 | Phase | States | Adds | Running | When |
@@ -294,6 +370,13 @@ pull nobody has the script for.
 
 ## 7. Revision history
 
+- **2026-10-12.** The District of Columbia declared (0032) and loaded: 206
+  tracts, 6,012 blocks totalling its published 689,545, a 294-cell grid at
+  176 km² against 177 published, and a crosswalk summing to exactly 206.000.
+  Runs 80 and 81 scored both states per state; neither promoted. Four
+  single-state bugs found by loading it, in sections 2.5 and 2.6, three of them
+  checks that could no longer fail. Louisiana's grid and crosswalk were damaged
+  and restored to their original 173,424 cells and 206,439 weights.
 - **2026-10-11.** First version. Section 2.3's schema work applied to
   `dev-seed`; the per-state loop in `burden/states.py` and the coverage
   reporting in section 5 both landed. No second state loaded, and no scoring
