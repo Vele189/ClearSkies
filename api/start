@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+#
+# Start the API for local development.
+#
+# `python -m uvicorn` rather than `.venv/bin/uvicorn`: a console script carries
+# the absolute path of the interpreter that created it in its shebang, so moving
+# the checkout breaks every one of them with "bad interpreter" while the venv
+# itself still works. Invoking the module sidesteps that entirely.
+#
+# Nothing is sourced here. app/config.py reads .env itself through
+# pydantic-settings, so exporting it in the shell would be a second copy of the
+# same values -- and a URL with two query parameters contains an unquoted `&`,
+# which a shell treats as a background job.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+PORT="${PORT:-8000}"
+PY=.venv/bin/python
+
+if [[ ! -x "$PY" ]]; then
+    echo "no virtualenv at api/.venv. Run \`make install\` from the repository root." >&2
+    exit 1
+fi
+
+if [[ ! -e .env ]]; then
+    echo "no api/.env. Copy .env.example and set DATABASE_URL." >&2
+    exit 1
+fi
+
+# Which database, and is it the same one the migration runner would check.
+#
+# The two can differ, and the difference is silent. app/main.py connects on
+# DATABASE_URL, the pooled endpoint; app/migrate.py prefers
+# DATABASE_URL_UNPOOLED, because its advisory lock is session-level and
+# PgBouncer's transaction mode does not hold it. They are meant to be the same
+# branch and nothing enforces it, so a preflight that read one and started the
+# other would report a schema that is current on a database the app will never
+# open. That is worse than no check.
+#
+# Compared on hostname with `-pooler` removed, which is what distinguishes a
+# Neon branch's two endpoints from each other.
+"$PY" - <<'PREFLIGHT' || exit 1
+import sys
+import urllib.parse
+
+from app.config import get_settings
+
+settings = get_settings()
+
+
+def branch(url: str) -> str | None:
+    host = urllib.parse.urlparse(url).hostname
+    return host.replace("-pooler.", ".", 1) if host else None
+
+
+serving = branch(settings.database_url)
+migrating = branch(settings.database_url_unpooled) if settings.database_url_unpooled else None
+
+if migrating is not None and serving != migrating:
+    print(
+        f"refusing to start: DATABASE_URL is {serving} but DATABASE_URL_UNPOOLED "
+        f"is {migrating}.\n"
+        "The API would serve one branch while the migration check read the other.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+print(f"database {urllib.parse.urlparse(settings.database_url).hostname}")
+PREFLIGHT
+
+# Migrations. A schema older than the code is the one failure that looks like a
+# bug in the endpoint rather than a missing step: the API selects columns a
+# pending migration has not added yet, and every request 500s. An unreachable
+# database is a different matter -- the API is built to serve /health and report
+# it -- so that only warns.
+set +e
+# --database-url so this reads DATABASE_URL rather than the runner's own
+# preference for the unpooled one. `status` only reads, so the pooler is fine.
+dsn="$("$PY" -c 'from app.config import get_settings; print(get_settings().database_url)')"
+status="$("$PY" -m app.migrate --database-url "$dsn" status 2>&1)"
+set -e
+
+if grep -q "^  pending " <<<"$status"; then
+    echo >&2
+    echo "refusing to start: the schema is behind this code." >&2
+    grep "^  pending \|^  drift " <<<"$status" >&2
+    echo >&2
+    echo "  $PY -m app.migrate up" >&2
+    exit 1
+elif grep -q "^  drift " <<<"$status"; then
+    echo >&2
+    echo "refusing to start: the ledger and api/migrations disagree." >&2
+    grep "^  drift " <<<"$status" >&2
+    exit 1
+elif grep -qE "Traceback|could not|refused|timeout" <<<"$status"; then
+    echo "warning: the database is not reachable. /health will say so and the" >&2
+    echo "         map will have no hexes; everything else still starts." >&2
+else
+    grep -oE "^[0-9]+ migrations applied|^[0-9]+ applied, [0-9]+ pending" <<<"$status" || true
+fi
+
+echo "API on http://localhost:${PORT}  (docs at /docs)"
+exec "$PY" -m uvicorn app.main:app --reload --port "$PORT"

@@ -333,11 +333,11 @@ install: $(VENV) $(ETL_VENV) $(SCORING_VENV) $(ASSISTANT_VENV) ## Install Python
 
 .PHONY: api
 api: $(VENV) ## Run the API on :8000, docs at /docs
-	cd $(API) && .venv/bin/uvicorn app.main:app --reload --port 8000
+	./$(API)/start
 
 .PHONY: web
 web: ## Run the Vite dev server on :5173
-	cd $(WEB) && npm run dev
+	./$(WEB)/start
 
 # ---- Containers and the deploy repositories ----------------------------
 #
