@@ -106,6 +106,23 @@ export interface HexDetail {
   data_vintage: Record<string, string>;
 }
 
+/** Where a scored state's cells are, for the map to point at.
+ *
+ *  The archive starts at zoom 6, so below that there are no hexes to see and a
+ *  reader looking for the other states finds an empty basemap. These come from
+ *  the API rather than from a table of state centres here: a marker then sits
+ *  on the cells that were actually scored, and a state added tomorrow arrives
+ *  with its own. */
+export interface StateExtent {
+  usps: string;
+  name: string;
+  /** lon, lat */
+  centroid: [number, number];
+  /** west, south, east, north */
+  bounds: [number, number, number, number];
+  cells: number;
+}
+
 /** A state whose hexes are percentile-ranked against each other. */
 export interface ScoredState {
   usps: string;

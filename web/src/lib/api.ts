@@ -4,6 +4,7 @@ import type {
   HexDetail,
   Health,
   Provenance,
+  StateExtent,
 } from "./types.ts";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -37,6 +38,7 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 export const getHealth = (signal?: AbortSignal) => request<Health>("/health", signal);
+export const getStates = (signal?: AbortSignal) => request<StateExtent[]>("/states", signal);
 
 export const getHex = (h3: string, signal?: AbortSignal) =>
   request<HexDetail>(`/hex/${h3}`, signal);

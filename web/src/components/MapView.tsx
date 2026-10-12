@@ -5,10 +5,11 @@ import {
   addProtocol,
   removeProtocol,
 } from "maplibre-gl";
-import type { MapLayerMouseEvent } from "maplibre-gl";
+import type { GeoJSONSource, MapLayerMouseEvent } from "maplibre-gl";
 import { PMTiles, Protocol } from "pmtiles";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { getStates } from "../lib/api.ts";
 import type { Place } from "../lib/geocode.ts";
 import {
   FILL_COLOR,
@@ -36,7 +37,48 @@ const ZOOM = 6.6;
 //: Breathing room around the scored extent, in pixels.
 const FIT_PADDING = 48;
 
+//: Above this zoom the hexes themselves are the answer, so the markers go.
+//: The archive starts at z6, so the two ranges overlap, and a reader
+//: zooming in sees the cells appear under the ring before the ring goes.
+const MARKER_MAX_ZOOM = 7.5;
+
+//: Slate, chosen to be nothing like the ramp.
+//:
+//: docs/frontend.md section 2 gives the map one colour scale, YlOrRd, and every
+//: colour on it means a burden class. A marker drawn anywhere near that range
+//: would be read as data. This is outside it in hue and in saturation, so it
+//: reads as furniture.
+const MARKER_COLOR = "#334155";
+
+/** A state's extent, read back off a clicked marker.
+ *
+ *  Stored as four numbers rather than one array: a GeoJSON property holding an
+ *  array comes back from a feature as a JSON string on some paths and an array
+ *  on others, and four numbers are the same on all of them.
+ */
+function extentOf(
+  properties: Record<string, unknown> | null | undefined,
+): [[number, number], [number, number]] | null {
+  if (!properties) return null;
+  const { west, south, east, north } = properties;
+  if (
+    typeof west !== "number" ||
+    typeof south !== "number" ||
+    typeof east !== "number" ||
+    typeof north !== "number"
+  ) {
+    return null;
+  }
+  return [
+    [west, south],
+    [east, north],
+  ];
+}
+
 const SOURCE_ID = "clearskies-hexes";
+const STATES_SOURCE_ID = "clearskies-states";
+const STATES_CIRCLE_ID = "clearskies-state-circle";
+const STATES_LABEL_ID = "clearskies-state-label";
 const FILL_LAYER_ID = "clearskies-hex-fill";
 const HATCH_LAYER_ID = "clearskies-hex-hatch";
 const OUTLINE_LAYER_ID = "clearskies-hex-outline";
@@ -92,6 +134,8 @@ export default function MapView({ onSelect }: Props) {
 
     const protocol = new Protocol();
     addProtocol("pmtiles", protocol.tile);
+
+    const states = new AbortController();
 
     const map = new MapLibreMap({
       container: container.current,
@@ -205,6 +249,109 @@ export default function MapView({ onSelect }: Props) {
         paint: { "line-color": "rgba(0,0,0,0.10)", "line-width": 0.5 },
       });
 
+      // Where the scored states are, for the zoom levels that have no hexes.
+      //
+      // Below zoom 6 the archive has no tiles at all, so a reader who zooms out
+      // to find the other states is looking at an empty basemap with nothing to
+      // say that anywhere else was scored. These rings are what they aim at;
+      // clicking one flies to that state's own extent.
+      map.addSource(STATES_SOURCE_ID, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      map.addLayer({
+        id: STATES_CIRCLE_ID,
+        type: "circle",
+        source: STATES_SOURCE_ID,
+        maxzoom: MARKER_MAX_ZOOM,
+        paint: {
+          // Bigger where there is more to look at, by cell count on a log
+          // scale: Louisiana has 171,725 cells to the District's 246, and a
+          // radius proportional to that would put one of them off the screen.
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["log10", ["max", ["get", "cells"], 1]],
+            2,
+            7,
+            6,
+            18,
+          ],
+          "circle-color": MARKER_COLOR,
+          "circle-opacity": 0.15,
+          "circle-stroke-color": MARKER_COLOR,
+          "circle-stroke-width": 2,
+          "circle-stroke-opacity": 0.9,
+        },
+      });
+
+      map.addLayer({
+        id: STATES_LABEL_ID,
+        type: "symbol",
+        source: STATES_SOURCE_ID,
+        maxzoom: MARKER_MAX_ZOOM,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": 12,
+          "text-offset": [0, 1.6],
+          "text-anchor": "top",
+          "text-allow-overlap": false,
+        },
+        paint: {
+          "text-color": MARKER_COLOR,
+          // A halo, because the label sits over whatever the basemap has there
+          // and a state name that cannot be read is a marker without a name.
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 1.5,
+        },
+      });
+
+      // Filled from the API rather than drawn from anything in this bundle.
+      // A state's marker sits on the cells that were actually scored, and the
+      // next state to arrive brings its own without a release here.
+      //
+      // A failure here is silent. The markers help a reader find their way at
+      // low zoom, and a map that refused to draw because it could not
+      // decorate itself would be worse than one without rings.
+      void getStates(states.signal)
+        .then((extents) => {
+          const source = map.getSource<GeoJSONSource>(STATES_SOURCE_ID);
+          if (!source) return;
+          void source.setData({
+            type: "FeatureCollection",
+            features: extents.map((state) => ({
+              type: "Feature" as const,
+              geometry: { type: "Point" as const, coordinates: state.centroid },
+              properties: {
+                usps: state.usps,
+                name: state.name,
+                cells: state.cells,
+                west: state.bounds[0],
+                south: state.bounds[1],
+                east: state.bounds[2],
+                north: state.bounds[3],
+              },
+            })),
+          });
+        })
+        .catch(() => {
+          /* no rings; the hexes themselves are unaffected */
+        });
+
+      map.on("click", STATES_CIRCLE_ID, (event: MapLayerMouseEvent) => {
+        const extent = extentOf(event.features?.[0]?.properties);
+        if (extent) {
+          map.fitBounds(extent, { padding: FIT_PADDING, duration: 600 });
+        }
+      });
+      map.on("mouseenter", STATES_CIRCLE_ID, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", STATES_CIRCLE_ID, () => {
+        map.getCanvas().style.cursor = "";
+      });
+
       map.on("click", FILL_LAYER_ID, (event: MapLayerMouseEvent) => {
         const h3 = h3Of(event.features?.[0]?.properties);
         if (h3) onSelectRef.current(h3);
@@ -221,6 +368,7 @@ export default function MapView({ onSelect }: Props) {
       mapRef.current = null;
       canvas.removeEventListener("webglcontextlost", onContextLost);
       map.remove();
+      states.abort();
       removeProtocol("pmtiles");
     };
   }, []);

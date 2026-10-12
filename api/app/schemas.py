@@ -144,6 +144,24 @@ class ScoredState(BaseModel):
     name: str
 
 
+class StateExtent(BaseModel):
+    """Where a scored state is, so a map can point at it.
+
+    The archive the map reads starts at zoom 6; below that there are no tiles
+    and a reader who zooms out to look for the other states sees an empty
+    basemap. These are what the map draws instead, and they come from the
+    hexes rather than from a table of state centres kept in the client: a
+    state's marker then sits on the cells that were actually scored, and a
+    state added tomorrow arrives with its own.
+    """
+
+    usps: str
+    name: str
+    centroid: tuple[float, float] = Field(description="lon, lat")
+    bounds: tuple[float, float, float, float] = Field(description="west, south, east, north")
+    cells: int = Field(description="Hexes whose centroid is inside the state")
+
+
 class Health(BaseModel):
     status: Literal["ok", "degraded"]
     version: str
