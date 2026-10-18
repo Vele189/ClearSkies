@@ -16,16 +16,34 @@
 import type { Citation, DraftDocument, GeneratedDraft, StatuteCitation } from "./types.ts";
 
 /** Where a citation can be checked, or null when there is no public page. */
-export function citationUrl(citation: Citation): string | null {
+export function citationUrl(citation: Citation, origin = ""): string | null {
   if (citation.kind === "record") {
+    // The hexagon itself, which the verifier accepts as a record (a score and
+    // its indicators are real figures a reader can open). It goes to the
+    // hexagon's own page here, not to EPA: ECHO has never heard of an H3 index,
+    // and linking one there landed on an error page that looked like a check.
+    if (isHexCitation(citation)) return `${origin}/hex/${encodeURIComponent(citation.record_id)}`;
     // ECHO's facility report, keyed on the FRS registry id. The same page the
     // hexagon panel already links each facility to, so a reader following a
-    // citation lands somewhere they recognise.
-    return `https://echo.epa.gov/detailed-facility-report?fid=${encodeURIComponent(
-      citation.record_id,
-    )}`;
+    // citation lands somewhere they recognise. Only for an id shaped like one:
+    // a TRI facility id is not an FRS id, and ECHO would show the wrong page.
+    if (FRS_ID.test(citation.record_id)) {
+      return `https://echo.epa.gov/detailed-facility-report?fid=${encodeURIComponent(
+        citation.record_id,
+      )}`;
+    }
+    return null;
   }
   return statuteUrl(citation);
+}
+
+/** EPA Facility Registry Service ids are twelve digits. */
+const FRS_ID = /^\d{12}$/;
+
+/** A citation to the hexagon the draft is about (`app/assistant/verifier.py`,
+ *  HEX_DATASET). */
+export function isHexCitation(citation: Citation): boolean {
+  return citation.kind === "record" && citation.dataset.trim().toLowerCase() === "hex";
 }
 
 const USC = /^(\d+)\s*U\.?S\.?C\.?\s*§+\s*([0-9A-Za-z-]+)/;
@@ -58,7 +76,24 @@ export function statuteUrl(citation: StatuteCitation): string | null {
 
 /** What a citation is called on screen. */
 export function citationLabel(citation: Citation): string {
-  return citation.kind === "statute" ? citation.section : citation.record_id;
+  if (citation.kind === "statute") return citation.section;
+  // "88444600ddfffff" told a reader nothing about what was cited.
+  if (isHexCitation(citation)) return "ClearSkies hexagon data";
+  return citation.record_id;
+}
+
+/** A paragraph's citations with repeats removed. The model cites the hexagon
+ *  once per figure, and three identical chips after one sentence read as a
+ *  stammer rather than as three sources. Every proposition is still listed in
+ *  the citations at the foot of the draft. */
+export function distinctByLabel(citations: Citation[]): Citation[] {
+  const seen = new Set<string>();
+  return citations.filter((citation) => {
+    const label = citationLabel(citation);
+    if (seen.has(label)) return false;
+    seen.add(label);
+    return true;
+  });
 }
 
 /**
@@ -115,7 +150,7 @@ const HEADINGS: Record<string, (d: DraftDocument) => string[]> = {
  * its notice is the failure worth spending a few lines to prevent, and a
  * pasted draft with bare section numbers is one nobody will check.
  */
-export function renderDraftText(stamped: GeneratedDraft): string {
+export function renderDraftText(stamped: GeneratedDraft, origin = ""): string {
   const d = stamped.document;
   const lines: string[] = [d.draft_notice, ""];
 
@@ -126,7 +161,7 @@ export function renderDraftText(stamped: GeneratedDraft): string {
   if (d.what_this_means) lines.push(d.what_this_means, "");
 
   for (const paragraph of d.paragraphs) {
-    const marks = paragraph.citations.map(citationLabel);
+    const marks = distinctByLabel(paragraph.citations).map(citationLabel);
     lines.push(marks.length ? `${paragraph.text} [${marks.join("; ")}]` : paragraph.text, "");
   }
 
@@ -168,8 +203,9 @@ export function renderDraftText(stamped: GeneratedDraft): string {
 
   lines.push("Citations", "");
   for (const citation of allCitations(d)) {
-    const url = citationUrl(citation);
-    lines.push(`- ${citationLabel(citation)}${url ? ` — ${url}` : ""}`);
+    // Absolute here, unlike on screen: a pasted "/hex/..." leads nowhere.
+    const url = citationUrl(citation, origin);
+    lines.push(`- ${citationLabel(citation)}${url && url.startsWith("http") ? ` — ${url}` : ""}`);
     lines.push(`  ${citation.proposition}`);
   }
 

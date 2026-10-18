@@ -25,6 +25,23 @@ Percentiles are Louisiana percentiles throughout. A hex in the 90th percentile
 here is in the top decile of Louisiana, which is not the top decile of the
 United States.
 
+**The map is locked to Louisiana.** It opens framing the whole state, cannot be
+panned more than a margin past it, and cannot be zoomed out below zoom 6, where
+the archive begins: below it every hexagon vanished and the reader was left on a
+map of the world. A control under the zoom buttons returns to the whole state.
+Search asks the geocoder only for places inside the state's box and drops
+anything outside it, coordinates included. The bounds live once, in
+`web/src/lib/louisiana.ts`.
+
+**What is not drawn.** The grid runs past the state line by an interaction
+radius (methodology section 6). Those buffer cells, `outside_scored_states`,
+are not drawn: they are in Texas, Mississippi, Arkansas and the Gulf, and grey
+there said "Louisiana, unscored" of places that are neither. Unscored cells
+inside the state (nearly nine in ten, almost all under section 5's 25
+residents) are drawn at a lower opacity than scored ones and without outlines,
+so the ramp is what stands out. This is not the confidence opacity section 3
+rules out: every scored hexagon is drawn at one opacity whatever its band.
+
 ## 2. The ramp
 
 ColorBrewer **YlOrRd, 6-class**, stepped rather than interpolated.
@@ -131,6 +148,9 @@ angle is one exported number the two renderers share, because two hatches
 leaning opposite ways are two textures, and the legend can only explain the
 map's texture if it is drawing it.
 
+The legend is a fixed width on desktop. Sized to its content, it grew to its
+longest line of help text and covered a third of the map.
+
 ## 5. Search
 
 `VITE_GEOCODER_URL`, defaulting to Photon.
@@ -226,7 +246,31 @@ which is the wrong order for a score we are hedging.
 qualifying facility within 10 km, and section 9 records that a large block of
 the state therefore shares one mid-rank percentile. Where that applies, the row
 says so. Without it the percentile reads as a ranking when it is only the size
-of the zero block.
+of the zero block. The note says what a zero means *for that indicator*: F2 and
+F3 are zero where facilities are present and none was out of compliance or
+under formal enforcement, and "no qualifying facility" there contradicted the
+facility list beneath it.
+
+**The headline.** The percentile leads, beside the swatch the map painted it,
+because that is what the reader clicked: a colour. The 0–100 score follows as
+the quantity being ranked. A percentile is written 1st to 99th; Hazen
+percentiles never reach 100, but the worst cells round to it, and "100th" reads
+as a mistake.
+
+**An unscored hexagon** says why in words (`NO_SCORE_EXPLANATIONS`) and shows
+its facilities and population, and nothing else. It has no confidence to break
+down and no indicators to rank, and four terms at 0.00 under a caveat about
+"this score" described a number that does not exist.
+
+**Values.** An indicator shows its measured value beside its rank where the
+unit means something on its own: risk per million, hazard index, µg/m³,
+percent. The facility indicators are distance-decayed weighted sums whose
+magnitude means nothing outside the ranking, so they show the rank only.
+
+**Facilities.** One row per facility, merged across the programs the API lists
+it under, nearest first, each with its non-compliance quarters and formal
+actions when there are any. Five are shown and the rest are a click away: a
+list of forty pushed the drafting assistant out of reach.
 
 **Vintage.** Each indicator names its source, and its release identifier as
 soon as `data_vintage` carries one. The frontend looks the indicator's own
@@ -311,6 +355,13 @@ makes, not only `document.citations`: the legal basis and the source behind
 each key figure are in it as well. Two citations are the same only when they
 point at the same place for the same proposition, so a second claim on an
 already-cited section stays its own line — it was verified as its own claim.
+
+A citation to the hexagon itself (dataset `hex`, which the verifier accepts)
+is labelled "ClearSkies hexagon data" and links to that hexagon's page. It used
+to print the bare H3 index and link it to ECHO, which has never heard of one.
+ECHO links are made only for twelve-digit FRS ids; anything else is plain text.
+Within a paragraph a repeated source is shown once; the list at the foot keeps
+every proposition.
 
 ### Taking the draft away
 

@@ -111,7 +111,28 @@ describe("HexPanel", () => {
       <HexPanel hex={hex({ score: null, percentile: null, no_score_reason: "low_population" })} onClose={() => {}} />,
     );
 
-    expect(screen.getByText(/Not scored: low population/)).toBeInTheDocument();
+    expect(screen.getByText(/Not scored: too few residents to score/)).toBeInTheDocument();
+    expect(screen.getByText(/Fewer than 25 people/)).toBeInTheDocument();
+  });
+
+  it("does not show an unscored hex as a poorly supported score", () => {
+    // An unscored cell has no confidence to report. Showing four 0.00 terms, an
+    // "insufficient data" badge and a caveat about "this score" described a
+    // number that does not exist.
+    render(
+      <HexPanel
+        hex={hex({
+          score: null,
+          percentile: null,
+          no_score_reason: "low_population",
+          confidence: { ...hex().confidence, band: "insufficient", value: 0 },
+        })}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.queryByText("Indicator coverage")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Insufficient data \(/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not supported well enough/i)).not.toBeInTheDocument();
   });
 
   it("states that the score is not a finding of wrongdoing", () => {
@@ -240,7 +261,73 @@ describe("HexPanel", () => {
       />,
     );
 
-    expect(screen.getByText(/No qualifying facility within 10 km/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No Clean Air Act major source or Title V facility within 10 km/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/how many other hexagons are also at zero/i)).toBeInTheDocument();
+  });
+
+  it("says what a zero non-compliance burden means, not that nothing is nearby", () => {
+    // F2 is zero where facilities are present and none was out of compliance.
+    // "No qualifying facility" there contradicted the facility list beneath it.
+    render(
+      <HexPanel
+        hex={hex({
+          indicators: [
+            indicator({ id: "F2", name: "Non-compliance burden", value: 0, percentile: 47 }),
+          ],
+        })}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByText(/was in non-compliance in the last 12 quarters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No qualifying facility/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the measured value where its unit means something", () => {
+    render(<HexPanel hex={hex()} onClose={() => {}} />);
+    expect(screen.getByText("42 in a million")).toBeInTheDocument();
+  });
+
+  it("leads with the percentile the map coloured, then the score it ranks", () => {
+    render(<HexPanel hex={hex()} onClose={() => {}} />);
+    expect(screen.getByText("96th")).toBeInTheDocument();
+    expect(screen.getByText(/percentile in Louisiana/)).toBeInTheDocument();
+    expect(screen.getByText("78.4")).toBeInTheDocument();
+    expect(screen.getByText(/in the top tenth of Louisiana/)).toBeInTheDocument();
+  });
+
+  it("never prints a 100th percentile", () => {
+    render(<HexPanel hex={hex({ percentile: 99.97 })} onClose={() => {}} />);
+    expect(screen.getByText("99th")).toBeInTheDocument();
+    expect(screen.queryByText("100th")).not.toBeInTheDocument();
+  });
+
+  it("lists each facility once, nearest first, and the rest on request", async () => {
+    const facility = (id: string, km: number, program = "Clean Air Act") => ({
+      registry_id: id,
+      name: `Plant ${id}`,
+      distance_km: km,
+      program,
+      echo_url: `https://echo.epa.gov/detailed-facility-report?fid=${id}`,
+      quarters_in_noncompliance: 0,
+      formal_actions_5yr: 0,
+    });
+    const facilities = [
+      facility("1", 0.4),
+      facility("1", 0.4, "RCRA large-quantity generator"),
+      ...["2", "3", "4", "5", "6", "7"].map((id, i) => facility(id, 1 + i)),
+    ];
+    render(
+      <HexPanel hex={hex({ facilities, facility_count: facilities.length })} onClose={() => {}} />,
+    );
+
+    expect(screen.getAllByRole("link", { name: /Plant 1/ })).toHaveLength(1);
+    expect(screen.getByText(/Clean Air Act, RCRA large-quantity generator/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Plant 7/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Show all 7 facilities/ }));
+    expect(screen.getByRole("link", { name: /Plant 7/ })).toBeInTheDocument();
   });
 
   it("takes focus when a hexagon is selected so the keyboard follows", () => {
@@ -298,7 +385,7 @@ describe("HexPanel", () => {
       />,
     );
 
-    expect(screen.getByText(/1st percentile statewide/)).toBeInTheDocument();
+    expect(screen.getByText("1st")).toBeInTheDocument();
     expect(screen.getByText("22nd")).toBeInTheDocument();
     expect(screen.getByText("11th")).toBeInTheDocument();
   });
@@ -313,7 +400,7 @@ describe("HexPanel", () => {
   it("says no reason was recorded rather than trailing off after a colon", () => {
     render(<HexPanel hex={hex({ score: null, percentile: null, no_score_reason: null })} onClose={() => {}} />);
 
-    expect(screen.getByText(/not scored: no reason recorded/i)).toBeInTheDocument();
+    expect(screen.getByText(/no reason was recorded/i)).toBeInTheDocument();
   });
 });
 

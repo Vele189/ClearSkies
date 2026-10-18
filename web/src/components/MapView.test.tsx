@@ -17,8 +17,9 @@ class FakeMap {
   rendered: { properties: Record<string, unknown> }[] = [];
   flights: unknown[] = [];
   queried: unknown[] = [];
+  fitted: unknown[] = [];
 
-  constructor() {
+  constructor(public options: Record<string, unknown> = {}) {
     FakeMap.last = this;
   }
 
@@ -87,11 +88,17 @@ class FakeMap {
   flyTo(options: unknown) {
     this.flights.push(options);
   }
+  fitBounds(bounds: unknown) {
+    this.fitted.push(bounds);
+  }
+  getContainer() {
+    return document.createElement("div");
+  }
 }
 
 vi.mock("maplibre-gl", () => ({
-  Map: vi.fn(function (this: unknown) {
-    return new FakeMap();
+  Map: vi.fn(function (this: unknown, options: Record<string, unknown>) {
+    return new FakeMap(options);
   }),
   NavigationControl: vi.fn(),
   ScaleControl: vi.fn(),
@@ -199,5 +206,28 @@ describe("MapView", () => {
     await pick("Reserve");
     act(() => map.fire("moveend"));
     expect(onSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe("locked to Louisiana", () => {
+  it("opens on the whole state and cannot leave it", async () => {
+    const { LOUISIANA_BOUNDS, MAX_BOUNDS, MIN_ZOOM } = await import("../lib/louisiana.ts");
+    const { map } = loadedMap();
+
+    expect(map.options.bounds).toEqual(LOUISIANA_BOUNDS);
+    expect(map.options.maxBounds).toEqual(MAX_BOUNDS);
+    // The archive starts at zoom 6. Below it every hexagon disappears and the
+    // reader is left looking at a map of the world.
+    expect(map.options.minZoom).toBe(MIN_ZOOM);
+    expect(MIN_ZOOM).toBeGreaterThanOrEqual(6);
+    expect(map.options.renderWorldCopies).toBe(false);
+  });
+
+  it("offers a way back to the whole state", async () => {
+    const { LOUISIANA_BOUNDS } = await import("../lib/louisiana.ts");
+    const { map } = loadedMap();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show all of Louisiana" }));
+    expect(map.fitted).toEqual([LOUISIANA_BOUNDS]);
   });
 });

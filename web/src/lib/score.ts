@@ -7,7 +7,14 @@
  *  is not on the response — the panel says so rather than inventing it.
  */
 
-import type { ComponentScore, Confidence, GroupScore, IndicatorValue } from "./types.ts";
+import type {
+  ComponentScore,
+  Confidence,
+  Facility,
+  GroupScore,
+  IndicatorValue,
+  NoScoreReason,
+} from "./types.ts";
 import type { Component, ConfidenceBand, Group } from "./types.ts";
 
 export const COMPONENT_LABELS: Record<Component, string> = {
@@ -56,6 +63,81 @@ export function ordinal(value: number): string {
             ? "rd"
             : "th";
   return `${String(rank)}${suffix}`;
+}
+
+/** A percentile as a rank, held to 1st..99th.
+ *
+ *  Hazen percentiles never reach 0 or 100, but they come within rounding of
+ *  both: the worst cell in Louisiana sits at 99.97, which `ordinal` writes as
+ *  "100th". That reads as a mistake to anyone who knows what a percentile is,
+ *  and a panel asking to be trusted cannot afford to look like one. */
+export function percentileOrdinal(value: number): string {
+  return ordinal(Math.min(99, Math.max(1, value)));
+}
+
+/** Why a hexagon has no score, as a heading and a sentence a reader can use.
+ *  The API sends a code; "low population" on its own reads like a judgement
+ *  about the place rather than a rule about the arithmetic. */
+export const NO_SCORE_EXPLANATIONS: Record<NoScoreReason, { title: string; detail: string }> = {
+  low_population: {
+    title: "Too few residents to score",
+    detail:
+      "Fewer than 25 people are estimated to live in this hexagon, so it is left out of " +
+      "the ranking rather than scored on almost no one (methodology section 5). Nearby " +
+      "populated hexagons are scored.",
+  },
+  insufficient_pollution_data: {
+    title: "Not enough pollution data to score",
+    detail:
+      "Too few of the pollution indicators have a value here for the pollution component " +
+      "to be computed, so no score is given rather than one built on gaps.",
+  },
+  insufficient_population_data: {
+    title: "Not enough population data to score",
+    detail:
+      "Too few of the population indicators have a value here for the population " +
+      "component to be computed, so no score is given rather than one built on gaps.",
+  },
+  outside_scored_states: {
+    title: "Outside Louisiana",
+    detail:
+      "This hexagon is in the buffer past the state line. It is part of the grid so that " +
+      "facilities across the border count toward Louisiana hexagons, but it is not ranked.",
+  },
+};
+
+/** "3 present, 2 needed", in words. The bare "3 of 2" this replaces read like a
+ *  typo: a group can hold more indicators than its minimum requires. */
+export function groupCoverage(group: GroupScore): string {
+  const present = `${String(group.indicators_present)} ${
+    group.indicators_present === 1 ? "indicator" : "indicators"
+  }`;
+  return `${present}, ${String(group.indicators_required)} needed`;
+}
+
+/** Units a reader can make sense of on their own, and how each is written.
+ *  The facility indicators are distance-decayed weighted sums whose magnitude
+ *  means nothing outside the ranking; for those the percentile is the reading
+ *  and a raw value like 2.4e-7 would only confuse. */
+const READABLE_UNITS: Record<string, (value: number) => string> = {
+  "risk per million": (v) => `${formatNumber(v)} in a million`,
+  "hazard index": (v) => `index ${v.toFixed(2)}`,
+  "ug/m3": (v) => `${v.toFixed(1)} µg/m³`,
+  percent: (v) => `${v.toFixed(1)}%`,
+};
+
+function formatNumber(value: number): string {
+  if (value >= 100) return Math.round(value).toLocaleString("en-US");
+  if (value >= 10) return value.toFixed(0);
+  return value.toFixed(1);
+}
+
+/** The measured value, written for a reader, or null where the unit carries no
+ *  meaning outside the ranking. */
+export function indicatorValue(indicator: IndicatorValue): string | null {
+  if (!indicator.observed || indicator.value === null) return null;
+  const format = READABLE_UNITS[indicator.unit];
+  return format ? format(indicator.value) : null;
 }
 
 /** Groups that were dropped from their component's mean, so the panel can name
@@ -153,6 +235,66 @@ const FACILITY_INDICATORS = new Set(["E3", "F1", "F2", "F3", "F4"]);
  *  not "cleaner than 40% of the state". */
 export function isZeroInflated(indicator: IndicatorValue): boolean {
   return FACILITY_INDICATORS.has(indicator.id) && indicator.observed && indicator.value === 0;
+}
+
+/** What a zero means for each facility indicator. They are not all "no
+ *  facility nearby": F2 and F3 are zero where facilities are present and none
+ *  was out of compliance or under formal enforcement, and saying "no qualifying
+ *  facility" there contradicts the facility list below it. Wording follows
+ *  methodology section 8's table. */
+const ZERO_MEANS: Record<string, string> = {
+  E3: "No facility within 10 km reported toxic air releases to TRI.",
+  F1: "No Clean Air Act major source or Title V facility within 10 km.",
+  F2: "No facility within 10 km was in non-compliance in the last 12 quarters.",
+  F3: "No formal enforcement action against a facility within 10 km in the last 5 years.",
+  F4: "No hazardous waste generator or treatment facility within 10 km.",
+};
+
+/** The note a zero facility indicator carries on the panel, or null. */
+export function zeroInflationNote(indicator: IndicatorValue): string | null {
+  if (!isZeroInflated(indicator)) return null;
+  return (
+    `${ZERO_MEANS[indicator.id] ?? "No qualifying facility within 10 km."} This percentile ` +
+    "reflects how many other hexagons are also at zero, not how this one compares on burden."
+  );
+}
+
+/** One row per facility, nearest first.
+ *
+ *  The API lists a facility once per regulatory program, so a plant under both
+ *  the Clean Air Act and RCRA appears twice with the same name and distance.
+ *  Merged here, keeping every program and the worst compliance figures, so the
+ *  list counts plants rather than permits. */
+export interface FacilityRow extends Facility {
+  programs: string[];
+}
+
+export function mergeFacilities(facilities: Facility[]): FacilityRow[] {
+  const byId = new Map<string, FacilityRow>();
+  for (const facility of facilities) {
+    const existing = byId.get(facility.registry_id);
+    if (!existing) {
+      byId.set(facility.registry_id, { ...facility, programs: [facility.program] });
+      continue;
+    }
+    if (!existing.programs.includes(facility.program)) existing.programs.push(facility.program);
+    existing.distance_km = Math.min(existing.distance_km, facility.distance_km);
+    existing.quarters_in_noncompliance = maxOrNull(
+      existing.quarters_in_noncompliance,
+      facility.quarters_in_noncompliance,
+    );
+    existing.formal_actions_5yr = maxOrNull(
+      existing.formal_actions_5yr,
+      facility.formal_actions_5yr,
+    );
+  }
+  return [...byId.values()].sort((a, b) => a.distance_km - b.distance_km);
+}
+
+function maxOrNull(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Math.max(a, b);
 }
 
 /** Release identifier for an indicator's source, when CS-209 has populated it.

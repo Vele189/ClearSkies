@@ -49,7 +49,7 @@ export default function SearchBox({ onPick }: Props) {
         .then((places) => {
           setResults(places);
           setActive(places.length > 0 ? 0 : -1);
-          setError(places.length === 0 ? "No match for that place." : null);
+          setError(places.length === 0 ? "No match in Louisiana." : null);
         })
         .catch((err: unknown) => {
           if (controller.signal.aborted) return;
@@ -124,7 +124,7 @@ export default function SearchBox({ onPick }: Props) {
           aria-autocomplete="list"
           aria-activedescendant={open && active >= 0 ? `${listId}-${String(active)}` : undefined}
           autoComplete="off"
-          placeholder="Search a place, or paste 30.05, -90.55"
+          placeholder="Search Louisiana, or paste lat, lon"
           value={query}
           onChange={(event) => {
             handleChange(event.target.value);

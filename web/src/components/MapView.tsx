@@ -6,16 +6,19 @@ import {
   removeProtocol,
 } from "maplibre-gl";
 import type { MapLayerMouseEvent } from "maplibre-gl";
+import { LocateFixed } from "lucide-react";
 import { Protocol } from "pmtiles";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Place } from "../lib/geocode.ts";
+import { LOUISIANA_BOUNDS, MAX_BOUNDS, MIN_ZOOM } from "../lib/louisiana.ts";
 import {
   FILL_COLOR,
-  FILL_OPACITY,
+  FILL_OPACITY_BY_SCORE,
   HATCH_IMAGE_ID,
   hatchFilter,
   hatchImage,
+  outlineFilter,
   visibilityFilter,
 } from "../lib/ramp.ts";
 import Legend from "./Legend.tsx";
@@ -23,9 +26,15 @@ import SearchBox from "./SearchBox.tsx";
 
 const DEFAULT_BASEMAP = "https://tiles.openfreemap.org/styles/positron";
 
-// Louisiana, roughly. Phase 2 fits these to the scored extent instead.
-const CENTER: [number, number] = [-91.5, 30.6];
-const ZOOM = 6.6;
+/** Room left round Louisiana when the camera frames it, so the search box and
+ *  the legend do not sit on top of a parish. On a phone the legend is
+ *  collapsed and there is no room to give, so the frame is nearly edge to edge
+ *  and the zoom floor decides the rest. */
+function fitPadding(width: number) {
+  return width >= 900
+    ? { top: 72, bottom: 40, left: 300, right: 64 }
+    : { top: 64, bottom: 56, left: 8, right: 8 };
+}
 
 const SOURCE_ID = "clearskies-hexes";
 const FILL_LAYER_ID = "clearskies-hex-fill";
@@ -84,11 +93,17 @@ export default function MapView({ onSelect }: Props) {
     const protocol = new Protocol();
     addProtocol("pmtiles", protocol.tile);
 
+    // Locked to Louisiana: it opens framing the whole state, cannot be panned
+    // past it, and cannot be zoomed out past the archive's first zoom, where
+    // every hexagon would vanish and leave a map of the world.
     const map = new MapLibreMap({
       container: container.current,
       style: import.meta.env.VITE_BASEMAP_STYLE ?? DEFAULT_BASEMAP,
-      center: CENTER,
-      zoom: ZOOM,
+      bounds: LOUISIANA_BOUNDS,
+      fitBoundsOptions: { padding: fitPadding(container.current.clientWidth) },
+      maxBounds: MAX_BOUNDS,
+      minZoom: MIN_ZOOM,
+      renderWorldCopies: false,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
@@ -140,7 +155,7 @@ export default function MapView({ onSelect }: Props) {
         source: SOURCE_ID,
         "source-layer": "hexes",
         filter: visibilityFilter(false),
-        paint: { "fill-color": FILL_COLOR, "fill-opacity": FILL_OPACITY },
+        paint: { "fill-color": FILL_COLOR, "fill-opacity": FILL_OPACITY_BY_SCORE },
       });
 
       // Drawn over the fill rather than in place of it, so a low-confidence hex
@@ -161,7 +176,7 @@ export default function MapView({ onSelect }: Props) {
         type: "line",
         source: SOURCE_ID,
         "source-layer": "hexes",
-        filter: visibilityFilter(false),
+        filter: outlineFilter(false),
         paint: { "line-color": "rgba(0,0,0,0.10)", "line-width": 0.5 },
       });
 
@@ -191,7 +206,7 @@ export default function MapView({ onSelect }: Props) {
     const map = mapRef.current;
     if (!map?.getLayer(FILL_LAYER_ID)) return;
     map.setFilter(FILL_LAYER_ID, visibilityFilter(showInsufficient));
-    map.setFilter(OUTLINE_LAYER_ID, visibilityFilter(showInsufficient));
+    map.setFilter(OUTLINE_LAYER_ID, outlineFilter(showInsufficient));
     map.setFilter(HATCH_LAYER_ID, hatchFilter(showInsufficient));
   }, [showInsufficient, ready]);
 
@@ -248,6 +263,14 @@ export default function MapView({ onSelect }: Props) {
     map.flyTo({ center: place.center, zoom: 11, essential: true });
   }, []);
 
+  /** Back to the whole state, from wherever a search or a pan has left the
+   *  reader. With the map locked this is the one view that is always right. */
+  const showLouisiana = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.fitBounds(LOUISIANA_BOUNDS, { padding: fitPadding(map.getContainer().clientWidth) });
+  }, []);
+
   return (
     <div className="relative h-full w-full">
       <div
@@ -260,6 +283,19 @@ export default function MapView({ onSelect }: Props) {
       {!blocked && (
         <>
           <SearchBox onPick={handlePick} />
+          {/* Under MapLibre's zoom buttons, and styled like them, so it reads as
+              the third control of one group rather than a separate widget. */}
+          <button
+            type="button"
+            onClick={showLouisiana}
+            aria-label="Show all of Louisiana"
+            title="Show all of Louisiana"
+            className="pointer-events-auto absolute top-[5.25rem] right-2.5 z-10 flex size-[29px]
+                       items-center justify-center rounded bg-white text-[#333]
+                       shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-[#f2f2f2] sm:top-[5.875rem]"
+          >
+            <LocateFixed aria-hidden="true" className="size-4" />
+          </button>
           <Legend
             showInsufficient={showInsufficient}
             onShowInsufficientChange={setShowInsufficient}

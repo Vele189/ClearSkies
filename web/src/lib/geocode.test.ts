@@ -82,14 +82,33 @@ describe("searchPlaces", () => {
     expect(place.center).toEqual([-91.187, 30.451]);
   });
 
-  it("biases the query toward the pilot state", async () => {
+  it("asks only for places inside Louisiana", async () => {
     const fetchMock = stubResponse({ features: [] });
     await searchPlaces("Springfield");
 
     const url = new URL(String(fetchMock.mock.calls[0][0]));
-    expect(url.searchParams.get("lat")).toBe("30.6");
-    expect(url.searchParams.get("lon")).toBe("-91.5");
+    expect(url.searchParams.get("bbox")).toBe("-94.05,28.85,-88.75,33.03");
+    expect(Number(url.searchParams.get("lat"))).toBeCloseTo(30.94);
+    expect(Number(url.searchParams.get("lon"))).toBeCloseTo(-91.4);
     expect(url.searchParams.get("q")).toBe("Springfield");
+  });
+
+  it("drops a result outside Louisiana even if the geocoder returns one", async () => {
+    // The map is locked to the state; a pick outside it would fly to an edge
+    // the camera is not allowed past.
+    stubResponse({
+      features: [
+        { geometry: { coordinates: [-89.65, 39.8] }, properties: { name: "Springfield, IL" } },
+        { geometry: { coordinates: [-90.55, 30.05] }, properties: { name: "Reserve" } },
+      ],
+    });
+    const places = await searchPlaces("somewhere");
+    expect(places.map((p) => p.name)).toEqual(["Reserve"]);
+  });
+
+  it("treats pasted coordinates outside Louisiana as no match", async () => {
+    expect(await searchPlaces("40.71, -74.00")).toEqual([]);
+    expect(await searchPlaces("30.05, -90.55")).toHaveLength(1);
   });
 
   it("drops a feature with no usable geometry instead of pinning it at null island", async () => {

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   FILL_COLOR,
   FILL_OPACITY,
+  FILL_OPACITY_BY_SCORE,
+  NO_SCORE_OPACITY,
   HATCH_ANGLE_DEG,
   LEGEND_CLASSES,
   NO_SCORE_COLOR,
@@ -93,6 +95,8 @@ const SAMPLES = {
   unknown: { percentile: 62 },
   /** Not scored at all, so it has neither a percentile nor a confidence. */
   unscored: { no_score_reason: "low_population" },
+  /** A buffer cell over the state line: in the grid, not in Louisiana. */
+  outside: { no_score_reason: "outside_scored_states" },
   labelled: { percentile: 62, confidence_band: "insufficient", confidence: 0.95 },
 };
 
@@ -145,6 +149,13 @@ describe("confidence filters", () => {
     expect(matches(hatchFilter(false), SAMPLES.unscored)).toBe(false);
     expect(matches(hatchFilter(true), SAMPLES.unscored)).toBe(false);
     expect(matches(visibilityFilter(false), SAMPLES.unscored)).toBe(true);
+  });
+
+  it("does not draw buffer cells over the state line at all", () => {
+    // They are in Texas, Mississippi, Arkansas and the Gulf. Drawing them grey
+    // would say "Louisiana, unscored" of places that are neither.
+    expect(matches(visibilityFilter(false), SAMPLES.outside)).toBe(false);
+    expect(matches(visibilityFilter(true), SAMPLES.outside)).toBe(false);
   });
 
   it("hatches insufficient hexes once they are revealed", () => {
@@ -266,5 +277,30 @@ describe("swatch blending", () => {
     for (let i = 1; i < lums.length; i++) {
       expect(lums[i]).toBeLessThan(lums[i - 1]);
     }
+  });
+});
+
+describe("fill opacity", () => {
+  const opacity = (properties: Record<string, unknown>): unknown => {
+    const result = createExpression(FILL_OPACITY_BY_SCORE, "layers[0].paint.fill-opacity", {
+      type: "number",
+      "property-type": "data-driven",
+      expression: { interpolated: true, parameters: ["zoom", "feature"] },
+    } as never);
+    if (result.result === "error") throw new Error("fill-opacity does not compile");
+    return result.value.evaluate({ zoom: 8 } as never, { properties } as never);
+  };
+
+  it("draws every scored hex at one opacity, whatever its confidence", () => {
+    // Section 12 rules out opacity as a confidence signal, so it may differ
+    // only between scored and unscored, never between bands.
+    expect(opacity(SAMPLES.high)).toBe(FILL_OPACITY);
+    expect(opacity(SAMPLES.low)).toBe(FILL_OPACITY);
+    expect(opacity(SAMPLES.insufficient)).toBe(FILL_OPACITY);
+  });
+
+  it("draws an unscored hex lighter, so the ramp is what stands out", () => {
+    expect(opacity(SAMPLES.unscored)).toBe(NO_SCORE_OPACITY);
+    expect(NO_SCORE_OPACITY).toBeLessThan(FILL_OPACITY);
   });
 });

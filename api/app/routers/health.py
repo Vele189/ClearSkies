@@ -32,7 +32,15 @@ async def health() -> Health:
     async with p.acquire() as conn:
         rows = await conn.fetch("SELECT name, version FROM clearskies_extensions")
         scored = await conn.fetchval("SELECT to_regclass('public.hex_score') IS NOT NULL")
-        count = await conn.fetchval("SELECT count(*) FROM hex_score") if scored else None
+        # The current run's own count of the cells it ranked. Counting hex_score
+        # instead adds up every run ever kept, which grows with each re-score
+        # and is not a number of anything a reader can see on the map.
+        current = (
+            await conn.fetchrow("SELECT scored_hexes FROM pipeline_run WHERE is_current")
+            if scored
+            else None
+        )
+        count = (current["scored_hexes"] or 0) if current is not None else (0 if scored else None)
         # Which states this deployment ranks hexes within. Ordered by FIPS so
         # the list is stable between calls rather than by insertion.
         states = await conn.fetch("SELECT usps, name FROM scored_state ORDER BY state_fips")
@@ -50,8 +58,10 @@ async def health() -> Health:
 
     if count is None:
         notes.append("No hex_score table yet. The Phase 1 pipeline has not run.")
+    elif current is None:
+        notes.append("No scoring run has been promoted, so there are no scores to serve.")
     elif count == 0:
-        notes.append("hex_score is empty. The Phase 1 pipeline has loaded no scored state.")
+        notes.append("The current run scored no hexes.")
 
     return Health(
         status="ok" if not notes else "degraded",

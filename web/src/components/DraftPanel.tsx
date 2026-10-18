@@ -33,6 +33,7 @@ import {
   allCitations,
   citationLabel,
   citationUrl,
+  distinctByLabel,
   draftFileName,
   renderDraftText,
 } from "../lib/draft.ts";
@@ -97,7 +98,7 @@ function Paragraphs({ document }: { document: DraftDocument }) {
           {paragraph.text}
           {paragraph.citations.length > 0 && (
             <span className="ml-1.5 inline-flex flex-wrap gap-1 align-baseline">
-              {paragraph.citations.map((citation, j) => (
+              {distinctByLabel(paragraph.citations).map((citation, j) => (
                 <CitationLink key={j} citation={citation} />
               ))}
             </span>
@@ -254,7 +255,7 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
     // A clipboard write can be refused — no permission, or no clipboard at all
     // over plain HTTP. Saying so is the point: a reader who believes they have
     // the draft and pastes nothing has lost it.
-    navigator.clipboard.writeText(renderDraftText(stamped)).then(
+    navigator.clipboard.writeText(renderDraftText(stamped, window.location.origin)).then(
       () => {
         setCopied("yes");
         window.setTimeout(() => setCopied("no"), 2000);
@@ -264,7 +265,9 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
   }, [stamped]);
 
   const download = useCallback(() => {
-    const blob = new Blob([renderDraftText(stamped)], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([renderDraftText(stamped, window.location.origin)], {
+      type: "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const anchor = window.document.createElement("a");
     anchor.href = url;
@@ -277,6 +280,11 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
 
   return (
     <div>
+      <h4 className="mb-3 text-base font-semibold text-foreground">
+        {DOCUMENT_TYPE_LABELS[document_.document_type]}
+        <span className="ml-2 text-xs font-normal text-muted-foreground">draft</span>
+      </h4>
+
       {/* Not dismissible, and first. People paste rather than screenshot, so
           renderDraftText repeats it at the top of anything that leaves here. */}
       <div
@@ -312,13 +320,17 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
 
       {/* Copy and download. There is no send, publish or share-to-agency
           control here or anywhere else in this application. */}
-      <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-3.5">
-        <Button variant="outline" size="sm" onClick={copy}>
+      {/* Pinned to the bottom of the scrolling panel while the draft is on
+          screen, so taking it away does not mean scrolling past every
+          paragraph to find out how. */}
+      <div className="sticky bottom-0 -mx-5 mt-6 flex flex-wrap items-center gap-2 border-t border-border bg-sunken/95 px-5 py-3 backdrop-blur-sm">
+        <Button size="sm" onClick={copy}>
           {copied === "yes" ? "Copied" : "Copy"}
         </Button>
         <Button variant="outline" size="sm" onClick={download}>
           Download
         </Button>
+        <span className="text-xs text-faint">Plain text, with the notice and every citation.</span>
       </div>
 
       {copied === "failed" && (
@@ -386,9 +398,19 @@ function Failed({ status, detail }: { status: number; detail: string }) {
 
 export default function DraftPanel({ hex }: { hex: HexDetail }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  /** The type last asked for, so a refusal or failure still shows which. */
+  const [lastType, setLastType] = useState<DocumentType | null>(null);
   const pending = useRef<AbortController | null>(null);
 
   const insufficient = hex.confidence.band === "insufficient";
+  const chosenType: DocumentType | null =
+    status.kind === "generating"
+      ? status.documentType
+      : status.kind === "drafted"
+        ? status.draft.document.document_type
+        : status.kind === "refused" || status.kind === "failed"
+          ? lastType
+          : null;
 
   // A draft in flight belongs to the hexagon it was asked about. If the reader
   // moves on before it lands, it is abandoned rather than shown under a heading
@@ -408,6 +430,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
       const controller = new AbortController();
       pending.current = controller;
 
+      setLastType(documentType);
       setStatus({ kind: "generating", documentType });
       postDraft(hex.h3, documentType, controller.signal)
         .then((response) => {
@@ -451,7 +474,19 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
           The reader is being told the tool does not trust its own number for
           their neighbourhood, which deserves a sentence rather than a disabled
           button with no reason on it. */}
-      {insufficient ? (
+      {hex.score === null ? (
+        // Unscored is not the same as poorly scored: there is no number here to
+        // be unsure of, so the insufficient-band wording below would be wrong.
+        <div role="status" className="rounded-md border border-border-strong bg-card p-3.5">
+          <p className="text-sm leading-relaxed text-body">
+            This hexagon has no score, so there is nothing here to build a document on.
+          </p>
+          <p className="mt-2.5 text-xs leading-relaxed text-faint">
+            Choose a scored hexagon nearby on the map; most populated places in Louisiana have
+            one.
+          </p>
+        </div>
+      ) : insufficient ? (
         <div role="status" className="rounded-md border border-border-strong bg-card p-3.5">
           <p className="text-sm leading-relaxed text-body">
             There is not enough data behind this hexagon&apos;s score to stand behind a document
@@ -469,15 +504,24 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
             {TYPES.map((documentType) => {
               const busy = status.kind === "generating";
               const thisOne = status.kind === "generating" && status.documentType === documentType;
+              // Which document is on screen below, so a reader who scrolls back
+              // up can see what they asked for and that the others are a click
+              // away rather than a reset.
+              const chosen = chosenType === documentType;
               return (
                 <button
                   key={documentType}
                   onClick={() => generate(documentType)}
                   disabled={busy}
                   aria-busy={thisOne}
-                  className="rounded-md border border-input bg-card p-2.5 text-left
-                             transition-colors hover:border-foreground disabled:cursor-wait
-                             disabled:opacity-60"
+                  aria-pressed={chosen}
+                  className={cn(
+                    "rounded-md border bg-card p-2.5 text-left transition-colors",
+                    "hover:border-foreground disabled:cursor-wait disabled:opacity-60",
+                    chosen || thisOne
+                      ? "border-foreground ring-1 ring-foreground"
+                      : "border-input",
+                  )}
                 >
                   <span className="block text-sm font-medium text-foreground">
                     {DOCUMENT_TYPE_LABELS[documentType]}

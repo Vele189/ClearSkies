@@ -8,13 +8,15 @@
  *  dropped in without a code change.
  */
 
+import { LOUISIANA_BOUNDS, LOUISIANA_CENTER, inLouisiana } from "./louisiana.ts";
+
 const ENDPOINT = import.meta.env.VITE_GEOCODER_URL ?? "https://photon.komoot.io/api";
 
 /** Bias results toward the pilot state instead of returning the Springfield of
  *  whichever country indexed first. Not a hard filter: a user pasting a
  *  coordinate outside Louisiana still gets taken there, and finding out that
  *  the map has nothing to show them is a legitimate answer. */
-const BIAS: [number, number] = [-91.5, 30.6];
+
 
 export interface Place {
   /** Stable enough to key a list on within a single response. */
@@ -97,14 +99,19 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   const trimmed = query.trim();
   if (trimmed.length < 3) return [];
 
+  // Louisiana only, because the map cannot go anywhere else. A coordinate
+  // outside it comes back as no match rather than a flight to a locked edge.
   const coordinate = parseCoordinates(trimmed);
-  if (coordinate) return [coordinate];
+  if (coordinate) return inLouisiana(coordinate.center) ? [coordinate] : [];
 
   const url = new URL(ENDPOINT);
   url.searchParams.set("q", trimmed);
-  url.searchParams.set("limit", "5");
-  url.searchParams.set("lon", String(BIAS[0]));
-  url.searchParams.set("lat", String(BIAS[1]));
+  // More than shown: some of what Photon returns inside the box is filtered
+  // out below, and five is still the most the list displays.
+  url.searchParams.set("limit", "8");
+  url.searchParams.set("lon", String(LOUISIANA_CENTER[0]));
+  url.searchParams.set("lat", String(LOUISIANA_CENTER[1]));
+  url.searchParams.set("bbox", LOUISIANA_BOUNDS.flat().join(","));
 
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Search is unavailable (${String(response.status)}).`);
@@ -117,6 +124,6 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
 
   return features
     .map(toPlace)
-    .filter((place): place is Place => place !== null)
+    .filter((place): place is Place => place !== null && inLouisiana(place.center))
     .slice(0, 5);
 }

@@ -138,7 +138,7 @@ export default function App() {
         {/* items-end rather than baseline: the nav's active tab is marked with
             a rule along its own bottom edge, which only meets the header's
             border if the nav sits on it. */}
-        <div className="flex flex-wrap items-end justify-between gap-x-8 px-5">
+        <div className="flex flex-wrap items-end justify-between gap-x-8 px-4 sm:px-5">
           <div className="py-3">
             <Link
               to="/"
@@ -167,7 +167,7 @@ export default function App() {
         {full ? routeTo(path) : <div className="mx-auto max-w-4xl">{routeTo(path)}</div>}
       </main>
 
-      <Footer />
+      <Footer compact={full} />
     </div>
   );
 }

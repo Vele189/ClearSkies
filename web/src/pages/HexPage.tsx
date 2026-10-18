@@ -45,9 +45,16 @@ export default function HexPage({ h3 }: { h3: string }) {
   return (
     <div>
       <header className="mb-6">
-        <p className="text-xs font-semibold tracking-[0.06em] text-faint uppercase">
-          One hexagon
-        </p>
+        {/* This is where a shared link lands, with no map behind it. The label
+            above the heading used to say only "One hexagon"; a way to the map
+            is more use to a reader who arrived here first. */}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase hover:text-foreground"
+        >
+          <ArrowLeft aria-hidden="true" className="size-3.5" />
+          Map of Louisiana
+        </Link>
         {/* The index is the heading, because it is what identifies this page.
             The previous title was "One hexagon" on every hexagon, which gave
             a reader with twenty tabs open twenty identical ones. */}

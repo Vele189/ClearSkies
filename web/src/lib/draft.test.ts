@@ -4,6 +4,7 @@ import {
   allCitations,
   citationLabel,
   citationUrl,
+  distinctByLabel,
   draftFileName,
   renderDraftText,
   statuteUrl,
@@ -71,6 +72,27 @@ describe("citation links", () => {
   it("sends a record to its EPA facility report", () => {
     expect(citationUrl(RECORD)).toContain("echo.epa.gov");
     expect(citationUrl(RECORD)).toContain("110000350053");
+  });
+
+  it("sends a hexagon citation to that hexagon's page, not to EPA", () => {
+    // The verifier accepts the hexagon as a record. ECHO has never heard of an
+    // H3 index, so a link there landed on an error page that looked like a check.
+    const hexCitation: Citation = {
+      kind: "record",
+      record_id: "88444600ddfffff",
+      dataset: "hex",
+      proposition: "The area is in the 95th percentile.",
+    };
+    expect(citationUrl(hexCitation)).toBe("/hex/88444600ddfffff");
+    expect(citationUrl(hexCitation, "https://clearskies.example")).toBe(
+      "https://clearskies.example/hex/88444600ddfffff",
+    );
+    expect(citationLabel(hexCitation)).toBe("ClearSkies hexagon data");
+  });
+
+  it("links only a twelve-digit FRS id to ECHO", () => {
+    // A TRI facility id is not an FRS id; ECHO would show the wrong page or none.
+    expect(citationUrl({ ...RECORD, record_id: "70068PLNTTRIVER", dataset: "tri" })).toBeNull();
   });
 
   it("returns nothing rather than a guess for case law", () => {
@@ -249,5 +271,30 @@ describe("rendering a draft for the clipboard", () => {
     expect(draftFileName(stamped())).toBe(
       "clearskies-draft-public_comment_letter-88444600ddfffff-2026-09-11.txt",
     );
+  });
+});
+
+describe("a paragraph's citations", () => {
+  it("shows a repeated source once", () => {
+    const hexCitation = (proposition: string): Citation => ({
+      kind: "record",
+      record_id: "88444600ddfffff",
+      dataset: "hex",
+      proposition,
+    });
+    const chips = distinctByLabel([hexCitation("a"), hexCitation("b"), SECTION, hexCitation("c")]);
+    expect(chips.map(citationLabel)).toEqual(["ClearSkies hexagon data", SECTION.section]);
+  });
+
+  it("writes absolute links into the text that leaves the app", () => {
+    const text = renderDraftText(
+      stamped({
+        citations: [
+          { kind: "record", record_id: "88444600ddfffff", dataset: "hex", proposition: "p" },
+        ],
+      }),
+      "https://clearskies.example",
+    );
+    expect(text).toContain("https://clearskies.example/hex/88444600ddfffff");
   });
 });

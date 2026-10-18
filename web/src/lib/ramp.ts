@@ -118,8 +118,30 @@ export const FILL_COLOR: ExpressionSpecification = [
  *  express confidence — a washed-out fill reads as a lower score, which
  *  conflates how certain we are with how bad it is. Hatching does not. */
 export function visibilityFilter(showInsufficient: boolean): FilterSpecification {
+  return visible(showInsufficient);
+}
+
+function visible(showInsufficient: boolean): ExpressionSpecification {
   const hidden: MapBand[] = showInsufficient ? [] : ["insufficient"];
-  return ["!", ["in", BAND, ["literal", hidden]]];
+  return ["all", ["!", ["in", BAND, ["literal", hidden]]], IN_STATE];
+}
+
+/** The grid runs past the state line by an interaction radius, so a facility
+ *  across it can reach a cell inside (methodology section 6). Those buffer
+ *  cells are in Texas, Mississippi, Arkansas and the Gulf; they are not ranked
+ *  and they are not Louisiana, so the map does not draw them at all rather than
+ *  painting a grey "not scored" band along every border. */
+export const IN_STATE: ExpressionSpecification = [
+  "!=",
+  ["get", "no_score_reason"],
+  "outside_scored_states",
+];
+
+/** Outlines on scored hexes only. Drawn round the ~150,000 unscored cells as
+ *  well, they turn marsh and forest into a grid of lines that is the busiest
+ *  thing on the map while saying the least. */
+export function outlineFilter(showInsufficient: boolean): FilterSpecification {
+  return ["all", visible(showInsufficient), SCORED];
 }
 
 export function hatchFilter(showInsufficient: boolean): FilterSpecification {
@@ -142,6 +164,20 @@ export const HATCH_IMAGE_ID = "clearskies-hatch";
  *  amount, because a swatch that does not match the fill it explains sends the
  *  reader to the wrong class. */
 export const FILL_OPACITY = 0.75;
+
+/** An unscored cell is drawn lighter than a scored one. Nearly nine in ten
+ *  cells have fewer than 25 residents (section 5) -- marsh, forest, open water
+ *  inside the state line -- and at full strength their grey outweighs the
+ *  ramp it sits beside. This is not the confidence opacity section 12 rules
+ *  out: it is applied only off the ramp, so it cannot read as a lower score. */
+export const NO_SCORE_OPACITY = 0.35;
+
+export const FILL_OPACITY_BY_SCORE: ExpressionSpecification = [
+  "case",
+  SCORED,
+  FILL_OPACITY,
+  NO_SCORE_OPACITY,
+];
 
 /** A colour as it appears once the fill is drawn at `FILL_OPACITY` over a pale
  *  basemap. White is the approximation: Positron is close to it away from

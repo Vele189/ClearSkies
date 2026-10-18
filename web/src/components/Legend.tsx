@@ -2,7 +2,13 @@ import { ChevronRight } from "lucide-react";
 import { useId, useState } from "react";
 
 import { cn } from "@/lib/utils.ts";
-import { HATCH_ANGLE_DEG, LEGEND_CLASSES, NO_SCORE_COLOR, blendOnWhite } from "../lib/ramp.ts";
+import {
+  HATCH_ANGLE_DEG,
+  LEGEND_CLASSES,
+  NO_SCORE_COLOR,
+  NO_SCORE_OPACITY,
+  blendOnWhite,
+} from "../lib/ramp.ts";
 import { Checkbox } from "./ui/checkbox.tsx";
 import { Separator } from "./ui/separator.tsx";
 
@@ -13,11 +19,11 @@ import { Separator } from "./ui/separator.tsx";
  *  It stays a `span` carrying an inline `background-color`: `Legend.test.tsx`
  *  reads every `span[style]` back and asserts each one is the blended colour
  *  rather than the raw ramp entry. */
-function Swatch({ color }: { color: string }) {
+function Swatch({ color, opacity }: { color: string; opacity?: number }) {
   return (
     <span
       className="h-4 w-6 shrink-0 rounded-sm ring-1 ring-black/15"
-      style={{ backgroundColor: blendOnWhite(color) }}
+      style={{ backgroundColor: blendOnWhite(color, opacity) }}
       aria-hidden="true"
     />
   );
@@ -87,7 +93,9 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
   return (
     <section
       aria-label="Map legend"
-      className="pointer-events-auto absolute bottom-6 left-2 z-10 max-w-[calc(100vw-1rem)]
+      // A fixed width on desktop. Without one the box grows to its longest line
+      // of help text and covered a third of the map.
+      className="pointer-events-auto absolute bottom-6 left-2 z-10 max-w-[calc(100vw-1rem)] sm:w-64
                  overflow-hidden rounded-lg border border-border bg-card/95 shadow-lg
                  ring-1 ring-black/5 backdrop-blur-sm sm:bottom-8 sm:left-3"
     >
@@ -107,7 +115,7 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
       </button>
 
       <div className={cn(open ? "block" : "hidden", "px-3.5 pt-1 pb-3.5 sm:block sm:pt-3.5")}>
-        <GroupLabel className="hidden sm:block">Burden score</GroupLabel>
+        <GroupLabel className="hidden sm:block">Burden percentile</GroupLabel>
         <p className="mt-0.5 text-[0.6875rem] text-faint">Louisiana percentile</p>
 
         <ul className="mt-2.5 flex flex-col gap-1">
@@ -121,11 +129,13 @@ export default function Legend({ showInsufficient, onShowInsufficientChange }: P
             </Row>
           ))}
           <Row>
-            <Swatch color={NO_SCORE_COLOR} />
+            <Swatch color={NO_SCORE_COLOR} opacity={NO_SCORE_OPACITY} />
             {/* Solid, and the map draws it solid: an unscored hexagon is not
                 hatched, because hatching would say its score is poorly
                 supported when it has no score to support. */}
-            <span>Not scored</span>
+            <span>
+              Not scored <span className="text-faint">(too few residents)</span>
+            </span>
           </Row>
         </ul>
 
