@@ -150,7 +150,8 @@ def main(argv: list[str] | None = None) -> int:
     primary = gate.category(HIGH_BURDEN)
     print(
         f"\nprimary gate: {primary.passed} of {primary.of} passed, "
-        f"{primary.required} required -> {'PASS' if gate.passed else 'FAIL'}",
+        f"{primary.required} required -> {'met' if primary.met else 'NOT met'}; "
+        f"gate {'PASS' if gate.passed else 'FAIL'}",
         file=sys.stderr,
     )
 
