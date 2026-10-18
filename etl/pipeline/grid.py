@@ -68,9 +68,6 @@ RESOLUTION = 8
 #: cells were. Source: Census state area measurements.
 LOUISIANA_AREA_KM2 = 135_659.0
 
-#: The District's, from the same source.
-DISTRICT_OF_COLUMBIA_AREA_KM2 = 177.0
-
 #: Keyed by state FIPS, because the CS-007 check is "does this state's grid
 #: cover this state", and a build that measured one state against another's
 #: published figure would pass no matter what it had loaded. That is not
@@ -80,10 +77,10 @@ DISTRICT_OF_COLUMBIA_AREA_KM2 = 177.0
 #:
 #: Short on purpose, like the adapters' state tables. A state with no published
 #: figure cannot have its boundary checked, and `build_grid` refuses rather
-#: than skipping the check quietly.
+#: than skipping the check quietly. Louisiana only since the District was
+#: rolled back (docs/expansion.md section 7).
 PUBLISHED_AREA_KM2: dict[str, float] = {
     "22": LOUISIANA_AREA_KM2,
-    "11": DISTRICT_OF_COLUMBIA_AREA_KM2,
 }
 
 #: How far the loaded total may sit from the published figure before the build

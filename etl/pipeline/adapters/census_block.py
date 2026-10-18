@@ -66,7 +66,7 @@ BLOCK_LAYER = 10
 
 VINTAGE = "dec2020_pl94171"
 
-STATE_FIPS: Mapping[str, str] = {"LA": "22", "DC": "11"}
+STATE_FIPS: Mapping[str, str] = {"LA": "22"}
 
 #: Blocks are far smaller polygons than tracts, so a page holds more of them
 #: before the response approaches the size the firewall in front of TIGERweb
@@ -91,9 +91,6 @@ MAX_PAGES = 400
 #: parish is one whose weights would be quietly wrong everywhere downstream.
 LOUISIANA_POPULATION_2020 = 4_657_757
 
-#: The District's, from the same release.
-DISTRICT_OF_COLUMBIA_POPULATION_2020 = 689_545
-
 #: Keyed by USPS, because CS-112's check is "did this state's blocks all
 #: arrive", and comparing one state's total against another's published figure
 #: reports a fault that is not there and hides one that is. The District's load
@@ -103,10 +100,10 @@ DISTRICT_OF_COLUMBIA_POPULATION_2020 = 689_545
 #: A state absent here cannot be checked. The note says so rather than
 #: measuring against an arbitrary state, because a check that reports the wrong
 #: state's number is worse than no check: somebody has to decide it is noise,
-#: and next time they will decide that about a real one.
+#: and next time they will decide that about a real one. Louisiana only since
+#: the District was rolled back (docs/expansion.md section 7).
 POPULATION_2020: dict[str, int] = {
     "LA": LOUISIANA_POPULATION_2020,
-    "DC": DISTRICT_OF_COLUMBIA_POPULATION_2020,
 }
 
 #: How far the summed block population may sit from the published figure. Tight

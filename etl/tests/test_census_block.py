@@ -13,7 +13,6 @@ from typing import Any
 import pytest
 
 from pipeline.adapters.census_block import (
-    DISTRICT_OF_COLUMBIA_POPULATION_2020,
     LOUISIANA_POPULATION_2020,
     CensusBlock,
     CensusBlockAdapter,
@@ -125,12 +124,11 @@ def test_the_population_note_compares_against_the_state_it_loaded() -> None:
     reported as 85% off Louisiana's figure, because the check named one state
     whatever it had pulled. A check that reports the wrong state's number is
     worse than none: somebody decides it is noise, and next time decides that
-    about a real one."""
-    dc = [block(population=DISTRICT_OF_COLUMBIA_POPULATION_2020)]
-    note = _population_note(dc, pilot_state="DC")
-    assert "matches" in note
-    assert "689,545" in note
+    about a real one. A state other than Louisiana is never measured against
+    Louisiana's figure."""
+    note = _population_note([block(population=689_545)], pilot_state="DC")
     assert "4,657,757" not in note
+    assert "DOES NOT MATCH" not in note
 
 
 def test_a_state_with_no_published_figure_says_the_check_did_not_run() -> None:

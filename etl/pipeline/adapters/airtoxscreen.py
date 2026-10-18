@@ -102,14 +102,9 @@ GEOID_LENGTH = 11
 # 000000, so the suffix identifies them on its own.
 ROLLUP_SUFFIX = "000000"
 
-# Census FIPS for the states this pipeline will pull. Short on purpose: it is
-# not a lookup table of the fifty, it is the list of states somebody decided to
-# score. Section 4 locked the pilot to Louisiana and `docs/expansion.md`
-# section 3 is where the District of Columbia was argued for, so each entry
-# here arrived with a reason. An unlisted state fails loudly at
-# `PermanentSourceError` rather than quietly pulling data nobody asked for,
-# which is the whole value of keeping this hand-written.
-STATE_FIPS: Mapping[str, str] = {"LA": "22", "DC": "11"}
+# Census FIPS for the pilot state. One entry, because section 4 locks the pilot
+# to Louisiana; adding a second state is a methodology decision, not a lookup.
+STATE_FIPS: Mapping[str, str] = {"LA": "22"}
 
 
 class TractExposure(NormalizedRecord):

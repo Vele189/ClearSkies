@@ -22,7 +22,7 @@ from burden.eligibility import eligible
 from burden.percentile import rank_indicators
 from burden.pollution import POLLUTION_BURDEN
 from burden.population import POPULATION_CHARACTERISTICS
-from burden.score import burden_score
+from burden.score import ScoreRun, burden_score
 from burden.states import score_by_state
 
 #: All fifteen, so every group clears its `minimum_present` and a hex scores.
@@ -57,7 +57,7 @@ def all_inside(levels: Mapping[str, float]) -> dict[str, bool]:
     return dict.fromkeys(levels, True)
 
 
-def unpartitioned(levels: Mapping[str, float]):
+def unpartitioned(levels: Mapping[str, float]) -> ScoreRun:
     """The run as it was computed before 0031: one universe, one denominator."""
     cover = {h3: POPULATION for h3 in levels}
     values = values_for(levels)
@@ -71,7 +71,7 @@ def unpartitioned(levels: Mapping[str, float]):
     )
 
 
-def rows(run) -> list[tuple[str, float | None, float | None, float | None, float | None]]:
+def rows(run: ScoreRun) -> list[tuple[str, float | None, float | None, float | None, float | None]]:
     return [
         (h.h3, h.score, h.percentile, h.pollution_burden, h.population_characteristics)
         for h in run.hexes
@@ -160,7 +160,9 @@ def test_each_state_is_ranked_against_itself_and_not_the_other() -> None:
     # And under a single denominator it would not have: every Louisiana hex
     # would rank below every other, which is the reading being prevented.
     pooled = unpartitioned(levels).by_h3()
-    assert pooled["la_high"].percentile < pooled["wv_low"].percentile
+    la_high, wv_low = pooled["la_high"].percentile, pooled["wv_low"].percentile
+    assert la_high is not None and wv_low is not None
+    assert la_high < wv_low
 
 
 def test_a_state_is_rescaled_against_its_own_maximum() -> None:

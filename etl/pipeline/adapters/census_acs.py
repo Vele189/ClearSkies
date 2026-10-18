@@ -99,7 +99,7 @@ TIGERWEB = (
 TRACT_LAYER = 8
 STATE_LAYER = 80
 
-STATE_FIPS: Mapping[str, str] = {"LA": "22", "DC": "11"}
+STATE_FIPS: Mapping[str, str] = {"LA": "22"}
 
 # The API caps `get=` at 50 variables. Each variable is requested as an estimate
 # and a margin, so a request carries half that many.

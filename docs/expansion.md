@@ -8,8 +8,11 @@ section 9 is the authority on percentiles and section 4 on why Louisiana was
 the pilot; nothing here may move a cut point or re-rank a published score
 without a methodology revision.
 
-**Status: proposal.** The schema work in section 2 is written (migrations 0030
-and 0031) and unapplied. No second state's data has been loaded.
+**Status: rolled back to Louisiana only (2026-10-18).** The District of
+Columbia was loaded and then removed; see section 7. Migrations 0030 and 0031
+stay applied, and with them the per-state schema and the guards in sections
+2.3 and 2.5, so a future second state starts from them rather than from
+scratch. `scored_state` holds Louisiana alone.
 
 ---
 
@@ -370,6 +373,19 @@ pull nobody has the script for.
 
 ## 7. Revision history
 
+- **2026-10-18.** Rolled back to Louisiana only. On `dev-seed`: the
+  District's 294 hexes, 206 tracts, 6,012 blocks and their crosswalk,
+  demographics and run rows deleted, with snapshots 335 and 336; runs 80
+  (two-state, superseded) and 82 (failed, empty) deleted; 0032 reverted. Run
+  81 stays current with Louisiana's 19,881 ranked cells, whose percentiles
+  were checksummed before and after and did not change. Reverted in code:
+  0032 and the District's adapter envelopes (67b875a), the fit-to-extent
+  camera (7df8928) and the `/states` endpoint with its map markers
+  (0b454ab); the District's published area and population figures removed;
+  the legend says "Louisiana percentile" again. Kept: 0031's per-state
+  schema, the per-state scoring loop, and the guards in section 2.5, all of
+  which are correct with one state. A backup of `dev-seed` from before the
+  deletion is branch `backup-before-dc-rollback-2026-10-18`.
 - **2026-10-12.** The District of Columbia declared (0032) and loaded: 206
   tracts, 6,012 blocks totalling its published 689,545, a 294-cell grid at
   176 km² against 177 published, and a crosswalk summing to exactly 206.000.

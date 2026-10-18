@@ -56,11 +56,7 @@ def test_a_state_with_no_table_yields_nothing_rather_than_raising() -> None:
 
 
 def test_the_pilot_state_is_the_one_tabulated() -> None:
-    # Exact, not a superset. Every state in this table is one somebody argued
-    # for -- Louisiana in methodology section 4, the District in
-    # docs/expansion.md section 3 -- so a state appearing here without this
-    # line changing is a state that arrived without the argument.
-    assert set(BY_STATE) == {"22", "11"}
+    assert set(BY_STATE) == {"22"}
 
 
 def test_the_validation_sites_parishes_are_all_in_the_table() -> None:

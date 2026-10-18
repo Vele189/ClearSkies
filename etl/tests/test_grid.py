@@ -15,7 +15,6 @@ import h3
 import pytest
 
 from pipeline.grid import (
-    DISTRICT_OF_COLUMBIA_AREA_KM2,
     LOUISIANA_AREA_KM2,
     MEASURE,
     PRUNE,
@@ -227,14 +226,15 @@ async def test_export_is_json_serialisable_in_the_shape_tiles_reads() -> None:
 def test_a_state_is_checked_against_its_own_published_area() -> None:
     """The District's grid measured against Louisiana's figure passed at 0.1%
     off while containing both states, which is a check that cannot fail. Each
-    state is compared with its own."""
-    dc = GridReport(state_fips="11", in_pilot=246, fringe=48, area_km2=177.0, parishes=1)
-    assert dc.published_km2 == DISTRICT_OF_COLUMBIA_AREA_KM2
-    assert dc.plausible
+    state is compared with its own, and a state with no figure of its own is
+    not quietly compared with Louisiana's."""
+    la = GridReport(state_fips="22", in_pilot=100, fringe=10, area_km2=135_000.0, parishes=64)
+    assert la.published_km2 == LOUISIANA_AREA_KM2
+    assert la.plausible
 
-    # Louisiana's area, reported for the District, is not plausible for it.
-    wrong = GridReport(state_fips="11", in_pilot=246, fringe=48, area_km2=135_659.0, parishes=1)
-    assert not wrong.plausible
+    other = GridReport(state_fips="11", in_pilot=246, fringe=48, area_km2=135_659.0, parishes=1)
+    with pytest.raises(KeyError):
+        _ = other.plausible
 
 
 def test_report_arithmetic() -> None:
@@ -246,7 +246,7 @@ def test_report_arithmetic() -> None:
 # ---- The grid will not build for a state nobody declared -----------------
 
 
-class StateLedger:
+class StateLedger(FakeConnection):
     """Enough asyncpg to answer the two questions the guard asks.
 
     `FakeConnection` above answers every `fetchval` with its boundary, which
@@ -257,6 +257,7 @@ class StateLedger:
     def __init__(
         self, *, table: bool = True, declared: dict[str, tuple[str, str]] | None = None
     ) -> None:
+        super().__init__(boundary=None)
         self.table = table
         self.declared = declared or {}
 

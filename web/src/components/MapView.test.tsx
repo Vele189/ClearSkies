@@ -14,9 +14,6 @@ class FakeMap {
   listeners = new Map<string, { fn: Listener; layer?: string; once: boolean }[]>();
   layers = new Set<string>();
   tilesLoaded = true;
-  fits: { bounds: unknown; options: unknown }[] = [];
-  sources = new Map<string, { data: unknown }>();
-  container: HTMLElement | null = document.createElement("div");
   rendered: { properties: Record<string, unknown> }[] = [];
   flights: unknown[] = [];
   queried: unknown[] = [];
@@ -67,18 +64,7 @@ class FakeMap {
     return false;
   }
   addImage() {}
-  addSource(id: string) {
-    this.sources.set(id, { data: null as unknown });
-  }
-  getSource(id: string) {
-    const held = this.sources.get(id);
-    if (!held) return undefined;
-    return {
-      setData: (data: unknown) => {
-        held.data = data;
-      },
-    };
-  }
+  addSource() {}
   addLayer(layer: { id: string }) {
     this.layers.add(layer.id);
   }
@@ -101,12 +87,6 @@ class FakeMap {
   flyTo(options: unknown) {
     this.flights.push(options);
   }
-  fitBounds(bounds: unknown, options: unknown) {
-    this.fits.push({ bounds, options });
-  }
-  getContainer() {
-    return this.container;
-  }
 }
 
 vi.mock("maplibre-gl", () => ({
@@ -119,16 +99,9 @@ vi.mock("maplibre-gl", () => ({
   removeProtocol: vi.fn(),
 }));
 
-//: Louisiana's bounds, as the real archive's header carries them.
-const ARCHIVE_BOUNDS = { minLon: -94.14, minLat: 28.83, maxLon: -88.73, maxLat: 33.1 };
-
 vi.mock("pmtiles", () => ({
-  Protocol: vi.fn(function (this: { tile: unknown; add: unknown }) {
+  Protocol: vi.fn(function (this: { tile: unknown }) {
     this.tile = vi.fn();
-    this.add = vi.fn();
-  }),
-  PMTiles: vi.fn(function (this: { getHeader: unknown }) {
-    this.getHeader = vi.fn(() => Promise.resolve(ARCHIVE_BOUNDS));
   }),
 }));
 
@@ -164,30 +137,6 @@ async function pick(name: string) {
   await userEvent.keyboard("{Enter}");
 }
 
-const STATES = [
-  {
-    usps: "LA",
-    name: "Louisiana",
-    centroid: [-91.4, 30.94],
-    bounds: [-94.04, 28.86, -88.76, 33.02],
-    cells: 171725,
-  },
-  {
-    usps: "DC",
-    name: "District of Columbia",
-    centroid: [-77.02, 38.89],
-    bounds: [-77.12, 38.8, -76.92, 38.99],
-    cells: 246,
-  },
-];
-
-function stubStates() {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(STATES) }),
-  );
-}
-
 beforeEach(() => {
   vi.stubEnv("VITE_TILES_URL", "https://tiles.example/hexes.pmtiles");
 });
@@ -202,52 +151,6 @@ describe("MapView", () => {
   it("is a named region a screen reader can land on", () => {
     loadedMap();
     expect(screen.getByRole("region", { name: "Burden score map" })).toBeInTheDocument();
-  });
-
-  it("frames what is scored rather than the state it started as", async () => {
-    // The camera used to open on two constants holding Louisiana, with a
-    // comment saying a later phase would fit them to the scored extent. Once a
-    // second state was loaded the map opened over the pilot state and a reader
-    // could not see that anywhere else had been scored at all.
-    //
-    // The bounds come from the archive's own header, which is metadata rather
-    // than data: exact, free of tile reads, and right the first time a state is
-    // added without anybody editing a number here.
-    const { map } = loadedMap();
-    await vi.waitFor(() => expect(map.fits).toHaveLength(1));
-
-    expect(map.fits[0].bounds).toEqual([
-      [ARCHIVE_BOUNDS.minLon, ARCHIVE_BOUNDS.minLat],
-      [ARCHIVE_BOUNDS.maxLon, ARCHIVE_BOUNDS.maxLat],
-    ]);
-  });
-
-  it("marks where each scored state is, for the zooms that have no hexes", async () => {
-    // Below zoom 6 the archive has no tiles at all, so a reader who zooms out
-    // to find the other states is looking at an empty basemap with nothing to
-    // say anywhere else was scored. The rings are what they aim at.
-    stubStates();
-    const { map } = loadedMap();
-
-    expect(map.layers.has("clearskies-state-circle")).toBe(true);
-    expect(map.layers.has("clearskies-state-label")).toBe(true);
-
-    await vi.waitFor(() => {
-      const held = map.sources.get("clearskies-states");
-      expect((held?.data as { features: unknown[] } | null)?.features).toHaveLength(2);
-    });
-
-    const data = map.sources.get("clearskies-states")?.data as {
-      features: { geometry: { coordinates: number[] }; properties: Record<string, unknown> }[];
-    };
-    const dc = data.features.find((f) => f.properties.usps === "DC");
-
-    expect(dc?.geometry.coordinates).toEqual([-77.02, 38.89]);
-    expect(dc?.properties.cells).toBe(246);
-    // Four numbers rather than one array: a GeoJSON property holding an array
-    // does not survive a feature round trip the same way on every path.
-    expect(dc?.properties.west).toBe(-77.12);
-    expect(dc?.properties.north).toBe(38.99);
   });
 
   it("selects the hexagon a reader clicks", () => {

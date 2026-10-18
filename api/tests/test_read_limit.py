@@ -120,7 +120,4 @@ def test_every_read_router_carries_the_limit() -> None:
             if any(dep.call is enforce_read_limit for dep in dependant.dependencies):
                 limited_paths.add(route.path)
 
-    # /states joined the meta router and inherited the limit from it, which is
-    # the point of declaring it there: the endpoint arrived limited without
-    # anybody remembering to limit it, and this line is how that was noticed.
-    assert limited_paths == {"/hex/{h3_index}", "/provenance", "/indicators", "/states"}
+    assert limited_paths == {"/hex/{h3_index}", "/provenance", "/indicators"}

@@ -160,12 +160,6 @@ MEASURED_PULL_REJECTIONS: dict[str, int] = {
 PILOT_ENVELOPE: dict[str, tuple[float, float, float, float]] = {
     # south, north, west, east
     "LA": (28.83, 33.10, -94.14, -88.73),
-    # The District is 38.79 to 39.00 N and -77.12 to -76.91 W; buffered by
-    # roughly 10 km, which is 0.09 degrees of latitude and 0.115 of longitude
-    # at this latitude. The box therefore reaches well into Maryland and
-    # Virginia, which is deliberate and is the same reasoning as Louisiana's:
-    # a monitor across the line measures air that blows over the District.
-    "DC": (38.70, 39.09, -77.24, -76.79),
 }
 
 EARTH_RADIUS_KM = 6371.0088
