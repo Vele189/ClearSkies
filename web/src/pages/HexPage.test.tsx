@@ -63,7 +63,10 @@ describe("the hexagon page", () => {
 
     render(<HexPage h3={H3} />);
 
-    expect(await screen.findByText("St. James Parish")).toBeInTheDocument();
+    // Named by the place now, not the raw index, which stays as a reference.
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "St. James Parish" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /map/i })).not.toBeInTheDocument();
   });
 
@@ -82,14 +85,16 @@ describe("the hexagon page", () => {
 
     render(<HexPage h3={H3} />);
 
-    expect(await screen.findByText("no such hexagon")).toBeInTheDocument();
+    // A sentence for the reader, not the API's message for developers.
+    expect(await screen.findByText(/don't have a score for this area/i)).toBeInTheDocument();
+    expect(screen.queryByText("no such hexagon")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to the map/i })).toBeInTheDocument();
   });
 
   it("returns to the map when the panel is closed", async () => {
     serve(detail());
     render(<HexPage h3={H3} />);
-    await screen.findByText("St. James Parish");
+    await screen.findByRole("heading", { level: 1, name: "St. James Parish" });
 
     await userEvent.click(screen.getByRole("button", { name: /close panel/i }));
 
@@ -100,7 +105,7 @@ describe("the hexagon page", () => {
     serve(detail());
 
     render(<HexPage h3={H3} />);
-    await screen.findByText("St. James Parish");
+    await screen.findByRole("heading", { level: 1, name: "St. James Parish" });
 
     expect(screen.queryByRole("link", { name: /on its own page/i })).not.toBeInTheDocument();
   });

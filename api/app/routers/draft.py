@@ -40,6 +40,9 @@ from app.h3_cell import H3Cell
 
 log = logging.getLogger(__name__)
 
+#: Shown to a reader in the drafting panel, so it says what it means for them.
+DATA_UNAVAILABLE = "Our data service isn't available right now. Please try again in a few minutes."
+
 router = APIRouter(tags=["draft"])
 
 #: Named so the two limits count separately: a reader who has been clicking
@@ -70,9 +73,9 @@ def enforce_rate_limit(request: Request) -> None:
     raise HTTPException(
         status_code=429,
         detail=(
-            f"Too many drafting requests from this client. Each draft calls a paid "
-            f"API, so this deployment allows {limiter().limit} every "
-            f"{int(limiter().window_s)} seconds. Try again in {seconds} seconds."
+            f"You've asked for several drafts in a short time. Each one costs money to "
+            f"write, so we allow {limiter().limit} every {int(limiter().window_s)} "
+            f"seconds. Please try again in {seconds} seconds."
         ),
         headers={"Retry-After": str(seconds)},
     )
@@ -120,11 +123,14 @@ def _settings_or_503() -> tuple[str, str]:
     """
     settings = get_settings()
     if not settings.openai_api_key:
+        # The reason is for whoever runs the deployment, so it goes to the log;
+        # the reader is told what it means for them.
+        log.warning("drafting requested but OPENAI_API_KEY is not set")
         raise HTTPException(
             status_code=503,
             detail=(
-                "The drafting assistant is not configured on this deployment: no "
-                "OPENAI_API_KEY is set. Everything else in the API works normally."
+                "Document drafting isn't switched on for this site yet. Everything "
+                "else works normally."
             ),
         )
     return settings.draft_model, settings.embedding_model
@@ -157,7 +163,7 @@ async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
 
     p = await db.pool()
     if p is None:
-        raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
+        raise HTTPException(status_code=503, detail=DATA_UNAVAILABLE)
 
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
@@ -196,7 +202,14 @@ async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
             # a statement about the data and not about the caller.
             raise HTTPException(status_code=409, detail=exc.explanation) from exc
         except service.NoCorpus as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            log.error("drafting requested with no usable statute corpus: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Document drafting is unavailable because of a setup problem on our "
+                    "side. Everything else works normally."
+                ),
+            ) from exc
         except retrieval.EmbeddingModelMismatch as exc:
             # A deployment fault, not a bad request: every draft it produced
             # would be retrieved from vectors in a different coordinate space
@@ -205,19 +218,17 @@ async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
             raise HTTPException(
                 status_code=503,
                 detail=(
-                    "The drafting assistant is misconfigured on this deployment: the "
-                    "statute corpus was embedded with a different model from the one "
-                    "configured here, so retrieval cannot be trusted. Everything else "
-                    "in the API works normally."
+                    "Document drafting is unavailable because of a setup problem on our "
+                    "side. Everything else works normally."
                 ),
             ) from exc
         except service.ProviderUnavailable as exc:
             raise HTTPException(
                 status_code=503,
                 detail=(
-                    "The language model provider is temporarily unavailable or the "
-                    "spend cap for this deployment has been reached. Nothing is wrong "
-                    "with your request; try again later."
+                    "The AI service that writes drafts is unavailable right now, or we've "
+                    "reached our spending limit for the moment. Nothing is wrong with your "
+                    "request; please try again later."
                 ),
             ) from exc
         except service.VerificationFailed as exc:
@@ -229,9 +240,9 @@ async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "A draft was produced, but its citations could not be checked "
-                    "because the verifier did not return a usable judgement, so it "
-                    "was discarded rather than shown. Trying again may work."
+                    "A draft was written, but we couldn't finish checking its sources, so "
+                    "we threw it away rather than show you something unchecked. Trying "
+                    "again may work."
                 ),
             ) from exc
         except verifier.DraftUnverifiable as exc:
@@ -241,17 +252,17 @@ async def create_draft(body: DraftRequest, request: Request) -> DraftResponse:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "A draft was produced but at least one of its citations could not "
-                    "be verified against the data and the statute corpus, so it was "
-                    "discarded rather than shown. This is the system working as "
-                    "intended. Trying again may produce a draft that verifies."
+                    "A draft was written, but at least one of its sources didn't hold up "
+                    "when we checked it against the data and the law, so we threw it away "
+                    "rather than show it to you. That is the checking doing its job. "
+                    "Trying again may give a draft that passes."
                 ),
             ) from exc
         except DraftRejected as exc:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "The model did not produce a document in the required form, so "
+                    "The assistant didn't produce a document in the expected format, so "
                     "nothing was shown. Trying again may work."
                 ),
             ) from exc
@@ -280,7 +291,7 @@ async def spend() -> SpendReport:
     """Month-to-date usage, so the bill is legible before it arrives."""
     p = await db.pool()
     if p is None:
-        raise HTTPException(status_code=503, detail="Database unavailable. Check GET /health.")
+        raise HTTPException(status_code=503, detail=DATA_UNAVAILABLE)
     async with p.acquire() as conn:
         month = await cost.month_to_date(conn)
     return SpendReport(usd=round(month.usd, 4), tokens=month.tokens, calls=month.calls)
@@ -299,16 +310,15 @@ async def load_hex_context(conn: Any, h3: str) -> HexContext:
     if run is None:
         raise HTTPException(
             status_code=503,
-            detail=(
-                "No scored data yet, so there is nothing to draft about. The Phase 1 "
-                "ingestion and Phase 2 scoring steps have not run for this deployment. "
-                "See GET /health."
-            ),
+            detail="No results have been published yet, so there is nothing to draft about.",
         )
 
     detail = await hex_detail.load(conn, h3, run)
     if detail is None:
-        raise HTTPException(status_code=404, detail=f"No scored hex {h3} in the pilot state.")
+        raise HTTPException(
+            status_code=404,
+            detail="We don't have a result for this area, so there is nothing to draft about.",
+        )
 
     return HexContext(
         h3=detail.h3,

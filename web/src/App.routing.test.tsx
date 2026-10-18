@@ -92,7 +92,7 @@ describe("the sources page", () => {
   it("is reachable from the map's navigation", async () => {
     render(<App />);
 
-    await userEvent.click(screen.getByRole("link", { name: "Sources" }));
+    await userEvent.click(screen.getByRole("link", { name: "Data sources" }));
 
     expect(
       await screen.findByRole("heading", { name: /where the data comes from/i }),

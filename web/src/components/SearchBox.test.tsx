@@ -27,7 +27,7 @@ afterEach(() => {
 describe("SearchBox", () => {
   it("exposes itself as a combobox to assistive technology", () => {
     render(<SearchBox onPick={vi.fn()} />);
-    const input = screen.getByRole("combobox", { name: /search for a place/i });
+    const input = screen.getByRole("combobox", { name: /search for a town or address/i });
     expect(input).toHaveAttribute("aria-expanded", "false");
   });
 
@@ -135,6 +135,6 @@ describe("SearchBox", () => {
 
     await userEvent.type(screen.getByRole("combobox"), "Zzzzzz");
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/no match/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(/no place in louisiana matches/i);
   });
 });

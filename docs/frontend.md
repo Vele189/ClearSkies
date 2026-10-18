@@ -251,11 +251,14 @@ F3 are zero where facilities are present and none was out of compliance or
 under formal enforcement, and "no qualifying facility" there contradicted the
 facility list beneath it.
 
-**The headline.** The percentile leads, beside the swatch the map painted it,
-because that is what the reader clicked: a colour. The 0–100 score follows as
-the quantity being ranked. A percentile is written 1st to 99th; Hazen
-percentiles never reach 100, but the worst cells round to it, and "100th" reads
-as a mistake.
+**The headline.** The rank leads, beside the swatch the map painted it,
+because that is what the reader clicked: a colour. It is written as people say
+it, "Top 5%" or "Bottom 20%", with "More burdened than 95% of places in
+Louisiana." under it; the 0–100 score follows. Ranks are held to 1–99: Hazen
+percentiles never reach 0 or 100, but the worst cells round to 100, and "Top
+0%" or "100th" reads as a mistake. A group's number in the waterfall is the
+average of its measures' ranks, which is not itself a rank, so it is written
+"93/100" rather than "Top 7%".
 
 **An unscored hexagon** says why in words (`NO_SCORE_EXPLANATIONS`) and shows
 its facilities and population, and nothing else. It has no confidence to break
@@ -334,9 +337,8 @@ or share wording; a third asserts the only endpoint it ever posts to is
 A hexagon in that band offers no document types at all, and says why before
 anything is clicked:
 
-> There is not enough data behind this hexagon's score to stand behind a
-> document built on it. Drafting from it would give you something that looks
-> well supported and is not.
+> We don't have enough data about this area to stand behind a document based
+> on it. A draft would look well supported when it isn't.
 
 Not a disabled button with no reason on it, and not an error code. The reader is
 being told the tool does not trust its own number for their neighbourhood, and
@@ -380,7 +382,43 @@ assistant declined rather than failed.
 
 ---
 
-## 9. Deployment
+## 9. Plain language
+
+Most readers have never used a percentile table, and the methodology's terms
+are precise rather than familiar. Everything a reader sees says the plain
+version; the methodology's terms stay in the API, the drafts, the code and
+these docs. Where a reader may want the exact term (an indicator's
+methodology name, an H3 index) it is a tooltip or a small reference, not the
+label.
+
+| The methodology says | The site says |
+|---|---|
+| hexagon, cell, hex | area |
+| percentile, "95th percentile statewide" | "Top 5%", "more burdened than 95% of places" |
+| cumulative environmental burden | pollution burden; "how much pollution communities live with" |
+| indicator | measure, by its plain name (`lib/wording.ts`) |
+| component; Pollution Burden / Population Characteristics | the two halves; "Pollution" / "How vulnerable residents are" |
+| Exposures, Environmental Effects, Sensitive Populations, Socioeconomic Factors | Pollution in the air, Nearby industry, Age, Economic hardship |
+| confidence, band, 0.54 | "How sure we are": strong / good / limited / too little data; terms out of 100 |
+| weighted geometric mean | "one weak spot pulls the whole rating down" |
+| not scored, `low_population` | "Not ranked: too few people live here" |
+| facility, CAA Title V, RCRA LQG | site, plant; "Major air permit", "Hazardous waste producer" |
+| statute corpus, citation, verified | the set of laws, source, checked |
+| basemap, tile archive, API | background map, pollution layer, our data service |
+
+The API's error details are written for developers ("Check GET /health") and
+are not shown as written: `readerError` in `lib/wording.ts` chooses the
+reader's sentence from the status code. The drafting endpoint is the
+exception, because its failures are answers the reader needs (a refusal, a
+discarded draft), so those details are written in plain language at the
+source and operator-only causes go to the server log.
+
+The prohibited-language scan in `api/tests/test_site_copy.py` reads this copy,
+comments included, and flags intent words such as "on purpose" and "knew" even
+where the sentence is about the project; reword rather than add exceptions
+where a plain alternative exists.
+
+## 10. Deployment
 
 The Railway `web` service, described in `.railway/railway.ts`. Vite builds it,
 `serve -s dist` serves it. `serve` is a devDependency, so the build must not

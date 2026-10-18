@@ -125,17 +125,17 @@ export interface Health {
 }
 
 export const GROUP_LABELS: Record<Group, string> = {
-  exposures: "Exposures",
-  environmental_effects: "Environmental effects",
-  sensitive_populations: "Sensitive populations",
-  socioeconomic_factors: "Socioeconomic factors",
+  exposures: "Pollution in the air",
+  environmental_effects: "Nearby industry",
+  sensitive_populations: "Age",
+  socioeconomic_factors: "Economic hardship",
 };
 
 export const BAND_LABELS: Record<ConfidenceBand, string> = {
-  high: "High confidence",
-  moderate: "Moderate confidence",
-  low: "Low confidence",
-  insufficient: "Insufficient data",
+  high: "Strong data",
+  moderate: "Good data",
+  low: "Limited data",
+  insufficient: "Too little data",
 };
 
 // ---- The drafting assistant (CS-303, CS-306) ---------------------------
@@ -254,10 +254,10 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 };
 
 export const DOCUMENT_TYPE_BLURBS: Record<DocumentType, string> = {
-  public_comment_letter: "For a permit proceeding, addressed to the agency's docket.",
-  agency_complaint_draft: "An administrative complaint to a civil rights or environmental office.",
-  community_briefing_sheet: "Plain language, for the people who live here.",
-  journalist_fact_sheet: "Checkable figures, each with the record it came from.",
+  public_comment_letter: "To comment on a permit while the agency is deciding on it.",
+  agency_complaint_draft: "A formal complaint to a government civil rights or environmental office.",
+  community_briefing_sheet: "A plain summary for neighbours and community meetings.",
+  journalist_fact_sheet: "Key facts for a reporter, each linked to where it came from.",
 };
 
 // ---- Provenance (CS-406) -------------------------------------------------

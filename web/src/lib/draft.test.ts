@@ -87,7 +87,7 @@ describe("citation links", () => {
     expect(citationUrl(hexCitation, "https://clearskies.example")).toBe(
       "https://clearskies.example/hex/88444600ddfffff",
     );
-    expect(citationLabel(hexCitation)).toBe("ClearSkies hexagon data");
+    expect(citationLabel(hexCitation)).toBe("This area's data");
   });
 
   it("links only a twelve-digit FRS id to ECHO", () => {
@@ -177,7 +177,7 @@ describe("rendering a draft for the clipboard", () => {
       }),
     );
 
-    expect(text).toContain("Legal basis");
+    expect(text).toContain("Laws this relies on");
     expect(text).toContain("42 U.S.C. § 2000d");
     expect(text).toContain("subjected to discrimination");
     expect(text).toContain("https://www.law.cornell.edu/uscode/text/42/2000d");
@@ -232,7 +232,7 @@ describe("rendering a draft for the clipboard", () => {
   });
 
   it("says the citations were checked before the draft was shown", () => {
-    expect(renderDraftText(stamped())).toContain("checked against the data and the statute corpus");
+    expect(renderDraftText(stamped())).toContain("checked against the data and the text of the law");
   });
 
   it("renders a fact sheet's figures and caveats", () => {
@@ -264,7 +264,7 @@ describe("rendering a draft for the clipboard", () => {
     );
 
     expect(text).toContain("not a lawsuit");
-    expect(text).toContain("Relief sought: Open an investigation.");
+    expect(text).toContain("What is being asked for: Open an investigation.");
   });
 
   it("names the file by document type, hexagon and day", () => {
@@ -283,7 +283,7 @@ describe("a paragraph's citations", () => {
       proposition,
     });
     const chips = distinctByLabel([hexCitation("a"), hexCitation("b"), SECTION, hexCitation("c")]);
-    expect(chips.map(citationLabel)).toEqual(["ClearSkies hexagon data", SECTION.section]);
+    expect(chips.map(citationLabel)).toEqual(["This area's data", SECTION.section]);
   });
 
   it("writes absolute links into the text that leaves the app", () => {

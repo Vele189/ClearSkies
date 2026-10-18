@@ -6,7 +6,9 @@ import Link from "../components/Link.tsx";
 import { Mono } from "../components/Prose.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { ApiError, getHex } from "../lib/api.ts";
+import { getHex } from "../lib/api.ts";
+import { placeName } from "../lib/place.ts";
+import { readerError } from "../lib/wording.ts";
 import { navigate } from "../lib/router.ts";
 import type { HexDetail } from "../lib/types.ts";
 
@@ -37,7 +39,7 @@ export default function HexPage({ h3 }: { h3: string }) {
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        setError(err instanceof ApiError ? err.message : "Could not load that hexagon.");
+        setError(readerError(err));
       });
     return () => controller.abort();
   }, [h3]);
@@ -58,9 +60,15 @@ export default function HexPage({ h3 }: { h3: string }) {
         {/* The index is the heading, because it is what identifies this page.
             The previous title was "One hexagon" on every hexagon, which gave
             a reader with twenty tabs open twenty identical ones. */}
+        {/* The place, once it is known, rather than the raw H3 index. The index
+            stays as a small reference: it is what identifies this exact area,
+            and the thing to quote when asking about it. */}
         <h1 className="mt-1.5 text-2xl font-semibold sm:text-3xl">
-          <Mono>{h3}</Mono>
+          {hex ? placeName(hex) : "An area in Louisiana"}
         </h1>
+        <p className="mt-1 text-xs text-faint">
+          Map reference <Mono>{h3}</Mono>
+        </p>
       </header>
 
       {error !== null && (
@@ -81,7 +89,7 @@ export default function HexPage({ h3 }: { h3: string }) {
       {error === null && hex === null && (
         <div>
           <p role="status" className="text-sm text-muted-foreground">
-            Loading hexagon…
+            Loading this area…
           </p>
           <div className="mt-5 space-y-3">
             <Skeleton className="h-8 w-32" />
@@ -99,6 +107,7 @@ export default function HexPage({ h3 }: { h3: string }) {
           <HexPanel
             key={hex.h3}
             hex={hex}
+            titled={false}
             // The panel's close button means "done with this hexagon". On the
             // map that returns to the map, and so does it here.
             onClose={() => {

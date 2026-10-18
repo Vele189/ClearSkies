@@ -5,118 +5,126 @@ import { TextLink } from "../components/Link.tsx";
  *
  *  Not a copy of the paper. The paper is the authority and is linked; this is
  *  the part a reader needs in order to read the map honestly, which is mostly
- *  section 15 and the two pieces of arithmetic that surprise people.
+ *  section 15 and the two pieces of arithmetic that surprise people. Written
+ *  for someone who has never seen a percentile table: docs/frontend.md
+ *  section 9 has the plain-language glossary it follows.
  */
 export default function MethodologyPage() {
   return (
     <div>
-      <PageTitle>How the score works</PageTitle>
+      <PageTitle
+        lede="What the colours on the map mean, how we work them out, and what they can't
+              tell you."
+      >
+        How it works
+      </PageTitle>
 
       <Prose>
         <p>
-          Every hexagon on the map is about 0.7 km² and carries one burden score. The
-          score combines how much pollution burden an area carries with how vulnerable
-          the people living there are, using the structure CalEnviroScreen and EJScreen
-          established. Fifteen indicators feed it, each expressed as a percentile rank
-          against the rest of Louisiana.
+          The map divides Louisiana into small six-sided areas, each about a quarter of a
+          square mile (0.7 km²). Every area gets a result made of two halves: how much
+          pollution it carries, and how vulnerable the people living there are. It follows
+          the same approach as CalEnviroScreen and EJScreen, two widely used government tools.
         </p>
         <p>
-          The full methodology is written down and versioned, and it was written before
-          any scoring code existed so the score could not be quietly tuned to produce a
-          wanted answer. Weights change only through a documented revision.
+          Each half is built from measures such as cancer risk from toxic air, how many large
+          polluters are nearby, and how many residents are young children or on low incomes.
+          Fifteen measures in all. On each one, an area is compared with every other area in
+          Louisiana, and the colour on the map shows where it ranks overall: the darkest red
+          is the most burdened tenth of the state.
+        </p>
+        <p>
+          We wrote down exactly how the ranking works, and the weight each measure carries,
+          before writing any of the code that calculates it, so the result could not be
+          quietly adjusted to give a wanted answer. Any change since is recorded.
         </p>
       </Prose>
 
-      <Section title="Two things about the arithmetic that surprise people">
-        <Point label="The two halves multiply, they do not add.">
-          A hexagon in the 95th percentile for pollution and the 20th for vulnerability
-          scores about 19. One in the 60th percentile for both scores about 36. The
-          second is higher, and that is the model working as intended: cumulative burden
-          is about pollution landing on people who are least able to absorb it, not
-          about pollution alone.
+      <Section title="Two things that surprise people">
+        <Point label="The two halves are multiplied, not added.">
+          A place with very heavy pollution but few vulnerable residents can end up lower
+          than a place that is middling on both. For example, an area more polluted than 95%
+          of the state but less vulnerable than most scores about 19; an area that is above
+          average on both scores about 36. That is by design: pollution does the most harm
+          where people are least able to cope with it.
         </Point>
-        <Point label="Percentiles are Louisiana percentiles.">
-          A hexagon in the Louisiana 50th percentile may carry more burden than a
-          top-decile hexagon in another state. The map makes no national claims.
+        <Point label="Rankings only compare places within Louisiana.">
+          An area in the middle of the Louisiana ranking might carry more pollution than the
+          worst areas of another state. The map makes no claims about the country as a whole.
         </Point>
       </Section>
 
-      <Section title="Race is recorded, displayed, and never scored">
+      <Section title="Race is shown, but never used to calculate the result">
         <p>
-          Racial composition is shown on every hexagon panel and analysed as a headline
-          output, and it is not an input to the score. This is deliberate, and it is the
-          most consequential decision in the methodology.
+          Every area&apos;s panel shows who lives there, including race, and we study how
+          race and pollution line up. But race is never one of the measures. This is
+          deliberate, and it is the most important choice in the whole method.
         </p>
         <p>
-          The claim the project exists to test is that environmental burden in Louisiana
-          falls disproportionately on Black communities. If racial composition were an
-          input, that claim would be circular — the score would be high where the
-          population is Black partly because the formula put it there — and the
-          correlation would be guaranteed by construction and worth nothing as evidence.
-          Excluding it makes the correlation an independent empirical result.
+          The question this project tests is whether pollution in Louisiana falls hardest on
+          Black communities. If race were part of the formula, the answer would be built in:
+          areas would rank high partly because more Black residents live there, and finding
+          a link would prove nothing. Leaving race out means any link we find is real.
         </p>
         <p>
-          It has a real cost, and the paper records it: the score understates burden in a
-          Black community that is not also poor, because it cannot see the mechanisms
-          that operate through race independently of income. That loss is accepted for
-          the evidentiary reason, not because the effect is thought small.
+          That choice has a cost, and we say so openly: the ranking can understate the burden
+          on a Black community that is not also poor, because it can&apos;t see the ways race
+          matters on its own. We accept that cost so the finding can be trusted, not because
+          we think the effect is small.
         </p>
       </Section>
 
-      <Section title="Confidence is drawn, not just reported">
+      <Section title="How sure we are is shown on the map">
         <p>
-          Every hexagon carries a confidence value reflecting how much was actually known
-          about it: data coverage, how old the data is, how coarse the source geography
-          was, and how far the nearest air monitor is. Low-confidence hexagons are
-          hatched rather than faded, because a faded fill reads as a lower score and
-          would confuse how certain we are with how bad it is.
+          For every area we also work out how much we really know about it: how complete the
+          data is, how recent it is, how precisely we know who lives there, and how far away
+          the nearest air monitor is. Where we are less sure, the area is drawn with stripes.
+          We use stripes rather than fading the colour, because a faded colour would look like
+          less pollution.
         </p>
       </Section>
 
-      <Section title="What the score is not">
-        <Point label="Not a health risk estimate.">
-          It ranks burden indicators. It does not predict any individual's risk of
-          illness.
+      <Section title="What the ranking is not">
+        <Point label="Not a health risk for any one person.">
+          It compares places. It can&apos;t tell you anyone&apos;s chance of getting ill.
         </Point>
         <Point label="Not a finding of wrongdoing.">
-          A high score means high modeled exposure, nearby permitted sources, and a
-          vulnerable population. It says nothing about whether any facility broke any law
-          or intended any harm. Facilities operating fully within their permits
-          contribute to burden scores.
+          A high ranking means estimated pollution, nearby industry and a vulnerable
+          population. It says nothing about whether any plant broke a law or meant any harm.
+          Plants that follow their permits exactly still count toward it.
         </Point>
         <Point label="Not a clean bill of health at the low end.">
-          A low score can mean low burden, or it can mean the indicators that would have
-          caught the burden are missing. The confidence value distinguishes the two and
-          has to be read alongside the score.
+          A low ranking can mean little pollution, or it can mean the data that would have
+          shown pollution is missing. &ldquo;How sure we are&rdquo; tells the two apart, so
+          always read it alongside the result.
         </Point>
         <Point label="Not a substitute for local knowledge.">
-          Residents know things the federal databases do not contain. The score is a
-          starting point for an argument, not the argument.
+          People who live in a place know things no government database does. The map is a
+          starting point for a conversation, not the last word.
         </Point>
       </Section>
 
-      <Section title="What is missing from it">
+      <Section title="What is missing">
         <p>
-          There are no health outcome indicators. Asthma prevalence, low birth weight and
-          cardiovascular disease would materially improve the vulnerability side, and no
-          free national source publishes them at tract resolution, so that side rests on
-          age structure and economic hardship alone. This is the single largest gap in
-          the specification and the paper records it as such.
+          It has no health records. Rates of asthma, low birth weight and heart disease would
+          make the &ldquo;how vulnerable are residents&rdquo; half much better, but no free
+          source publishes them for small enough areas across the country. So that half
+          relies on age and income alone. This is the biggest gap in the method, and we say
+          so.
         </p>
         <p>
-          Coverage is Louisiana only. Water quality, soil contamination, drinking water,
-          pesticides and traffic are all out of scope for this version.
+          It covers Louisiana only. Water quality, soil contamination, drinking water,
+          pesticides and traffic are not included in this version.
         </p>
       </Section>
 
       <Section title="Where the numbers come from">
         <p>
-          Five public sources: EPA compliance records, the Toxics Release Inventory,
-          modeled air toxics exposure, measured air quality, and census demographics.{" "}
-          <TextLink to="/provenance">
-            The sources page
-          </TextLink>{" "}
-          shows when each was last pulled and what it does not cover.
+          Five public sources: EPA records on plants and their permits, the toxic chemical
+          releases plants report each year, EPA estimates of toxic air, readings from air
+          monitors, and census data.{" "}
+          <TextLink to="/provenance">The data sources page</TextLink> shows when each was last
+          updated and what it leaves out.
         </p>
       </Section>
     </div>

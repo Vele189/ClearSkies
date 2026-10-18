@@ -5,7 +5,8 @@ import MapView from "../components/MapView.tsx";
 import { Mono } from "../components/Prose.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { ApiError, getHex } from "../lib/api.ts";
+import { getHex } from "../lib/api.ts";
+import { readerError } from "../lib/wording.ts";
 import type { HexDetail } from "../lib/types.ts";
 
 /** What the rail shows while a hexagon is on its way.
@@ -18,7 +19,7 @@ function RailLoading({ h3 }: { h3: string }) {
   return (
     <div className="p-5">
       <p role="status" className="text-sm text-muted-foreground">
-        Loading hexagon <Mono className="text-faint">{h3}</Mono>…
+        Loading this area… <Mono className="sr-only">{h3}</Mono>
       </p>
       <div className="mt-5 space-y-3">
         <Skeleton className="h-7 w-28" />
@@ -59,7 +60,7 @@ export default function MapPage() {
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        setError(err instanceof ApiError ? err.message : "Could not load that hexagon.");
+        setError(readerError(err, "this spot"));
       })
       .finally(() => {
         if (controller.signal.aborted) return;
@@ -88,7 +89,7 @@ export default function MapPage() {
       {/* No state named: this heading is the map, and which states the map
           covers is the masthead's line, read from /health. A heading that
           named one state would go stale where nothing checks it. */}
-      <h1 className="sr-only">Map of cumulative environmental burden</h1>
+      <h1 className="sr-only">Map of pollution burden in Louisiana</h1>
 
       <div className="min-h-0 min-w-0 flex-1">
         <MapView onSelect={handleSelect} />

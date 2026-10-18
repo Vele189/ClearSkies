@@ -124,7 +124,7 @@ export default function MapView({ onSelect }: Props) {
       }
       // Recorded, not yet shown. A sprite or glyph 404 raises this too and is
       // survivable, so the overlay is gated on `load` never arriving.
-      setFatal("The basemap could not be loaded.");
+      setFatal("The map couldn't load.");
     });
 
     // A lost context is not reported through map.on("error"). Without this the
@@ -213,7 +213,7 @@ export default function MapView({ onSelect }: Props) {
   // Only a failure that stopped the map from ever loading is worth taking the
   // viewport for. Everything else leaves the reader a map they can still use.
   const blocked = contextLost
-    ? "The map lost its graphics context and has stopped drawing."
+    ? "The map has stopped drawing."
     : ready
       ? null
       : fatal;
@@ -320,11 +320,10 @@ export default function MapView({ onSelect }: Props) {
           <p className="text-sm text-slate-700">{blocked}</p>
           <p className="max-w-sm text-xs text-slate-500">
             {contextLost
-              ? "The browser dropped the map's WebGL context, usually under memory pressure or a " +
-                "graphics driver reset. Reloading gets a fresh one; if it recurs, check that " +
-                "hardware acceleration is enabled."
-              : "Scores are still available through the API. Reloading is worth trying; if it " +
-                "keeps failing the basemap host is likely down."}
+              ? "This usually happens when the browser is short of memory. Reloading the page " +
+                "normally fixes it."
+              : "Try reloading the page. If it keeps happening, the map service may be down " +
+                "for a while."}
           </p>
           <button
             type="button"
@@ -343,8 +342,8 @@ export default function MapView({ onSelect }: Props) {
           role="alert"
           className="pointer-events-auto absolute top-2 right-14 z-10 max-w-xs rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm sm:top-3"
         >
-          Hex scores could not be loaded, so the map is showing the basemap only. This is a
-          loading failure, not an absence of burden.
+          The pollution layer didn&apos;t load, so you&apos;re only seeing the background map.
+          This is a loading problem. It doesn&apos;t mean there&apos;s no pollution.
         </div>
       )}
     </div>

@@ -59,7 +59,7 @@ describe("the provenance page", () => {
 
     render(<ProvenancePage />);
 
-    expect(await screen.findByText("Release")).toBeInTheDocument();
+    expect(await screen.findByText("Data from")).toBeInTheDocument();
     expect(screen.getByText("2019")).toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe("the provenance page", () => {
 
     render(<ProvenancePage />);
 
-    expect(await screen.findByText(/served from a snapshot/i)).toBeInTheDocument();
+    expect(await screen.findByText(/using a saved copy/i)).toBeInTheDocument();
     expect(screen.getByText(/could not be reached/i)).toBeInTheDocument();
   });
 
@@ -102,7 +102,9 @@ describe("the provenance page", () => {
     render(<ProvenancePage />);
 
     expect(await screen.findByText(/pinned to 2019/)).toBeInTheDocument();
-    expect(screen.getByText(/Affects E1, E2/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Affects: Cancer risk from toxic air, Breathing problems from toxic air/),
+    ).toBeInTheDocument();
   });
 
   it("explains the sparse sensors and the missing-value rule in plain language", async () => {
@@ -111,8 +113,8 @@ describe("the provenance page", () => {
     render(<ProvenancePage />);
 
     expect(await screen.findByText(/never shown as a zero/i)).toBeInTheDocument();
-    expect(screen.getByText(/no report filed is an absence/i)).toBeInTheDocument();
-    expect(screen.getByText(/monitors cover where the monitors are/i)).toBeInTheDocument();
+    expect(screen.getByText(/filing no report is an absence/i)).toBeInTheDocument();
+    expect(screen.getByText(/monitors only cover where the monitors are/i)).toBeInTheDocument();
   });
 
   it("does not let an empty table read as empty sources", async () => {
@@ -121,7 +123,7 @@ describe("the provenance page", () => {
     render(<ProvenancePage />);
 
     expect(
-      await screen.findByText(/means the pipeline has not run, not that the sources are empty/i),
+      await screen.findByText(/means the data hasn't been loaded, not that the sources are/i),
     ).toBeInTheDocument();
   });
 

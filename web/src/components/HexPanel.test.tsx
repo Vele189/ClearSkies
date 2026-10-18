@@ -91,8 +91,8 @@ describe("HexPanel", () => {
     // Rendering it as 0 would read as 'clean' and invert the meaning.
     render(<HexPanel hex={hex({ indicators: [indicator({ observed: false, percentile: null })] })} onClose={() => {}} />);
 
-    expect(screen.getByText("not observed")).toBeInTheDocument();
-    expect(screen.queryByText("0th")).not.toBeInTheDocument();
+    expect(screen.getByText("no data here")).toBeInTheDocument();
+    expect(screen.queryByText(/Bottom 0%/)).not.toBeInTheDocument();
   });
 
   it("counts dropped indicators so coverage gaps are visible", () => {
@@ -103,7 +103,7 @@ describe("HexPanel", () => {
       />,
     );
 
-    expect(screen.getByText(/1 of 2 indicators unavailable/)).toBeInTheDocument();
+    expect(screen.getByText(/No data for 1 of 2 measures/)).toBeInTheDocument();
   });
 
   it("explains an unscored hex instead of showing a blank score", () => {
@@ -111,7 +111,7 @@ describe("HexPanel", () => {
       <HexPanel hex={hex({ score: null, percentile: null, no_score_reason: "low_population" })} onClose={() => {}} />,
     );
 
-    expect(screen.getByText(/Not scored: too few residents to score/)).toBeInTheDocument();
+    expect(screen.getByText(/Not ranked: too few people live here/)).toBeInTheDocument();
     expect(screen.getByText(/Fewer than 25 people/)).toBeInTheDocument();
   });
 
@@ -130,9 +130,9 @@ describe("HexPanel", () => {
         onClose={() => {}}
       />,
     );
-    expect(screen.queryByText("Indicator coverage")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Insufficient data \(/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/not supported well enough/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("How complete the data is")).not.toBeInTheDocument();
+    expect(screen.queryByText("Too little data")).not.toBeInTheDocument();
+    expect(screen.queryByText(/too little data here to stand behind/i)).not.toBeInTheDocument();
   });
 
   it("states that the score is not a finding of wrongdoing", () => {
@@ -145,28 +145,28 @@ describe("HexPanel", () => {
   it("shows each group's mean and the weight it carries", () => {
     render(<HexPanel hex={hex({ components: components() })} onClose={() => {}} />);
 
-    expect(screen.getByText("Environmental effects")).toBeInTheDocument();
+    expect(screen.getByText("Nearby industry")).toBeInTheDocument();
     // Section 10 weights Environmental Effects at half of Exposures. If that
     // ratio stops being visible the waterfall is not showing the composition.
-    expect(screen.getByText("×0.5")).toBeInTheDocument();
-    expect(screen.getAllByText("×1.0").length).toBeGreaterThan(0);
+    expect(screen.getByText("half weight")).toBeInTheDocument();
+    expect(screen.getAllByText("full weight").length).toBeGreaterThan(0);
   });
 
   it("shows the weighted mean each component is built from", () => {
     // (1.0 * 80 + 0.5 * 20) / 1.5 = 60
     render(<HexPanel hex={hex({ components: components() })} onClose={() => {}} />);
-    expect(screen.getByText(/60.0th percentile/)).toBeInTheDocument();
+    expect(screen.getByText("60.0 out of 100")).toBeInTheDocument();
   });
 
   it("admits that the rescale to 0-10 cannot be checked from the response", () => {
     render(<HexPanel hex={hex({ components: components() })} onClose={() => {}} />);
-    expect(screen.getByText(/cannot be checked here/i)).toBeInTheDocument();
+    expect(screen.getByText(/one step you can't check from this page/i)).toBeInTheDocument();
   });
 
   it("shows the components multiplying rather than adding", () => {
     render(<HexPanel hex={hex({ components: components() })} onClose={() => {}} />);
     expect(screen.getByText(/9\.5 × 2\.0 =/)).toBeInTheDocument();
-    expect(screen.getByText(/compound rather than offset/i)).toBeInTheDocument();
+    expect(screen.getByText(/multiply the two halves instead of adding them/i)).toBeInTheDocument();
   });
 
   it("names a dropped group rather than leaving the weights unexplained", () => {
@@ -180,30 +180,30 @@ describe("HexPanel", () => {
 
     render(<HexPanel hex={hex({ components: withGap })} onClose={() => {}} />);
 
-    expect(screen.getByText(/not computable, dropped/i)).toBeInTheDocument();
+    expect(screen.getByText(/not enough data, left out/i)).toBeInTheDocument();
     expect(screen.getByText(/rather than counted as zero/i)).toBeInTheDocument();
   });
 
   it("breaks confidence into its four terms with their weights", () => {
     render(<HexPanel hex={hex()} onClose={() => {}} />);
 
-    expect(screen.getByText("Indicator coverage")).toBeInTheDocument();
-    expect(screen.getByText("Recency")).toBeInTheDocument();
-    expect(screen.getByText("Spatial support")).toBeInTheDocument();
-    expect(screen.getByText("Monitor support")).toBeInTheDocument();
-    expect(screen.getByText("×0.35")).toBeInTheDocument();
+    expect(screen.getByText("How complete the data is")).toBeInTheDocument();
+    expect(screen.getByText("How recent the data is")).toBeInTheDocument();
+    expect(screen.getByText("How well we know who lives here")).toBeInTheDocument();
+    expect(screen.getByText("Distance to an air monitor")).toBeInTheDocument();
+    expect(screen.getByText("counts 35%")).toBeInTheDocument();
   });
 
   it("explains why the terms are combined geometrically", () => {
     render(<HexPanel hex={hex()} onClose={() => {}} />);
-    expect(screen.getByText(/not smoothed away by three healthy ones/i)).toBeInTheDocument();
+    expect(screen.getByText(/one weak spot pulls the whole rating down/i)).toBeInTheDocument();
   });
 
   it("separates how sure we are from how bad it is", () => {
     // Section 12 forbids conflating the two, and the panel is where a reader is
     // most likely to do it.
     render(<HexPanel hex={hex()} onClose={() => {}} />);
-    expect(screen.getByText(/never how severe the burden is/i)).toBeInTheDocument();
+    expect(screen.getByText(/not how bad the pollution is/i)).toBeInTheDocument();
   });
 
   it("leads with the caveat on a low-confidence hex", () => {
@@ -220,12 +220,12 @@ describe("HexPanel", () => {
     });
     render(<HexPanel hex={low} onClose={() => {}} />);
 
-    expect(screen.getAllByText(/treat this score as indicative/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/treat this result as a rough guide/i).length).toBeGreaterThan(0);
   });
 
   it("does not lead with a caveat on a well-supported hex", () => {
     render(<HexPanel hex={hex()} onClose={() => {}} />);
-    expect(screen.queryByText(/treat this score as indicative/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/treat this result as a rough guide/i)).not.toBeInTheDocument();
   });
 
   it("names the source of every indicator", () => {
@@ -262,9 +262,9 @@ describe("HexPanel", () => {
     );
 
     expect(
-      screen.getByText(/No Clean Air Act major source or Title V facility within 10 km/i),
+      screen.getByText(/No plant with a major air pollution permit within 10 km/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/how many other hexagons are also at zero/i)).toBeInTheDocument();
+    expect(screen.getByText(/Many places share this zero/i)).toBeInTheDocument();
   });
 
   it("says what a zero non-compliance burden means, not that nothing is nearby", () => {
@@ -280,8 +280,8 @@ describe("HexPanel", () => {
         onClose={() => {}}
       />,
     );
-    expect(screen.getByText(/was in non-compliance in the last 12 quarters/i)).toBeInTheDocument();
-    expect(screen.queryByText(/No qualifying facility/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/broke its permit rules in the last three years/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No qualifying/i)).not.toBeInTheDocument();
   });
 
   it("shows the measured value where its unit means something", () => {
@@ -289,18 +289,25 @@ describe("HexPanel", () => {
     expect(screen.getByText("42 in a million")).toBeInTheDocument();
   });
 
-  it("leads with the percentile the map coloured, then the score it ranks", () => {
+  it("leads with the rank the map coloured, in words, then the score", () => {
     render(<HexPanel hex={hex()} onClose={() => {}} />);
-    expect(screen.getByText("96th")).toBeInTheDocument();
-    expect(screen.getByText(/percentile in Louisiana/)).toBeInTheDocument();
+    expect(screen.getAllByText("Top 4%").length).toBeGreaterThan(0);
+    expect(screen.getByText(/most burdened in Louisiana/)).toBeInTheDocument();
+    expect(screen.getByText("More burdened than 96% of places in Louisiana.")).toBeInTheDocument();
     expect(screen.getByText("78.4")).toBeInTheDocument();
-    expect(screen.getByText(/in the top tenth of Louisiana/)).toBeInTheDocument();
   });
 
-  it("never prints a 100th percentile", () => {
+  it("never prints a top 0% or a 100th percentile", () => {
     render(<HexPanel hex={hex({ percentile: 99.97 })} onClose={() => {}} />);
-    expect(screen.getByText("99th")).toBeInTheDocument();
-    expect(screen.queryByText("100th")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Top 1%").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Top 0%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/100th/)).not.toBeInTheDocument();
+  });
+
+  it("calls each measure by a plain name and says what it measures", () => {
+    render(<HexPanel hex={hex()} onClose={() => {}} />);
+    expect(screen.getByText("Cancer risk from toxic air")).toBeInTheDocument();
+    expect(screen.getByText(/extra cancer cases/)).toBeInTheDocument();
   });
 
   it("lists each facility once, nearest first, and the rest on request", async () => {
@@ -323,16 +330,16 @@ describe("HexPanel", () => {
     );
 
     expect(screen.getAllByRole("link", { name: /Plant 1/ })).toHaveLength(1);
-    expect(screen.getByText(/Clean Air Act, RCRA large-quantity generator/)).toBeInTheDocument();
+    expect(screen.getByText(/Air permit, Hazardous waste producer/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Plant 7/ })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Show all 7 facilities/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Show all 7 sites/ }));
     expect(screen.getByRole("link", { name: /Plant 7/ })).toBeInTheDocument();
   });
 
   it("takes focus when a hexagon is selected so the keyboard follows", () => {
     render(<HexPanel hex={hex()} onClose={() => {}} />);
-    expect(screen.getByRole("complementary", { name: /Details for hexagon/ })).toHaveFocus();
+    expect(screen.getByRole("complementary", { name: /Details for St. John the Baptist/ })).toHaveFocus();
   });
 
   it("closes on Escape", async () => {
@@ -371,7 +378,7 @@ describe("HexPanel", () => {
     expect(screen.getByRole("link", { name: /Example Chemical Works/ })).toHaveFocus();
   });
 
-  it("writes every rank as English writes it", () => {
+  it("writes every rank as people say it", () => {
     render(
       <HexPanel
         hex={hex({
@@ -385,15 +392,16 @@ describe("HexPanel", () => {
       />,
     );
 
-    expect(screen.getByText("1st")).toBeInTheDocument();
-    expect(screen.getByText("22nd")).toBeInTheDocument();
-    expect(screen.getByText("11th")).toBeInTheDocument();
+    expect(screen.getAllByText("Bottom 1%").length).toBeGreaterThan(0);
+    expect(screen.getByText("Bottom 22%")).toBeInTheDocument();
+    // A group's average rank is not a rank, so it is not written as one.
+    expect(screen.getByText("11/100")).toBeInTheDocument();
   });
 
   it("says a percentile is not reported rather than printing a bare suffix", () => {
     render(<HexPanel hex={hex({ percentile: null })} onClose={() => {}} />);
 
-    expect(screen.getByText(/percentile not reported/i)).toBeInTheDocument();
+    expect(screen.getByText(/how it ranks in Louisiana wasn't reported/i)).toBeInTheDocument();
     expect(screen.queryByText(/^th percentile/)).not.toBeInTheDocument();
   });
 
@@ -416,15 +424,15 @@ describe("the state a percentile belongs to", () => {
     const { container } = render(
       <HexPanel hex={hex({ state_name: "West Virginia" })} onClose={() => {}} />,
     );
-    expect(container.textContent).toContain("Percentiles are West Virginia percentiles.");
-    expect(container.textContent).not.toContain("Louisiana percentiles");
+    expect(container.textContent).toContain("Rankings compare places within West Virginia only.");
+    expect(container.textContent).not.toContain("within Louisiana");
   });
 
   it("narrows the claim rather than guessing when the state is not given", () => {
     const { container } = render(
       <HexPanel hex={hex({ state_name: null })} onClose={() => {}} />,
     );
-    expect(container.textContent).toContain("Percentiles are computed within one state.");
+    expect(container.textContent).toContain("Rankings compare places within one state only.");
   });
 });
 

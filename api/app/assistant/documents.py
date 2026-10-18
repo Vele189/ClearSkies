@@ -62,10 +62,10 @@ DocumentType = Literal[
 ]
 
 DRAFT_NOTICE = (
-    "DRAFT FOR HUMAN REVIEW. This document was assembled by an automated tool "
-    "from public environmental data and a fixed corpus of statutes. It is not "
-    "legal advice, it has not been reviewed by a lawyer, and every factual and "
-    "legal claim in it must be checked before it is filed, sent or published."
+    "DRAFT FOR HUMAN REVIEW. This document was put together by an automated tool "
+    "from public environmental data and a fixed set of laws. It is not legal "
+    "advice, it has not been reviewed by a lawyer, and every fact and legal claim "
+    "in it must be checked before it is filed, sent or published."
 )
 
 

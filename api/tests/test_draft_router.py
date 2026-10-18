@@ -116,7 +116,7 @@ def test_a_draft_the_verifier_threw_away_is_422(
     response = post(configured)
 
     assert response.status_code == 422
-    assert "discarded rather than shown" in response.json()["detail"]
+    assert "threw it away" in response.json()["detail"]
 
 
 def test_a_judge_that_could_not_be_asked_is_422_rather_than_500(
@@ -127,7 +127,7 @@ def test_a_judge_that_could_not_be_asked_is_422_rather_than_500(
     response = post(configured)
 
     assert response.status_code == 422
-    assert "could not be checked" in response.json()["detail"]
+    assert "couldn't finish checking its sources" in response.json()["detail"]
 
 
 def test_a_response_that_missed_the_schema_is_422(
@@ -138,16 +138,20 @@ def test_a_response_that_missed_the_schema_is_422(
     response = post(configured)
 
     assert response.status_code == 422
-    assert "required form" in response.json()["detail"]
+    assert "expected format" in response.json()["detail"]
 
 
-def test_no_sealed_corpus_is_503(configured: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_no_sealed_corpus_is_503(
+    configured: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     fails_with(monkeypatch, service.NoCorpus("No sealed statute corpus is loaded."))
 
     response = post(configured)
 
     assert response.status_code == 503
-    assert "sealed statute corpus" in response.json()["detail"]
+    # The reader gets what it means for them; the operator gets the cause.
+    assert "setup problem on our side" in response.json()["detail"]
+    assert "sealed statute corpus" in caplog.text
 
 
 def test_a_provider_outage_is_503_rather_than_500(
@@ -162,7 +166,7 @@ def test_a_provider_outage_is_503_rather_than_500(
 
 
 def test_a_corpus_embedded_with_another_model_is_503(
-    configured: TestClient, monkeypatch: pytest.MonkeyPatch
+    configured: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A deployment fault rather than a bad request, and one that otherwise
     fails quietly: retrieval returns plausible text in a meaningless order."""
@@ -171,7 +175,8 @@ def test_a_corpus_embedded_with_another_model_is_503(
     response = post(configured)
 
     assert response.status_code == 503
-    assert "different model" in response.json()["detail"]
+    assert "setup problem on our side" in response.json()["detail"]
+    assert "embedding models disagree" in caplog.text
 
 
 def test_a_draft_that_succeeds_is_200(

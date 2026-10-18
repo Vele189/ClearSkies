@@ -7,8 +7,8 @@
  */
 export const PAGES: { path: string; label: string }[] = [
   { path: "/", label: "Map" },
-  { path: "/methodology", label: "Methodology" },
-  { path: "/provenance", label: "Sources" },
-  { path: "/model-card", label: "Model card" },
+  { path: "/methodology", label: "How it works" },
+  { path: "/provenance", label: "Data sources" },
+  { path: "/model-card", label: "Document drafts" },
   { path: "/about", label: "About" },
 ];

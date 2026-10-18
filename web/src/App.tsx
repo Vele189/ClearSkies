@@ -25,17 +25,21 @@ import ProvenancePage from "./pages/ProvenancePage.tsx";
  *  statement about this instance, which the health check and the environment
  *  can both answer.
  */
-function Banner({ health }: { health: Health | null }) {
+function Banner({ health }: { health: Health | null | undefined }) {
   const tilesConfigured = Boolean(import.meta.env.VITE_TILES_URL);
+  // Still waiting is not the same as unreachable. The banner used to say the
+  // data service could not be reached for the second or two before /health
+  // answered, which on a cold start is long enough to read and believe.
+  if (health === undefined && tilesConfigured) return null;
   if (health?.status === "ok" && tilesConfigured) return null;
 
   const messages: string[] = [];
   if (!tilesConfigured) {
-    messages.push("No tile archive configured, so the map shows the basemap only.");
+    messages.push("The pollution map isn't set up, so only the background map is shown.");
   }
   if (health === null) {
-    messages.push("The API is not reachable.");
-  } else {
+    messages.push("We can't reach our data service right now, so results won't load.");
+  } else if (health) {
     messages.push(...health.notes);
   }
 
@@ -45,7 +49,7 @@ function Banner({ health }: { health: Health | null }) {
   return (
     <Alert variant="warn" className="rounded-none border-x-0 border-t-0 px-5 py-2.5">
       <TriangleAlert aria-hidden="true" />
-      <AlertTitle>Not everything is running</AlertTitle>
+      <AlertTitle>Some things aren&apos;t working right now</AlertTitle>
       <AlertDescription>{messages.join(" ")}</AlertDescription>
     </Alert>
   );
@@ -62,8 +66,8 @@ function Banner({ health }: { health: Health | null }) {
  *  strength of a default would be guessing about the one thing this line is
  *  for.
  */
-function coverage(health: Health | null): string {
-  const burden = "Cumulative environmental burden";
+function coverage(health: Health | null | undefined): string {
+  const burden = "How much pollution communities live with";
   const states = health?.scored_states ?? [];
 
   if (states.length === 0) return burden;
@@ -106,7 +110,8 @@ function isFullBleed(path: string): boolean {
 
 export default function App() {
   const path = useRoute();
-  const [health, setHealth] = useState<Health | null>(null);
+  /** undefined while /health is in flight; null once it has failed. */
+  const [health, setHealth] = useState<Health | null | undefined>(undefined);
 
   useScrollReset(path);
 

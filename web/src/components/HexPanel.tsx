@@ -12,8 +12,9 @@ import {
   indicatorValue,
   leadsWithCaveat,
   mergeFacilities,
-  percentileOrdinal,
   productOfComponents,
+  rankSentence,
+  rankShort,
   vintageFor,
   weakestTerm,
   weightedGroupMean,
@@ -23,6 +24,7 @@ import {
 import { placeName } from "../lib/place.ts";
 import { LEGEND_CLASSES, blendOnWhite } from "../lib/ramp.ts";
 import { BAND_LABELS, GROUP_LABELS } from "../lib/types.ts";
+import { INDICATOR_WORDING, programWording } from "../lib/wording.ts";
 import DraftPanel from "./DraftPanel.tsx";
 import { TextLink } from "./Link.tsx";
 import { Badge } from "./ui/badge.tsx";
@@ -89,7 +91,7 @@ function classColor(percentile: number): string {
 
 function Bar({ percentile, observed }: { percentile: number | null; observed: boolean }) {
   if (!observed || percentile === null) {
-    return <span className="text-xs text-faint italic">not observed</span>;
+    return <span className="text-xs text-faint italic">no data here</span>;
   }
   // aria-hidden: the ordinal is printed in the same row, so announcing the bar
   // as well would read every indicator's rank twice.
@@ -112,21 +114,22 @@ function IndicatorRow({
 }) {
   const value = indicatorValue(indicator);
   const zero = zeroInflationNote(indicator);
+  const wording = INDICATOR_WORDING[indicator.id];
   return (
-    <li className="grid grid-cols-[1fr_4rem] items-start gap-3 py-2.5">
+    <li className="grid grid-cols-[1fr_5.5rem] items-start gap-3 py-2.5">
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-sm text-foreground">
-          <span>
-            <span className="mr-1.5 font-mono text-[0.6875rem] text-faint">{indicator.id}</span>
-            {indicator.name}
-          </span>
+          {/* The plain name, with the methodology's own name kept as a tooltip
+              for a reader cross-checking against the methodology. */}
+          <span title={`${indicator.id}: ${indicator.name}`}>{wording?.name ?? indicator.name}</span>
           {/* The measured value where its unit means something on its own.
               The rank says how this compares; the value says how much. */}
           {value && <span className="text-xs text-muted-foreground tabular-nums">{value}</span>}
         </div>
         <Bar percentile={indicator.percentile} observed={indicator.observed} />
-        <div className="mt-1 text-xs text-faint">
-          {indicator.source}
+        {wording && <p className="mt-1 text-xs leading-snug text-muted-foreground">{wording.about}</p>}
+        <div className="mt-0.5 text-xs text-faint">
+          Source: {indicator.source}
           {vintage && <span> &middot; {vintage}</span>}
         </div>
         {zero && (
@@ -140,11 +143,19 @@ function IndicatorRow({
       </div>
       <div className="pt-0.5 text-right text-sm font-medium text-body">
         {indicator.observed && indicator.percentile !== null
-          ? percentileOrdinal(indicator.percentile)
+          ? rankShort(indicator.percentile)
           : "—"}
       </div>
     </li>
   );
+}
+
+/** A group's weight in words. The methodology weights Environmental Effects
+ *  at half of Exposures (section 10); "×0.5" was opaque to most readers. */
+function weightWords(weight: number): string {
+  if (weight === 1) return "full weight";
+  if (weight === 0.5) return "half weight";
+  return `weight ${weight.toFixed(1)}`;
 }
 
 /** Methodology section 10, steps 1 to 3, for one component. Each group's mean
@@ -164,19 +175,21 @@ function ComponentWaterfall({ component }: { component: ComponentScore }) {
         {component.groups.map((group) => (
           <li
             key={group.group}
-            className="grid grid-cols-[1fr_2.75rem_3.25rem] items-start gap-2 py-1.5 text-sm"
+            className="grid grid-cols-[1fr_4.5rem_5.5rem] items-start gap-2 py-1.5 text-sm"
           >
             <div className="min-w-0">
               <div className="text-foreground">{GROUP_LABELS[group.group]}</div>
               <div className="text-xs text-faint">
                 {groupCoverage(group)}
-                {!group.computable && " — not computable, dropped"}
+                {!group.computable && " — not enough data, left out"}
               </div>
             </div>
-            <div className="text-right text-xs text-faint">&times;{group.weight.toFixed(1)}</div>
+            <div className="text-right text-xs text-faint">{weightWords(group.weight)}</div>
             <div className="text-right text-sm font-medium text-body">
+              {/* An average of the group's ranks, which is not itself a rank,
+                  so it is not written as "Top 7%". */}
               {group.computable && group.mean_percentile !== null
-                ? percentileOrdinal(group.mean_percentile)
+                ? `${String(Math.round(group.mean_percentile))}/100`
                 : "—"}
             </div>
           </li>
@@ -185,14 +198,14 @@ function ComponentWaterfall({ component }: { component: ComponentScore }) {
 
       <div className="mt-2 border-t border-border pt-2 text-xs leading-relaxed text-muted-foreground">
         {raw === null ? (
-          <p>No group in this component was computable.</p>
+          <p>We didn't have enough data to work this part out.</p>
         ) : (
           <p>
-            Weighted mean of the groups above:{" "}
-            <span className="font-medium text-foreground">{raw.toFixed(1)}th percentile</span>,
-            rescaled to{" "}
+            Weighing these together gives an average of{" "}
+            <span className="font-medium text-foreground">{raw.toFixed(1)} out of 100</span>,
+            which works out to{" "}
             <span className="font-medium text-foreground">
-              {component.score.toFixed(1)} / 10
+              {component.score.toFixed(1)} out of 10
             </span>
             .
           </p>
@@ -200,13 +213,18 @@ function ComponentWaterfall({ component }: { component: ComponentScore }) {
         {dropped.length > 0 && (
           <p className="mt-1.5">
             {dropped.map((g) => GROUP_LABELS[g.group]).join(" and ")}{" "}
-            {dropped.length === 1 ? "was" : "were"} left out of that mean rather than counted as
-            zero, which would have read as an absence of burden.
+            {dropped.length === 1 ? "was" : "were"} left out rather than counted as zero, because
+            missing data isn't the same as no pollution.
           </p>
         )}
       </div>
     </section>
   );
+}
+
+/** A 0-1 confidence term as a score out of 100. */
+function outOf100(value: number): string {
+  return `${String(Math.round(value * 100))}/100`;
 }
 
 function ConfidenceBreakdown({ hex, restate }: { hex: HexDetail; restate: boolean }) {
@@ -215,7 +233,7 @@ function ConfidenceBreakdown({ hex, restate }: { hex: HexDetail; restate: boolea
 
   return (
     <section>
-      <SectionLabel>Confidence</SectionLabel>
+      <SectionLabel>How sure we are</SectionLabel>
       {/* For the low and insufficient bands the same sentence already opens the
           panel; saying it twice made the second one look like a new warning. */}
       {restate && (
@@ -226,34 +244,37 @@ function ConfidenceBreakdown({ hex, restate }: { hex: HexDetail; restate: boolea
         {terms.map((term) => (
           <li
             key={term.id}
-            className="grid grid-cols-[1fr_2.5rem_3rem] items-start gap-2 py-1.5 text-sm"
+            className="grid grid-cols-[1fr_4.5rem_3.5rem] items-start gap-2 py-1.5 text-sm"
           >
             <div className="min-w-0">
               <div className="text-foreground">{term.label}</div>
               <div className="text-xs text-faint">{term.meaning}</div>
             </div>
-            <div className="text-right text-xs text-faint">&times;{term.weight.toFixed(2)}</div>
-            <div className="text-right font-medium text-body">{term.value.toFixed(2)}</div>
+            <div className="text-right text-xs text-faint">
+              counts {Math.round(term.weight * 100)}%
+            </div>
+            <div className="text-right font-medium text-body">{outOf100(term.value)}</div>
           </li>
         ))}
       </ul>
 
+      {/* Section 12's weighted geometric mean, said by what it does: one weak
+          term drags the result down instead of being averaged away. */}
       <p className="mt-2.5 border-t border-border pt-2.5 text-xs leading-relaxed text-muted-foreground">
-        The four combine as a weighted geometric mean, not an average, so one weak term is not
-        smoothed away by three healthy ones. The weakest here is{" "}
-        <span className="font-medium text-foreground">{weakest.label.toLowerCase()}</span> at{" "}
-        <span className="font-medium text-foreground">{weakest.value.toFixed(2)}</span>
+        We combine these so one weak spot pulls the whole rating down rather than being hidden
+        by the others. The weakest here is{" "}
+        <span className="font-medium text-foreground">{weakest.label.toLowerCase()}</span> (
+        <span className="font-medium text-foreground">{outOf100(weakest.value)}</span>)
         {weakest.id === "monitor" && hex.confidence.nearest_monitor_km !== null && (
           <>
-            {" "}
-            — the nearest PM2.5 monitor is{" "}
+            : the nearest air monitor is{" "}
             <span className="font-medium text-foreground">
               {hex.confidence.nearest_monitor_km.toFixed(0)} km
             </span>{" "}
             away
           </>
         )}
-        . Confidence says how well supported the score is, never how severe the burden is.
+        . This tells you how far to trust the result, not how bad the pollution is.
       </p>
     </section>
   );
@@ -266,10 +287,14 @@ function complianceNote(facility: FacilityRow): string | null {
   const quarters = facility.quarters_in_noncompliance ?? 0;
   const actions = facility.formal_actions_5yr ?? 0;
   if (quarters > 0) {
-    parts.push(`${String(quarters)} ${quarters === 1 ? "quarter" : "quarters"} in non-compliance`);
+    parts.push(
+      `Broke its permit rules in ${String(quarters)} of the last 12 quarters`,
+    );
   }
   if (actions > 0) {
-    parts.push(`${String(actions)} formal ${actions === 1 ? "action" : "actions"} in 5 years`);
+    parts.push(
+      `${String(actions)} government enforcement ${actions === 1 ? "action" : "actions"} in 5 years`,
+    );
   }
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -282,14 +307,14 @@ function FacilityList({ facilities, total }: { facilities: Facility[]; total: nu
 
   return (
     <section className="mt-6">
-      <SectionLabel>Facilities within 10 km</SectionLabel>
-      <p className="mt-1 text-xs text-faint">
-        {rows.length === 1 ? "1 facility" : `${String(rows.length)} facilities`}, nearest first
+      <SectionLabel>Industrial sites within 10 km (6 miles)</SectionLabel>
+      <p className="mt-1 text-xs leading-relaxed text-faint">
+        {rows.length === 1 ? "1 site" : `${String(rows.length)} sites`}, nearest first
         {/* The count is uncapped and the list is not. A reader told "50" by a
             list that stopped at 50 has been told something false. */}
         {total > facilities.length &&
-          `; the list stops at the nearest ${String(facilities.length)} of ${String(total)} records`}
-        .
+          ` (the nearest ${String(facilities.length)} of ${String(total)} permits)`}
+        . Being listed doesn&apos;t mean a site has done anything wrong.
       </p>
       <ul className="mt-2.5 space-y-2.5">
         {shown.map((f) => {
@@ -306,8 +331,9 @@ function FacilityList({ facilities, total }: { facilities: Facility[]; total: nu
                 <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0 self-center" />
               </a>
               <div className="text-xs text-faint">
-                {f.programs.join(", ")} &middot; {f.distance_km.toFixed(1)} km
-                {f.in_hex && " · in this hexagon"}
+                {f.programs.map(programWording).join(", ")} &middot; {f.distance_km.toFixed(1)} km
+                away
+                {f.in_hex && " · inside this area"}
               </div>
               {compliance && <div className="text-xs text-warn-foreground">{compliance}</div>}
             </li>
@@ -322,7 +348,7 @@ function FacilityList({ facilities, total }: { facilities: Facility[]; total: nu
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? "Show fewer" : `Show all ${String(rows.length)} facilities`}
+          {expanded ? "Show fewer" : `Show all ${String(rows.length)} sites`}
         </Button>
       )}
     </section>
@@ -341,8 +367,9 @@ function PeopleHere({ hex }: { hex: HexDetail }) {
             }`}
       </p>
       <p className="mt-1.5 text-xs leading-relaxed text-faint">
-        Recorded and displayed, never an input to the score. Keeping race out of the
-        arithmetic is what makes the disparity finding an independent result.
+        Shown for context only. Who lives here, including race, is never used to work out the
+        result, so any link we find between race and pollution is a real finding rather than
+        something we built in.
       </p>
     </section>
   );
@@ -358,10 +385,14 @@ export default function HexPanel({
    *  itself, where a link to the page you are on is noise.
    */
   standalone = false,
+  /** Show the place name as the panel's heading. Off on the hexagon's own
+   *  page, whose h1 already names it. */
+  titled = true,
 }: {
   hex: HexDetail;
   onClose: () => void;
   standalone?: boolean;
+  titled?: boolean;
 }) {
   const groups = Object.keys(GROUP_LABELS) as (keyof typeof GROUP_LABELS)[];
   const dropped = hex.indicators.filter((i) => !i.observed).length;
@@ -384,7 +415,7 @@ export default function HexPanel({
     <aside
       ref={panel}
       tabIndex={-1}
-      aria-label={`Details for hexagon ${hex.h3}`}
+      aria-label={`Details for ${placeName(hex)}`}
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}
@@ -393,18 +424,19 @@ export default function HexPanel({
       <header className="sticky top-0 z-10 border-b border-border bg-card/95 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg leading-snug font-semibold">{placeName(hex)}</h2>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-xs text-faint">
-              <span className="font-mono text-[0.6875rem] tracking-tight">{hex.h3}</span>
-              {standalone && (
-                // A map click is not an address. This gives the reader one they
-                // can send to somebody, return to, or open without a map --
-                // which is also the non-map path CS-401 asks for.
-                <TextLink to={`/hex/${hex.h3}`} className="text-xs">
-                  Open on its own page
-                </TextLink>
-              )}
-            </div>
+            <h2 className={cn("text-lg leading-snug font-semibold", !titled && "sr-only")}>
+              {placeName(hex)}
+            </h2>
+            {standalone && (
+              // A map click is not an address. This gives the reader one they
+              // can send to somebody, return to, or open without a map --
+              // which is also the non-map path CS-401 asks for. The H3 index
+              // itself is on that page; here it was a string of hex digits
+              // under the place name that meant nothing to a reader.
+              <TextLink to={`/hex/${hex.h3}`} className="mt-0.5 inline-block text-xs">
+                Open a link to this area
+              </TextLink>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -429,12 +461,12 @@ export default function HexPanel({
         {!scored ? (
           <div className="mt-3.5">
             <p className="text-base font-semibold text-foreground">
-              Not scored{unscored ? `: ${unscored.title.toLowerCase()}` : ""}
+              Not ranked{unscored ? `: ${unscored.title.toLowerCase()}` : ""}
             </p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               {/* The reason is what makes this useful, and it is optional on the
                   response. Without it the panel says so plainly. */}
-              {unscored ? unscored.detail : "No reason was recorded for this hexagon."}
+              {unscored ? unscored.detail : "No reason was recorded for this area."}
             </p>
           </div>
         ) : hex.percentile === null ? (
@@ -443,14 +475,14 @@ export default function HexPanel({
               {hex.score?.toFixed(1)}
             </span>
             <span className="pb-1 text-sm leading-snug text-muted-foreground">
-              burden score; {stateName} percentile not reported
+              overall score out of 100; how it ranks in {stateName} wasn&apos;t reported
             </span>
           </div>
         ) : (
-          // The percentile leads because it is what the map coloured: the
-          // reader clicked a colour, and the headline is that colour's number,
-          // with the swatch beside it. The 0-100 score follows as the quantity
-          // it ranks.
+          // The rank leads because it is what the map coloured: the reader
+          // clicked a colour, and the headline is that colour's rank, with the
+          // swatch beside it, in words ("Top 5%") rather than as a percentile
+          // ordinal most readers do not use. The 0-100 score follows.
           <div className="mt-3.5">
             <div className="flex items-center gap-3">
               <span
@@ -458,25 +490,20 @@ export default function HexPanel({
                 className="size-9 shrink-0 rounded-md ring-1 ring-black/15"
                 style={{ backgroundColor: classColor(hex.percentile) }}
               />
-              <div className="flex items-baseline gap-2">
-                <span className="text-[2.5rem] leading-none font-semibold tracking-tight text-foreground">
-                  {percentileOrdinal(hex.percentile)}
+              <div>
+                <span className="text-[2rem] leading-none font-semibold tracking-tight text-foreground">
+                  {rankShort(hex.percentile)}
                 </span>
-                <span className="text-sm leading-snug text-muted-foreground">
-                  percentile in {stateName}
+                <span className="ml-2 text-sm leading-snug text-muted-foreground">
+                  {hex.percentile >= 50 ? "most" : "least"} burdened in {stateName}
                 </span>
               </div>
             </div>
-            <p className="mt-2 text-sm text-body">
-              Burden score{" "}
-              <span className="font-semibold text-foreground">{hex.score?.toFixed(1)}</span>{" "}
-              <span className="text-muted-foreground">of 100</span>
-              {hex.percentile >= 90 && (
-                <span className="text-muted-foreground">
-                  {" "}
-                  &middot; in the top tenth of {stateName}
-                </span>
-              )}
+            <p className="mt-2 text-sm text-body">{rankSentence(hex.percentile, stateName)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Overall score{" "}
+              <span className="font-semibold text-foreground">{hex.score?.toFixed(1)}</span> out
+              of 100
             </p>
           </div>
         )}
@@ -484,11 +511,11 @@ export default function HexPanel({
         {scored && (
           <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <Badge variant={BAND_VARIANT[hex.confidence.band]}>
-              {BAND_LABELS[hex.confidence.band]} ({hex.confidence.value.toFixed(2)})
+              {BAND_LABELS[hex.confidence.band]}
             </Badge>
             {dropped > 0 && (
               <span className="text-xs text-faint">
-                {dropped} of {hex.indicators.length} indicators unavailable
+                No data for {dropped} of {hex.indicators.length} measures
               </span>
             )}
           </div>
@@ -498,7 +525,12 @@ export default function HexPanel({
       <div className="px-5 py-5">
         {scored && hex.components.length > 0 && (
           <section>
-            <SectionLabel as="h3">How this score was reached</SectionLabel>
+            <SectionLabel as="h3">How we worked this out</SectionLabel>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              The result has two halves: how much pollution there is, and how vulnerable the
+              people living here are. Each half is built from groups of measures, and each
+              group&apos;s number is its average rank out of 100 (higher means more burdened).
+            </p>
 
             <div className="mt-3">
               {hex.components.map((component) => (
@@ -507,22 +539,23 @@ export default function HexPanel({
             </div>
 
             <p className="mt-3.5 text-xs leading-relaxed text-faint">
-              Each component is rescaled against the highest value anywhere in the state. That
-              statewide maximum is not part of this response, so the rescaling step is the one
-              part of the arithmetic above that cannot be checked here.
+              Each half is scored out of 10 by comparing it with the most burdened place in{" "}
+              {stateName}. We don&apos;t show that top value here, so this is the one step you
+              can&apos;t check from this page.
             </p>
 
             {product !== null && hex.components.length === 2 && (
               <div className="mt-3.5 rounded-md border border-border bg-sunken px-3.5 py-3">
                 <p className="text-sm text-body">
                   {hex.components.map((c) => c.score.toFixed(1)).join(" × ")} ={" "}
-                  <span className="font-semibold text-foreground">{product.toFixed(1)}</span>
+                  <span className="font-semibold text-foreground">{product.toFixed(1)}</span>{" "}
+                  <span className="text-muted-foreground">out of 100</span>
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  The two components multiply rather than add. A hexagon in the 95th percentile
-                  for pollution and the 20th for vulnerability scores about 19; one in the 60th
-                  for both scores about 36. The second is higher, and that is the model working
-                  as designed: burden and vulnerability compound rather than offset.
+                  We multiply the two halves instead of adding them, because pollution does the
+                  most harm where people are least able to cope with it. So a place with heavy
+                  pollution but few vulnerable residents can score lower than one that is
+                  middling on both: roughly 19 against 36. That is intended.
                 </p>
               </div>
             )}
@@ -534,6 +567,14 @@ export default function HexPanel({
             {hex.components.length > 0 && <Separator className="my-6" />}
 
             <ConfidenceBreakdown hex={hex} restate={!caveatLeads} />
+
+            <section className="mt-6">
+              <SectionLabel as="h3">Measure by measure</SectionLabel>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                Each bar shows how this area compares with the rest of {stateName}. The longer
+                the bar, the more burdened it is than other places on that measure.
+              </p>
+            </section>
 
             {groups.map((group) => {
               const rows = hex.indicators.filter((i) => i.group === group);
@@ -563,16 +604,16 @@ export default function HexPanel({
         <PeopleHere hex={hex} />
 
         <footer className="mt-6 border-t border-border pt-3.5 text-xs leading-relaxed text-faint">
-          A high score describes modeled exposure, nearby permitted sources, and a vulnerable
-          population. It is not a finding of wrongdoing by any operator.{" "}
+          A high result reflects estimated pollution, nearby industry and a vulnerable
+          population. It is not a finding of wrongdoing by any company.{" "}
           {/* The state is named from the hexagon rather than written in, because
-              a percentile here is a percentile within this cell's state and no
-              other. Where the API did not say which state that is, the claim is
-              narrowed rather than guessed at. */}
+              a rank here is a rank within this cell's state and no other. Where
+              the API did not say which state that is, the claim is narrowed
+              rather than guessed at. */}
           {hex.state_name
-            ? `Percentiles are ${hex.state_name} percentiles.`
-            : "Percentiles are computed within one state."}{" "}
-          Methodology version {hex.methodology_version}.
+            ? `Rankings compare places within ${hex.state_name} only.`
+            : "Rankings compare places within one state only."}{" "}
+          Method version {hex.methodology_version}.
         </footer>
       </div>
 

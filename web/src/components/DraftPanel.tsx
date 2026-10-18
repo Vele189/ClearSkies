@@ -151,7 +151,7 @@ function Extras({ document }: { document: DraftDocument }) {
       {document.key_figures && document.key_figures.length > 0 && (
         <section className="mb-4">
           <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-            Key figures
+            Key facts
           </h4>
           <ul className="space-y-1">
             {document.key_figures.map((figure, i) => (
@@ -174,7 +174,7 @@ function Extras({ document }: { document: DraftDocument }) {
       {document.legal_basis && document.legal_basis.length > 0 && (
         <section className="mb-4">
           <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-            Legal basis
+            Laws this relies on
           </h4>
           <ul className="space-y-1">
             {document.legal_basis.map((citation, i) => (
@@ -208,7 +208,7 @@ function Extras({ document }: { document: DraftDocument }) {
 
       {document.relief_sought && (
         <p className="mb-4 text-sm text-body">
-          <span className="text-faint">Relief sought: </span>
+          <span className="text-faint">What is being asked for: </span>
           {document.relief_sought}
         </p>
       )}
@@ -225,7 +225,7 @@ function Extras({ document }: { document: DraftDocument }) {
       {document.caveats && document.caveats.length > 0 && (
         <section className="mb-4 rounded-md border border-warn-border bg-warn-surface p-3.5">
           <h4 className="mb-1.5 text-[0.6875rem] font-semibold tracking-[0.06em] text-warn-foreground uppercase">
-            Caveats
+            Things to keep in mind
           </h4>
           <ul className="list-disc space-y-1 pl-5">
             {document.caveats.map((caveat, i) => (
@@ -302,11 +302,11 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
 
       <section className="mt-6 border-t border-border pt-3.5">
         <h4 className="mb-2 text-[0.6875rem] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-          Citations ({citations.length})
+          Sources ({citations.length})
         </h4>
         <p className="mb-2.5 text-xs leading-relaxed text-faint">
-          Every one was checked against the EPA data and the statute corpus before this was
-          shown. Follow them.
+          We checked every one against the EPA data and the text of the law before showing you
+          this draft. Click any of them to check for yourself.
         </p>
         <ul className="space-y-2">
           {citations.map((citation, i) => (
@@ -330,7 +330,9 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
         <Button variant="outline" size="sm" onClick={download}>
           Download
         </Button>
-        <span className="text-xs text-faint">Plain text, with the notice and every citation.</span>
+        <span className="text-xs text-faint">
+          Saved as plain text, with the draft warning and every source.
+        </span>
       </div>
 
       {copied === "failed" && (
@@ -339,13 +341,15 @@ function DraftView({ stamped, fromCache }: { stamped: GeneratedDraft; fromCache:
           className="mt-2.5 rounded border border-warn-border bg-warn-surface px-2.5 py-1.5
                      text-xs leading-relaxed text-warn-foreground"
         >
-          The browser would not let the page write to the clipboard. Select the draft above and
-          copy it yourself, or use Download.
+          Your browser didn&apos;t allow copying. Select the text above and copy it yourself, or
+          use Download.
         </p>
       )}
 
+      {/* For anyone checking or reproducing the draft later; not something a
+          reader needs, so it is labelled as what it is and kept small. */}
       <p className="mt-4 text-[0.6875rem] leading-relaxed text-faint">
-        Hexagon {stamped.h3} · confidence {stamped.confidence_band} · methodology{" "}
+        Technical details: area {stamped.h3} · data {stamped.confidence_band} · method{" "}
         {stamped.methodology_version} · corpus {stamped.corpus_version} · prompt{" "}
         {stamped.prompt_version} · {stamped.model}
         {fromCache && " · served from cache"}
@@ -358,7 +362,7 @@ function Refused({ refusal }: { refusal: Refusal }) {
   return (
     <div role="status" className="rounded-md border border-border-strong bg-sunken p-4">
       <h4 className="mb-1.5 text-sm font-semibold">
-        No draft was written for this
+        The assistant didn&apos;t write this one
       </h4>
       <p className="text-sm leading-relaxed text-body">{refusal.explanation}</p>
       {refusal.missing.length > 0 && (
@@ -372,9 +376,9 @@ function Refused({ refusal }: { refusal: Refusal }) {
         </>
       )}
       <p className="mt-3.5 text-xs leading-relaxed text-faint">
-        This is the assistant declining rather than failing. It writes from a fixed set of
-        statutes and this hexagon&apos;s data, and will not write a document it cannot support
-        from them.
+        This is the assistant declining rather than failing. It only writes what it can back up
+        with this area&apos;s data and the set of laws it has, and it couldn&apos;t back this up,
+        so it stopped rather than guess.
       </p>
     </div>
   );
@@ -443,7 +447,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
             setStatus({
               kind: "failed",
               status: 0,
-              detail: "The API returned neither a draft nor a refusal.",
+              detail: "No draft came back. Please try again.",
             });
           }
         })
@@ -455,7 +459,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
             detail:
               error instanceof ApiError
                 ? error.message
-                : "Could not reach the API. Check your connection and try again.",
+                : "Could not reach our service. Check your connection and try again.",
           });
         });
     },
@@ -466,8 +470,8 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
     <section className="border-t border-border bg-sunken px-5 py-5">
       <h3 className="text-sm font-semibold">Draft a document</h3>
       <p className="mt-1 mb-3.5 text-xs leading-relaxed text-muted-foreground">
-        A first draft for you to check and rewrite, built from this hexagon&apos;s data and a
-        fixed corpus of statutes. Never sent anywhere.
+        Get a first draft to check and edit, written from this area&apos;s data and a fixed set
+        of environmental laws. Nothing leaves this page unless you copy or download it.
       </p>
 
       {/* The refusal is explained before anything is clicked, in plain language.
@@ -479,23 +483,21 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
         // be unsure of, so the insufficient-band wording below would be wrong.
         <div role="status" className="rounded-md border border-border-strong bg-card p-3.5">
           <p className="text-sm leading-relaxed text-body">
-            This hexagon has no score, so there is nothing here to build a document on.
+            This area isn&apos;t ranked, so there&apos;s nothing here to base a document on.
           </p>
           <p className="mt-2.5 text-xs leading-relaxed text-faint">
-            Choose a scored hexagon nearby on the map; most populated places in Louisiana have
-            one.
+            Pick a coloured area nearby on the map. Most places where people live are ranked.
           </p>
         </div>
       ) : insufficient ? (
         <div role="status" className="rounded-md border border-border-strong bg-card p-3.5">
           <p className="text-sm leading-relaxed text-body">
-            There is not enough data behind this hexagon&apos;s score to stand behind a document
-            built on it. Drafting from it would give you something that looks well supported and
-            is not.
+            We don&apos;t have enough data about this area to stand behind a document based on
+            it. A draft would look well supported when it isn&apos;t.
           </p>
           <p className="mt-2.5 text-xs leading-relaxed text-faint">
-            The confidence breakdown above shows which inputs are missing. Nearby hexagons with
-            better coverage can be drafted from.
+            &ldquo;How sure we are&rdquo; above shows what&apos;s missing. Nearby areas with
+            better data can be used instead.
           </p>
         </div>
       ) : (
@@ -527,7 +529,7 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
                     {DOCUMENT_TYPE_LABELS[documentType]}
                   </span>
                   <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                    {thisOne ? "Writing and checking every citation…" : DOCUMENT_TYPE_BLURBS[documentType]}
+                    {thisOne ? "Writing, then checking every source…" : DOCUMENT_TYPE_BLURBS[documentType]}
                   </span>
                 </button>
               );
@@ -536,8 +538,8 @@ export default function DraftPanel({ hex }: { hex: HexDetail }) {
 
           {status.kind === "generating" && (
             <p role="status" className="mt-3.5 text-xs leading-relaxed text-faint">
-              This takes a few seconds. The draft is written, then every citation in it is
-              checked against the data and the statute corpus before you see it.
+              This takes a few seconds. We check every fact and every law the draft relies on
+              before showing it to you.
             </p>
           )}
 

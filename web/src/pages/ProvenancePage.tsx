@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card.
 import { Separator } from "../components/ui/separator.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ApiError, getProvenance } from "../lib/api.ts";
+import { INDICATOR_WORDING } from "../lib/wording.ts";
 import type { PullStatus, Provenance, SourcePull } from "../lib/types.ts";
 
 /** Every source, when it was last pulled, and what it does not cover (CS-406).
@@ -25,31 +26,31 @@ const STATUS: Record<
   { label: string; variant: "ok" | "warn" | "bad"; meaning: string }
 > = {
   ok: {
-    label: "Loaded",
+    label: "Up to date",
     variant: "ok",
-    meaning: "The last pull completed and every record it fetched was loaded.",
+    meaning: "The last update finished and every record it downloaded was loaded.",
   },
   partial: {
-    label: "Partial",
+    label: "Partly loaded",
     variant: "warn",
     meaning:
-      "The last pull completed, and some records were rejected as malformed. " +
-      "What loaded is sound; there is less of it than upstream published.",
+      "The last update finished, but some records were damaged and were left out. " +
+      "What loaded is sound; there is just less of it than the source published.",
   },
   stale: {
-    label: "Served from a snapshot",
+    label: "Using a saved copy",
     variant: "warn",
     meaning:
-      "The source could not be reached, so the last good copy was used instead. " +
-      "The data is real and it is older than the date below, and the confidence " +
-      "value of every hexagon it feeds is reduced to say so.",
+      "The source could not be reached, so we used the last good copy we saved. " +
+      "The data is real but older than the date below, and every area that relies " +
+      "on it is marked as less certain to reflect that.",
   },
   failed: {
     label: "Failed",
     variant: "bad",
     meaning:
-      "The last attempt did not load anything. Whatever this source feeds is as " +
-      "old as the pull before it, or absent.",
+      "The last update didn't load anything. Whatever relies on this source is as " +
+      "old as the update before, or missing.",
   },
 };
 
@@ -86,13 +87,13 @@ function Source({ pull }: { pull: SourcePull }) {
           {/* The upstream release, not the download time. A 2019 assessment
               pulled last night is 2019 data, and reporting the pull date as the
               vintage would make the map look six years fresher than it is. */}
-          <Fact term="Release">{pull.vintage}</Fact>
-          <Fact term="Last pull">{when(pull.pulled_at)}</Fact>
+          <Fact term="Data from">{pull.vintage}</Fact>
+          <Fact term="Last updated">{when(pull.pulled_at)}</Fact>
           <Fact term="Records loaded">
             {pull.records.toLocaleString()}
             {pull.rejected > 0 && (
               <span className="block text-xs text-muted-foreground">
-                {pull.rejected.toLocaleString()} rejected as malformed
+                {pull.rejected.toLocaleString()} left out as damaged
               </span>
             )}
           </Fact>
@@ -104,7 +105,7 @@ function Source({ pull }: { pull: SourcePull }) {
 
         {pull.known_gaps.length > 0 && (
           <div className="mt-5 rounded-md border border-border bg-sunken px-4 py-3.5">
-            <h4 className="text-sm font-semibold">What this source does not cover</h4>
+            <h4 className="text-sm font-semibold">What this source leaves out</h4>
             <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-body">
               {pull.known_gaps.map((gap, index) => (
                 <li key={index} className="flex gap-2.5">
@@ -116,7 +117,8 @@ function Source({ pull }: { pull: SourcePull }) {
                     {gap.affects.length > 0 && (
                       <span className="text-muted-foreground">
                         {" "}
-                        Affects {gap.affects.join(", ")}.
+                        Affects:{" "}
+                        {gap.affects.map((id) => INDICATOR_WORDING[id]?.name ?? id).join(", ")}.
                       </span>
                     )}
                   </span>
@@ -137,7 +139,7 @@ function Source({ pull }: { pull: SourcePull }) {
         {pull.artifacts.length > 0 && (
           <details className="group mt-4">
             <summary className="w-fit cursor-pointer rounded text-sm font-medium text-muted-foreground hover:text-foreground">
-              Files downloaded ({pull.artifacts.length})
+              Original files ({pull.artifacts.length})
             </summary>
             <ul className="mt-2.5 space-y-1.5 text-xs text-muted-foreground">
               {pull.artifacts.map((artifact) => (
@@ -145,7 +147,7 @@ function Source({ pull }: { pull: SourcePull }) {
                   <Mono className="text-faint">{artifact.short_sha}</Mono>{" "}
                   <ExternalLink href={artifact.url}>{artifact.url}</ExternalLink>
                   {artifact.from_snapshot && (
-                    <span className="text-faint"> — served from a stored copy</span>
+                    <span className="text-faint"> — from our saved copy</span>
                   )}
                 </li>
               ))}
@@ -168,7 +170,9 @@ export default function ProvenancePage() {
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         setError(
-          err instanceof ApiError ? err.message : "Could not load the source records.",
+          err instanceof ApiError && err.status !== 503
+            ? "Could not load the source records. Please try again."
+            : "Could not load the source records. Our data service may be unavailable.",
         );
       });
     return () => controller.abort();
@@ -177,39 +181,39 @@ export default function ProvenancePage() {
   return (
     <div>
       <PageTitle
-        lede="Every number on the map traces back to a public record. This page is generated
-              from the pipeline's own manifests, so it says what actually happened on the
-              last run rather than what is supposed to happen."
+        lede="Every number on the map comes from a public record. This page is produced
+              automatically each time the data is updated, so it shows what actually happened,
+              not what was supposed to."
       >
         Where the data comes from
       </PageTitle>
 
       <Prose>
         <p>
-          Each source below shows the upstream release it carries, when it was last
-          fetched, and what it does not cover.
+          Each source below shows how recent its data is, when we last downloaded it, and
+          what it leaves out.
         </p>
       </Prose>
 
-      <Section title="Two things worth knowing before reading the table">
-        <Point label="A missing value is never shown as a zero.">
-          They mean opposite things. Zero released is a measurement; no report filed is an
-          absence. Where a value is missing the indicator is marked unavailable for that
-          hexagon and left out of its score, and the hexagon's confidence value falls to
-          record that less was known about it. A hexagon is never made to look clean by
-          data that was never collected.
+      <Section title="Two things worth knowing first">
+        <Point label="Missing data is never shown as a zero.">
+          They mean opposite things. A plant reporting zero releases is a measurement; a
+          plant filing no report is an absence. Where data is missing we mark that measure
+          as &ldquo;no data&rdquo; for the area, leave it out of the result, and lower how
+          sure we are about that area. An area is never made to look clean by data that was
+          never collected.
         </Point>
-        <Point label="Measured air quality is sparse.">
-          Louisiana has a few dozen air monitors for a state of 52,000 square miles, so
-          most places are nowhere near one. That is why measured readings are a secondary
-          input and modeled exposure is the primary one: the model covers everywhere
-          evenly, and the monitors cover where the monitors are. A hexagon far from a
-          monitor still gets a score, and its confidence value carries the distance.
+        <Point label="Air monitors are few and far between.">
+          Louisiana has a few dozen air monitors for 52,000 square miles, so most places are
+          nowhere near one. That is why monitor readings play a supporting role and EPA&apos;s
+          air pollution estimates, which cover everywhere evenly, play the main one. The
+          monitors only cover where the monitors are. An area far from a monitor still gets
+          a result; the further away the monitor, the less sure we are.
         </Point>
       </Section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">Sources</h2>
+        <h2 className="text-xl font-semibold">The sources</h2>
 
         {error !== null && (
           <p role="status" className="mt-3 text-sm text-body">
@@ -231,9 +235,9 @@ export default function ProvenancePage() {
 
         {data !== null && data.sources.length === 0 && (
           <p className="measure mt-3 font-serif text-[1.0625rem] leading-[1.7] text-body">
-            No source has been pulled into this deployment yet, so there is nothing to
-            report. An empty table here means the pipeline has not run, not that the
-            sources are empty.
+            No data has been downloaded for this site yet, so there is nothing to show. An
+            empty list here means the data hasn&apos;t been loaded, not that the sources are
+            empty.
           </p>
         )}
 

@@ -154,7 +154,7 @@ describe("selecting a hexagon", () => {
     render(<App />);
 
     await userEvent.click(screen.getByText("select A"));
-    expect(await screen.findByRole("status")).toHaveTextContent(/loading hexagon/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(/loading this area/i);
 
     await userEvent.click(screen.getByText("select B"));
     await screen.findByText("Iberville Parish");
@@ -194,13 +194,24 @@ describe("the degraded-deployment banner", () => {
 
     render(<App />);
 
-    const banner = await screen.findByText(/Not everything is running/);
+    const banner = await screen.findByText(/Some things aren.t working right now/);
     expect(banner).toBeInTheDocument();
     // It described the project, not the deployment, and went stale silently.
     expect(screen.queryByText(/Phase 0 scaffold/)).not.toBeInTheDocument();
     expect(
-      screen.getByText(/No tile archive configured/),
+      screen.getByText(/pollution map isn.t set up/),
     ).toBeInTheDocument();
+  });
+
+  it("does not call the data service unreachable while it is still answering", () => {
+    // /health is in flight for a second or two on a cold start. Saying the
+    // service cannot be reached during that time is a false alarm a reader
+    // has no way to tell from a real one.
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+
+    render(<App />);
+
+    expect(screen.queryByText(/can't reach our data service/)).not.toBeInTheDocument();
   });
 
   it("stays out of the way when the deployment is whole", async () => {
@@ -209,6 +220,6 @@ describe("the degraded-deployment banner", () => {
     render(<App />);
 
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(screen.queryByText(/Not everything is running/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Some things aren.t working right now/)).not.toBeInTheDocument();
   });
 });

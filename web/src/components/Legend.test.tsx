@@ -26,37 +26,45 @@ describe("Legend", () => {
     expect(screen.getByRole("region", { name: /map legend/i })).toBeInTheDocument();
   });
 
-  it("labels every class on the ramp", () => {
+  it("labels every class on the ramp in words", () => {
     renderLegend();
-    for (const cls of LEGEND_CLASSES) {
-      expect(screen.getByText(cls.label)).toBeInTheDocument();
+    for (const words of [
+      "Least burdened 20%",
+      "Below average",
+      "Around average",
+      "Above average",
+      "High",
+      "Most burdened 10%",
+    ]) {
+      expect(screen.getByText(words, { exact: false })).toBeInTheDocument();
     }
+    expect(LEGEND_CLASSES).toHaveLength(6);
   });
 
   it("distinguishes an unscored hex from a low-scoring one", () => {
     renderLegend();
-    expect(screen.getByText(/not scored/i)).toBeInTheDocument();
+    expect(screen.getByText(/not ranked/i)).toBeInTheDocument();
   });
 
   it("explains the hatching as confidence and not as burden", () => {
     renderLegend();
-    expect(screen.getByText(/low — read with caution/i)).toBeInTheDocument();
-    expect(screen.getByText(/colour is how burdened, texture is how sure/i)).toBeInTheDocument();
+    expect(screen.getByText(/limited data: a rough guide/i)).toBeInTheDocument();
+    expect(screen.getByText(/stripes mean we're less sure/i)).toBeInTheDocument();
   });
 
   it("leaves the insufficient band off by default", () => {
     renderLegend(false);
-    expect(screen.getByRole("checkbox", { name: /insufficient/i })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /too little data/i })).not.toBeChecked();
   });
 
   it("reflects the insufficient band being switched on", () => {
     renderLegend(true);
-    expect(screen.getByRole("checkbox", { name: /insufficient/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /too little data/i })).toBeChecked();
   });
 
   it("reports the toggle to the map", async () => {
     const onChange = renderLegend(false);
-    await userEvent.click(screen.getByRole("checkbox", { name: /insufficient/i }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /too little data/i }));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
@@ -91,11 +99,11 @@ describe("Legend", () => {
     // state is ever scored this has to become the rule ("within its own
     // state") rather than a name; see docs/expansion.md section 4.
     renderLegend();
-    expect(screen.getByText(/louisiana percentile/i)).toBeInTheDocument();
+    expect(screen.getByText(/compared with the rest of louisiana/i)).toBeInTheDocument();
   });
 
   it("says why an insufficient hex is withheld rather than only that it is", () => {
     renderLegend();
-    expect(screen.getByText(/excluded from validation statistics/i)).toBeInTheDocument();
+    expect(screen.getByText(/leave them out of our accuracy checks/i)).toBeInTheDocument();
   });
 });

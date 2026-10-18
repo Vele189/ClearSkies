@@ -78,6 +78,7 @@ def stamped() -> GeneratedDraft:
 
 def test_an_unconfigured_deployment_says_so_rather_than_failing_at_startup(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """config.py has anticipated an absent key since Phase 0. The API starts and
     this one endpoint reports itself unavailable.
@@ -98,8 +99,12 @@ def test_an_unconfigured_deployment_says_so_rather_than_failing_at_startup(
         )
 
     assert response.status_code == 503
-    assert "OPENAI_API_KEY" in response.json()["detail"]
-    assert "Everything else in the API works normally" in response.json()["detail"]
+    # The reader is told what it means for them; the panel shows this verbatim.
+    assert "isn't switched on" in response.json()["detail"]
+    assert "Everything else works normally" in response.json()["detail"]
+    assert "OPENAI_API_KEY" not in response.json()["detail"]
+    # Whoever runs the deployment still learns which setting is missing.
+    assert "OPENAI_API_KEY" in caplog.text
 
     # The cache is shared with every other test in this process, and the next
     # one to read it should not inherit an unconfigured deployment.

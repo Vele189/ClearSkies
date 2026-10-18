@@ -179,8 +179,8 @@ describe("the insufficient band", () => {
     // neighbourhood. That deserves a sentence, not a disabled button.
     render(<DraftPanel hex={hex("insufficient")} />);
 
-    expect(screen.getByText(/not enough data behind this hexagon/i)).toBeTruthy();
-    expect(screen.getByText(/looks well supported and is not/i)).toBeTruthy();
+    expect(screen.getByText(/don't have enough data about this area/i)).toBeTruthy();
+    expect(screen.getByText(/look well supported when it isn't/i)).toBeTruthy();
   });
 
   it("offers no document types at all for such a hexagon", () => {
@@ -219,7 +219,7 @@ describe("a drafted document", () => {
     render(<DraftPanel hex={hex()} />);
     await userEvent.click(screen.getByText("Public comment letter"));
 
-    expect(await screen.findByText(/checked against the EPA data/i)).toBeTruthy();
+    expect(await screen.findByText(/checked every one against the EPA data/i)).toBeTruthy();
   });
 
   it("records the corpus and prompt behind it", async () => {
@@ -275,7 +275,7 @@ describe("a complaint shows what it rests on", () => {
     await userEvent.click(screen.getByText("Agency complaint"));
 
     await screen.findByRole("note");
-    expect(screen.getByText("Legal basis")).toBeInTheDocument();
+    expect(screen.getByText("Laws this relies on")).toBeInTheDocument();
     const links = screen.getAllByRole("link", { name: "42 U.S.C. § 2000d" });
     expect(links[0].getAttribute("href")).toBe("https://www.law.cornell.edu/uscode/text/42/2000d");
   });
@@ -288,7 +288,7 @@ describe("a complaint shows what it rests on", () => {
     await userEvent.click(screen.getByText("Agency complaint"));
 
     await screen.findByRole("note");
-    expect(screen.getByText(/^Citations \(2\)$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Sources \(2\)$/)).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "40 C.F.R. § 51.166" }).length).toBeGreaterThan(0);
   });
 
@@ -317,7 +317,7 @@ describe("taking the draft away", () => {
     await screen.findByRole("note");
     await userEvent.click(screen.getByText("Copy"));
 
-    expect(await screen.findByText(/would not let the page write to the clipboard/i)).toBeTruthy();
+    expect(await screen.findByText(/browser didn't allow copying/i)).toBeTruthy();
     expect(screen.getByText("Copy")).toBeInTheDocument();
   });
 
@@ -432,6 +432,6 @@ describe("failures read as answers", () => {
     render(<DraftPanel hex={hex()} />);
     await userEvent.click(screen.getByText("Public comment letter"));
 
-    expect(await screen.findByText(/Could not reach the API/)).toBeTruthy();
+    expect(await screen.findByText(/Could not reach our service/)).toBeTruthy();
   });
 });

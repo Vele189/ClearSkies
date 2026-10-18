@@ -130,7 +130,7 @@ def test_over_the_limit_is_429_with_a_retry_after(limited: TestClient) -> None:
 
     assert response.status_code == 429
     assert int(response.headers["Retry-After"]) > 0
-    assert "Try again in" in response.json()["detail"]
+    assert "try again in" in response.json()["detail"]
 
 
 def test_the_limit_is_on_by_default() -> None:

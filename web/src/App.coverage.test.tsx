@@ -61,19 +61,19 @@ async function masthead(): Promise<string> {
 describe("the masthead's coverage line", () => {
   it("names the one state that is scored", async () => {
     healthWith([LA]);
-    expect(await masthead()).toContain("Cumulative environmental burden in Louisiana");
+    expect(await masthead()).toContain("How much pollution communities live with in Louisiana");
   });
 
   it("names both when two are scored", async () => {
     healthWith([LA, WV]);
     expect(await masthead()).toContain(
-      "Cumulative environmental burden in Louisiana and West Virginia",
+      "How much pollution communities live with in Louisiana and West Virginia",
     );
   });
 
   it("counts them past two rather than listing them into the masthead", async () => {
     healthWith([LA, WV, DE]);
-    expect(await masthead()).toContain("Cumulative environmental burden across 3 states");
+    expect(await masthead()).toContain("How much pollution communities live with across 3 states");
   });
 
   it("names no state at all when coverage is unknown", async () => {
@@ -83,7 +83,7 @@ describe("the masthead's coverage line", () => {
     // exists to carry.
     healthWith(undefined);
     const text = await masthead();
-    expect(text).toContain("Cumulative environmental burden");
-    expect(text).not.toContain("burden in Louisiana");
+    expect(text).toContain("How much pollution communities live with");
+    expect(text).not.toContain("live with in Louisiana");
   });
 });

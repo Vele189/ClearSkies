@@ -49,7 +49,7 @@ export default function SearchBox({ onPick }: Props) {
         .then((places) => {
           setResults(places);
           setActive(places.length > 0 ? 0 : -1);
-          setError(places.length === 0 ? "No match in Louisiana." : null);
+          setError(places.length === 0 ? "No place in Louisiana matches that." : null);
         })
         .catch((err: unknown) => {
           if (controller.signal.aborted) return;
@@ -118,13 +118,13 @@ export default function SearchBox({ onPick }: Props) {
           ref={inputRef}
           type="search"
           role="combobox"
-          aria-label="Search for a place"
+          aria-label="Search for a town or address in Louisiana"
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={open && active >= 0 ? `${listId}-${String(active)}` : undefined}
           autoComplete="off"
-          placeholder="Search Louisiana, or paste lat, lon"
+          placeholder="Search a town or address in Louisiana"
           value={query}
           onChange={(event) => {
             handleChange(event.target.value);

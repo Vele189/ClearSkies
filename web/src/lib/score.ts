@@ -18,8 +18,8 @@ import type {
 import type { Component, ConfidenceBand, Group } from "./types.ts";
 
 export const COMPONENT_LABELS: Record<Component, string> = {
-  pollution_burden: "Pollution burden",
-  population_characteristics: "Population characteristics",
+  pollution_burden: "Pollution",
+  population_characteristics: "How vulnerable residents are",
 };
 
 /** Methodology section 10, step 2: the weighted mean of the computable group
@@ -75,44 +75,59 @@ export function percentileOrdinal(value: number): string {
   return ordinal(Math.min(99, Math.max(1, value)));
 }
 
+/** A rank as most people say it: "Top 5%" for a place more burdened than 95%
+ *  of the state, "Bottom 20%" for one more burdened than only 20%. An ordinal
+ *  percentile ("95th") is exact and means nothing to most readers.
+ *
+ *  Held to 1..99 like `percentileOrdinal`, so the worst place is "Top 1%",
+ *  never "Top 0%". */
+export function rankShort(percentile: number): string {
+  const rank = Math.round(Math.min(99, Math.max(1, percentile)));
+  return rank >= 50 ? `Top ${String(100 - rank)}%` : `Bottom ${String(rank)}%`;
+}
+
+/** The same rank as a sentence, for the line under a headline. */
+export function rankSentence(percentile: number, place: string): string {
+  const rank = Math.round(Math.min(99, Math.max(1, percentile)));
+  return `More burdened than ${String(rank)}% of places in ${place}.`;
+}
+
 /** Why a hexagon has no score, as a heading and a sentence a reader can use.
  *  The API sends a code; "low population" on its own reads like a judgement
  *  about the place rather than a rule about the arithmetic. */
 export const NO_SCORE_EXPLANATIONS: Record<NoScoreReason, { title: string; detail: string }> = {
   low_population: {
-    title: "Too few residents to score",
+    title: "Too few people live here",
     detail:
-      "Fewer than 25 people are estimated to live in this hexagon, so it is left out of " +
-      "the ranking rather than scored on almost no one (methodology section 5). Nearby " +
-      "populated hexagons are scored.",
+      "Fewer than 25 people live in this area, so we don't rank it: a result based on so " +
+      "few people wouldn't mean much. Nearby areas where more people live are ranked.",
   },
   insufficient_pollution_data: {
-    title: "Not enough pollution data to score",
+    title: "Not enough pollution data",
     detail:
-      "Too few of the pollution indicators have a value here for the pollution component " +
-      "to be computed, so no score is given rather than one built on gaps.",
+      "We're missing too much pollution data to rank this area fairly, so we leave it " +
+      "unranked rather than guess.",
   },
   insufficient_population_data: {
-    title: "Not enough population data to score",
+    title: "Not enough data about residents",
     detail:
-      "Too few of the population indicators have a value here for the population " +
-      "component to be computed, so no score is given rather than one built on gaps.",
+      "We're missing too much census data to rank this area fairly, so we leave it " +
+      "unranked rather than guess.",
   },
   outside_scored_states: {
     title: "Outside Louisiana",
     detail:
-      "This hexagon is in the buffer past the state line. It is part of the grid so that " +
-      "facilities across the border count toward Louisiana hexagons, but it is not ranked.",
+      "This area is just over the state line. We include it only so that plants across " +
+      "the border count toward nearby Louisiana areas. It isn't ranked itself.",
   },
 };
 
 /** "3 present, 2 needed", in words. The bare "3 of 2" this replaces read like a
  *  typo: a group can hold more indicators than its minimum requires. */
 export function groupCoverage(group: GroupScore): string {
-  const present = `${String(group.indicators_present)} ${
-    group.indicators_present === 1 ? "indicator" : "indicators"
-  }`;
-  return `${present}, ${String(group.indicators_required)} needed`;
+  return `Based on ${String(group.indicators_present)} ${
+    group.indicators_present === 1 ? "measure" : "measures"
+  } (at least ${String(group.indicators_required)} needed)`;
 }
 
 /** Units a reader can make sense of on their own, and how each is written.
@@ -121,7 +136,7 @@ export function groupCoverage(group: GroupScore): string {
  *  and a raw value like 2.4e-7 would only confuse. */
 const READABLE_UNITS: Record<string, (value: number) => string> = {
   "risk per million": (v) => `${formatNumber(v)} in a million`,
-  "hazard index": (v) => `index ${v.toFixed(2)}`,
+  "hazard index": (v) => `${v.toFixed(2)} (concern at 1)`,
   "ug/m3": (v) => `${v.toFixed(1)} µg/m³`,
   percent: (v) => `${v.toFixed(1)}%`,
 };
@@ -168,31 +183,31 @@ export function confidenceTerms(confidence: Confidence): ConfidenceTerm[] {
   return [
     {
       id: "coverage",
-      label: "Indicator coverage",
+      label: "How complete the data is",
       weight: 0.35,
       value: confidence.coverage,
-      meaning: "How many of the fifteen indicators had a value here",
+      meaning: "How many of the 15 measures we have for this area",
     },
     {
       id: "recency",
-      label: "Recency",
+      label: "How recent the data is",
       weight: 0.2,
       value: confidence.recency,
-      meaning: "How old the contributing data is",
+      meaning: "Older data counts for less",
     },
     {
       id: "spatial",
-      label: "Spatial support",
+      label: "How well we know who lives here",
       weight: 0.25,
       value: confidence.spatial_support,
-      meaning: "How much of this hexagon's population is interpolated rather than measured",
+      meaning: "Census figures cover larger areas, so some of this is estimated",
     },
     {
       id: "monitor",
-      label: "Monitor support",
+      label: "Distance to an air monitor",
       weight: 0.2,
       value: confidence.monitor_support,
-      meaning: "How close the nearest PM2.5 monitor is",
+      meaning: "Air readings are more reliable close to a monitor",
     },
   ];
 }
@@ -207,11 +222,11 @@ export function weakestTerm(confidence: Confidence): ConfidenceTerm {
 }
 
 const BAND_READINGS: Record<ConfidenceBand, string> = {
-  high: "Well supported. Read this score at face value.",
-  moderate: "Reasonably supported. The score is usable, with the gaps below in mind.",
-  low: "Weakly supported. Treat this score as indicative and check the gaps below before relying on it.",
+  high: "We have strong data for this area. You can rely on this result.",
+  moderate: "We have good data for this area. The result is reliable, with the gaps below in mind.",
+  low: "Our data here is limited. Treat this result as a rough guide, and check the gaps below before relying on it.",
   insufficient:
-    "Not supported well enough for us to stand behind. This hexagon is excluded from validation statistics and cannot be used to generate a document.",
+    "We have too little data here to stand behind this result. We leave it out of our own accuracy checks, and you can't create a document from it.",
 };
 
 export function bandReading(band: ConfidenceBand): string {
@@ -243,19 +258,19 @@ export function isZeroInflated(indicator: IndicatorValue): boolean {
  *  facility" there contradicts the facility list below it. Wording follows
  *  methodology section 8's table. */
 const ZERO_MEANS: Record<string, string> = {
-  E3: "No facility within 10 km reported toxic air releases to TRI.",
-  F1: "No Clean Air Act major source or Title V facility within 10 km.",
-  F2: "No facility within 10 km was in non-compliance in the last 12 quarters.",
-  F3: "No formal enforcement action against a facility within 10 km in the last 5 years.",
-  F4: "No hazardous waste generator or treatment facility within 10 km.",
+  E3: "No plant within 10 km reported releasing toxic chemicals into the air.",
+  F1: "No plant with a major air pollution permit within 10 km.",
+  F2: "No plant within 10 km broke its permit rules in the last three years.",
+  F3: "No government enforcement action against a plant within 10 km in the last five years.",
+  F4: "No large hazardous waste site within 10 km.",
 };
 
 /** The note a zero facility indicator carries on the panel, or null. */
 export function zeroInflationNote(indicator: IndicatorValue): string | null {
   if (!isZeroInflated(indicator)) return null;
   return (
-    `${ZERO_MEANS[indicator.id] ?? "No qualifying facility within 10 km."} This percentile ` +
-    "reflects how many other hexagons are also at zero, not how this one compares on burden."
+    `${ZERO_MEANS[indicator.id] ?? "No qualifying plant within 10 km."} Many places share ` +
+    "this zero, so the ranking for this measure says little on its own."
   );
 }
 

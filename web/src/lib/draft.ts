@@ -78,7 +78,7 @@ export function statuteUrl(citation: StatuteCitation): string | null {
 export function citationLabel(citation: Citation): string {
   if (citation.kind === "statute") return citation.section;
   // "88444600ddfffff" told a reader nothing about what was cited.
-  if (isHexCitation(citation)) return "ClearSkies hexagon data";
+  if (isHexCitation(citation)) return "This area's data";
   return citation.record_id;
 }
 
@@ -166,7 +166,7 @@ export function renderDraftText(stamped: GeneratedDraft, origin = ""): string {
   }
 
   if (d.key_figures?.length) {
-    lines.push("Key figures", "");
+    lines.push("Key facts", "");
     for (const figure of d.key_figures) {
       const unit = figure.unit ? ` ${figure.unit}` : "";
       lines.push(`- ${figure.label}: ${figure.value}${unit} [${citationLabel(figure.citation)}]`);
@@ -181,7 +181,7 @@ export function renderDraftText(stamped: GeneratedDraft, origin = ""): string {
   }
 
   if (d.caveats?.length) {
-    lines.push("Caveats", "");
+    lines.push("Things to keep in mind", "");
     for (const caveat of d.caveats) lines.push(`- ${caveat}`);
     lines.push("");
   }
@@ -190,7 +190,7 @@ export function renderDraftText(stamped: GeneratedDraft, origin = ""): string {
   // complaint that arrives without it asks its reader to take the legal footing
   // on trust, which is the one thing this tool is built not to do.
   if (d.legal_basis?.length) {
-    lines.push("Legal basis", "");
+    lines.push("Laws this relies on", "");
     for (const citation of d.legal_basis) {
       lines.push(`- ${citationLabel(citation)}: ${citation.proposition}`);
     }
@@ -198,10 +198,10 @@ export function renderDraftText(stamped: GeneratedDraft, origin = ""): string {
   }
 
   if (d.requested_action) lines.push(d.requested_action, "");
-  if (d.relief_sought) lines.push(`Relief sought: ${d.relief_sought}`, "");
+  if (d.relief_sought) lines.push(`What is being asked for: ${d.relief_sought}`, "");
   if (d.filing_note) lines.push(d.filing_note, "");
 
-  lines.push("Citations", "");
+  lines.push("Sources", "");
   for (const citation of allCitations(d)) {
     // Absolute here, unlike on screen: a pasted "/hex/..." leads nowhere.
     const url = citationUrl(citation, origin);
@@ -212,9 +212,9 @@ export function renderDraftText(stamped: GeneratedDraft, origin = ""): string {
   lines.push(
     "",
     "---",
-    `Hexagon ${stamped.h3} · confidence ${stamped.confidence_band}`,
+    `Area ${stamped.h3} · data ${stamped.confidence_band}`,
     `Methodology ${stamped.methodology_version} · corpus ${stamped.corpus_version} · prompt ${stamped.prompt_version}`,
-    `Generated ${stamped.generated_at} by ${stamped.model}. Every citation was checked against the data and the statute corpus before this was shown.`,
+    `Generated ${stamped.generated_at} by ${stamped.model}. Every source was checked against the data and the text of the law before this was shown.`,
   );
 
   return lines.join("\n");

@@ -186,7 +186,7 @@ describe("confidence", () => {
   it("says an insufficient hex cannot produce a document", () => {
     // Section 12: generating a cited complaint from a score the system does not
     // trust is the most damaging thing this tool could do.
-    expect(bandReading("insufficient")).toMatch(/cannot be used to generate a document/i);
+    expect(bandReading("insufficient")).toMatch(/you can't create a document from it/i);
   });
 });
 
