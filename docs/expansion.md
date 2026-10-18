@@ -373,6 +373,18 @@ pull nobody has the script for.
 
 ## 7. Revision history
 
+- **2026-10-19.** `dev-seed` was at 98% of the free plan's 1 GiB branch cap.
+  Run 79 deleted (methodology 0.3.0, eighteen indicators, scored by code on
+  no ref in the monorepo, and not served since run 81 was promoted), with the
+  three drafts cached against it. Tables compacted with `VACUUM FULL` to
+  reclaim the space the deletions left: `hex` 237 to 83 MB, `hex_indicator`
+  153 to 40 MB, `hex_score` 96 to 34 MB; the database went from 980 to 584
+  MB, every served value unchanged. Branches `run12-check`,
+  `migrate-check-0024-0027` and `backup-before-dc-rollback-2026-10-18`
+  deleted, so the rollback below can no longer be undone from Neon and run
+  79's scores exist nowhere. The 0.3.0 code survives in the history of the
+  `clearskies-api-` repository (2d9b03c), so section 2.6's choice is now
+  made: 0.2.0 is the reproducible truth.
 - **2026-10-18.** Rolled back to Louisiana only. On `dev-seed`: the
   District's 294 hexes, 206 tracts, 6,012 blocks and their crosswalk,
   demographics and run rows deleted, with snapshots 335 and 336; runs 80
@@ -385,7 +397,7 @@ pull nobody has the script for.
   the legend says "Louisiana percentile" again. Kept: 0031's per-state
   schema, the per-state scoring loop, and the guards in section 2.5, all of
   which are correct with one state. A backup of `dev-seed` from before the
-  deletion is branch `backup-before-dc-rollback-2026-10-18`.
+  deletion was kept as a branch until 2026-10-19.
 - **2026-10-12.** The District of Columbia declared (0032) and loaded: 206
   tracts, 6,012 blocks totalling its published 689,545, a 294-cell grid at
   176 km² against 177 published, and a crosswalk summing to exactly 206.000.
