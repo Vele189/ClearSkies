@@ -3,7 +3,7 @@
 # Nothing about this file is Railway-specific. It is what `docker compose up
 # api` builds locally, what CI builds to prove the service still assembles, and
 # what the deploy builds once the api repository is wired to a provider that
-# reads a Dockerfile. .railway/railway.ts explains which of those is live.
+# reads a Dockerfile. railway.json points Railway's builder at this file.
 
 FROM python:3.12-slim
 

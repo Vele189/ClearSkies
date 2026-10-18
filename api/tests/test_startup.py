@@ -154,3 +154,14 @@ async def test_the_provider_client_is_built_once_and_closed_on_shutdown(
 
     assert closed == ["closed"]
     assert llm._client is None
+
+
+def test_a_cors_origin_typed_with_a_trailing_slash_still_matches() -> None:
+    # Browsers send Origin without a trailing slash. An entry copied from the
+    # address bar with one used to match nothing and refuse every request.
+    from app.config import Settings
+
+    settings = Settings(
+        cors_origins="https://web.example.app/, http://localhost:5173 ,", database_url="x"
+    )
+    assert settings.cors_origin_list == ["https://web.example.app", "http://localhost:5173"]

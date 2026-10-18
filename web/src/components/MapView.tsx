@@ -4,8 +4,10 @@ import {
   ScaleControl,
   addProtocol,
   removeProtocol,
+  setWorkerUrl,
 } from "maplibre-gl";
 import type { MapLayerMouseEvent } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { LocateFixed } from "lucide-react";
 import { Protocol } from "pmtiles";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -23,6 +25,14 @@ import {
 } from "../lib/ramp.ts";
 import Legend from "./Legend.tsx";
 import SearchBox from "./SearchBox.tsx";
+
+// MapLibre 6 starts its worker from "./maplibre-gl-worker.mjs" beside its own
+// module. Bundled, that is beside our entry chunk in /assets/, where Vite emits
+// nothing, so the worker 404s and the map never fires `load`. `?worker&url`
+// makes Vite build the worker as its own bundle, with the shared chunk it
+// imports folded in, and hands MapLibre that bundle's address. `?url` alone
+// copied the worker file but not `maplibre-gl-shared.mjs`, which it imports.
+setWorkerUrl(workerUrl);
 
 const DEFAULT_BASEMAP = "https://tiles.openfreemap.org/styles/positron";
 

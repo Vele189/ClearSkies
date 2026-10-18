@@ -6,7 +6,10 @@ import type {
   Provenance,
 } from "./types.ts";
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// A trailing slash would make every path "//health", which the API answers 404
+// and the browser reports as a CORS failure. Strip it rather than trust the
+// deploy setting to be typed without one.
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   constructor(

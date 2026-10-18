@@ -37,6 +37,16 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_BASEMAP_STYLE=$VITE_BASEMAP_STYLE \
     VITE_GEOCODER_URL=$VITE_GEOCODER_URL
 
+# Railway passes a service's variables to the build as args when the Dockerfile
+# declares them, and RAILWAY_ENVIRONMENT_NAME is always among them. A Railway
+# build that still has the localhost default was deployed without
+# VITE_API_BASE_URL set, and would ship a bundle calling the visitor's own
+# machine -- fail here instead of after the deploy goes green.
+ARG RAILWAY_ENVIRONMENT_NAME=""
+RUN if [ -n "$RAILWAY_ENVIRONMENT_NAME" ] && [ "$VITE_API_BASE_URL" = "http://localhost:8000" ]; then \
+      echo "VITE_API_BASE_URL is not set on this Railway service" >&2; exit 1; \
+    fi
+
 # `npm run build` is `tsc --noEmit && vite build`, so a type error fails the
 # image rather than shipping a bundle CI would have rejected.
 RUN npm run build

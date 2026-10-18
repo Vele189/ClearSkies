@@ -11,6 +11,10 @@ export default defineConfig({
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
   server: { port: 5173 },
   build: { outDir: "dist", sourcemap: true },
+  // MapView builds MapLibre's worker with `?worker&url`, and MapLibre starts it
+  // with `{ type: "module" }`, so emit it as an ES module rather than the IIFE
+  // default.
+  worker: { format: "es" },
   optimizeDeps: {
     // maplibre-gl starts its worker with `new Worker(url, { type: "module" })`,
     // where the url resolves next to the module that asked for it. Vite's

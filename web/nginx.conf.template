@@ -16,6 +16,17 @@ server {
 
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
+
+        # nginx 1.27's mime.types has no entry for .mjs, so the MapLibre worker
+        # would go out as application/octet-stream, and a browser refuses to
+        # start a module worker from anything but a JavaScript type. A `types`
+        # block replaces the map for its location, which is why this one is
+        # scoped to .mjs alone. add_header is not inherited into a block that
+        # sets its own, so the cache header is repeated.
+        location ~ \.mjs$ {
+            types { application/javascript mjs; }
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
     }
 
     gzip              on;
@@ -32,8 +43,8 @@ server {
     }
 
     # Nothing here serves the tile archive: it is one large object read with
-    # Range requests, and it lives in R2 behind VITE_TILES_URL. See
-    # infra/r2/README.md for why it is not co-located with the app.
+    # Range requests, and it lives in Neon Object Storage (a public_read bucket
+    # on the dev-seed branch) behind VITE_TILES_URL.
 
     access_log /dev/stdout;
     error_log  /dev/stderr warn;
