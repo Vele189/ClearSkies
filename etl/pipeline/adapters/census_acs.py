@@ -1284,12 +1284,13 @@ class CensusAcsAdapter(SourceAdapter[TractProfile]):
             KnownGap(
                 scope="methodological",
                 detail=(
-                    "The section 8.3 sensitive-population subgroup is two indicators, "
-                    "both age structure, because no free tract-level national source "
-                    "publishes the health outcomes that would belong there. Section 16 "
+                    "The section 8.3 sensitive-population subgroup is age structure and "
+                    "disability, all from ACS, and holds no health outcomes. The free "
+                    "tract-level health sources, CDC PLACES and USALEEP, are modeled with "
+                    "race among the predictors and section 14 excludes them. Section 16 "
                     "records it; ACS cannot fill it."
                 ),
-                affects=("S1", "S2"),
+                affects=("S1", "S2", "S3"),
             ),
             KnownGap(
                 scope="attribute",

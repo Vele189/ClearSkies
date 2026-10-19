@@ -515,6 +515,38 @@ and was not.
 Promotion under §17.6 is the owner's decision: run 84 has been through the
 protocol, and run 81, which is currently served, fails it identically.
 
+### Run 85 under v0.5.0 — recorded 2026-10-19
+
+Scored 2026-10-19 and not promoted. The whole §13 protocol was run, §13.6
+included. The first export for the §13.5 checks hit a database timeout and was
+re-run unchanged. Results are in `docs/validation/runs/run-85-*.md`.
+
+| Check | run 84 (v0.4.0) | run 85 (v0.5.0) |
+|---|---|---|
+| Primary sites (8 of 10 required) | 8, met | 8, met |
+| Negative controls (4 of 4 required) | 1 | **2** |
+| Old Metairie, best cell | 95.5 | 90.0 |
+| Bocage, best cell | 97.2 | 93.4 |
+| South Lafayette, best cell | 51.4 | 38.0 (passes) |
+| Stress A in band | 1 of 3 | 2 of 3 |
+| Alternative specifications (≥ 0.85) | 0.981 / 0.961 | 0.982 / 0.963 |
+| Leave-one-out over the bar | S1 32.3%, S2 33.2% | **S1 13.3%**; S2 9.6%, S3 9.9% within |
+| Interpolation sensitivity, ρ | 0.987 | 0.991 |
+| Confident hexes | 15,882 | 16,407 |
+| §13.6 Black share, Spearman (confident) | +0.378 | +0.450 |
+
+**Against the expectations registered above.** S1's and S2's leave-one-out
+movement fell: held, and further than registered. S2 is now within the bar and
+S1 is over it by 3.3 points. S3 moved the same order as S1 and S2: held. The
+alternative specifications stayed above 0.85: held. The confident universe
+moved, direction not predicted: it rose by 525. The negative controls, for
+which no prediction was made: two of four pass, up from one. Old Metairie and
+Bocage still fail, both by a wide margin.
+
+**The gate still fails**, on §13.3 and on S1's leave-one-out. As registered,
+no variant of v0.5.0 will be tried against the controls. What remains is the
+choice CP-14 describes, and it is the owner's.
+
 ### v0.5.0 — 2026-10-19 — S3 disability; Sensitive Populations minimum 2 of 3
 
 Written and committed before the ACS disability table was pulled or any run

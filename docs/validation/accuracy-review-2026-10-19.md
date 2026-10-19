@@ -409,3 +409,24 @@ What remains is CP-14's question, unchanged by any of this, and it is the
 owner's to decide: a different Sensitive Populations design with a data source
 not modeled from race, a revision of the control criterion argued in the open,
 or shipping with the gate failing and saying so.
+
+---
+
+## 8. Phase B, second revision: v0.5.0, S3 disability (2026-10-19)
+
+The owner chose the disability design from three admissible ones. It was
+registered (`514441a`), implemented (`2767cd2`), scored as run 85, and taken
+through the whole protocol. Methodology §18, "Run 85 under v0.5.0", has the
+full record.
+
+| | run 81 (served) | run 85 |
+|---|---|---|
+| Primary sites | 8 of 10 ✅ | 8 of 10 ✅ |
+| Negative controls | 1 of 4 ❌ | **2 of 4** ❌ |
+| Leave-one-out over the bar | S1, S2 (~32%) | S1 only (13.3%) |
+| Alternative specifications | ✅ | ✅ |
+| Stress A in band | 0 of 3 | 2 of 3 |
+
+Better on every check, and passing on none it previously failed. Old Metairie
+(90.0) and Bocage (93.4) remain far above the median. Under the registration,
+v0.5.0 is not tuned further.
