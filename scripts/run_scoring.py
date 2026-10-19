@@ -855,7 +855,7 @@ async def score_run(
         OPEN_RUN,
         git_sha(),
         METHODOLOGY_VERSION,
-        f"{len(present)} of 15 indicators; no source loaded for {', '.join(missing) or 'none'}",
+        f"{len(present)} of {len(INDICATOR_IDS)} indicators; no source loaded for {', '.join(missing) or 'none'}",
     )
 
     try:
