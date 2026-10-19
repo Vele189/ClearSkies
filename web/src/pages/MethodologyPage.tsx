@@ -28,8 +28,8 @@ export default function MethodologyPage() {
         </p>
         <p>
           Each half is built from measures such as cancer risk from toxic air, how many large
-          polluters are nearby, and how many residents are young children or on low incomes.
-          Fifteen measures in all. On each one, an area is compared with every other area in
+          polluters and Superfund sites are nearby, and how many residents are young
+          children, older, disabled or on low incomes. Seventeen measures in all. On each one, an area is compared with every other area in
           Louisiana, and the colour on the map shows where it ranks overall: the darkest red
           is the most burdened tenth of the state.
         </p>
@@ -39,6 +39,31 @@ export default function MethodologyPage() {
           quietly adjusted to give a wanted answer. Any change since is recorded.
         </p>
       </Prose>
+
+      <Section title="How well it works">
+        <p>
+          Before any results existed, we wrote down a test the ranking has to pass, and we
+          publish the outcome whatever it is.
+        </p>
+        <Point label="It finds the places known to be most burdened.">
+          Ten Louisiana communities with long, documented histories of industrial pollution,
+          such as Reserve, Mossville and Norco, were chosen in advance. Eight have to land in
+          the most burdened tenth of the state. Eight do.
+        </Point>
+        <Point label="It does not yet pass the test of leaving better-off areas out.">
+          Four comfortable neighbourhoods were also chosen in advance, and none of them should
+          rank above the middle of the state. Mandeville and South Lafayette pass. Old Metairie
+          and parts of Bocage in Baton Rouge do not: they rank in the top tenth, because they
+          sit close to heavy industry and have many older residents, which the method counts
+          as vulnerability. We have not changed the method to make them pass, because a test
+          you adjust until it passes proves nothing. Read high results in comfortable areas
+          near industry with that in mind.
+        </Point>
+        <Point label="The result does not hinge on our choices.">
+          Weighting the measures differently, or estimating where people live a simpler way,
+          barely changes the order of the map.
+        </Point>
+      </Section>
 
       <Section title="Two things that surprise people">
         <Point label="The two halves are multiplied, not added.">
@@ -107,22 +132,24 @@ export default function MethodologyPage() {
       <Section title="What is missing">
         <p>
           It has no health records. Rates of asthma, low birth weight and heart disease would
-          make the &ldquo;how vulnerable are residents&rdquo; half much better, but no free
-          source publishes them for small enough areas across the country. So that half
-          relies on age and income alone. This is the biggest gap in the method, and we say
-          so.
+          make the &ldquo;how vulnerable are residents&rdquo; half much better. The free
+          estimates that exist for small areas are produced by models that use race, and
+          using them would put race into the result by the back door, so we show them on each
+          area&apos;s panel instead of counting them. That half relies on age, disability and
+          income. This is the biggest gap in the method, and we say so.
         </p>
         <p>
-          It covers Louisiana only. Water quality, soil contamination, drinking water,
-          pesticides and traffic are not included in this version.
+          It covers Louisiana only. Contaminated land counts only where EPA lists it as a
+          Superfund site. Water quality, drinking water, other contaminated land, pesticides
+          and traffic are not included in this version.
         </p>
       </Section>
 
       <Section title="Where the numbers come from">
         <p>
-          Five public sources: EPA records on plants and their permits, the toxic chemical
+          Six public sources: EPA records on plants and their permits, the toxic chemical
           releases plants report each year, EPA estimates of toxic air, readings from air
-          monitors, and census data.{" "}
+          monitors, EPA&apos;s list of Superfund sites, and census data.{" "}
           <TextLink to="/provenance">The data sources page</TextLink> shows when each was last
           updated and what it leaves out.
         </p>
