@@ -235,8 +235,18 @@ def test_no_variable_is_pulled_twice() -> None:
     assert len(codes) == len(set(codes))
 
 
-def test_the_seven_social_indicators_are_all_declared() -> None:
-    assert [i.id for i in INDICATORS] == ["S1", "S2", "P1", "P2", "P3", "P4", "P5"]
+def test_the_eight_social_indicators_are_all_declared() -> None:
+    assert [i.id for i in INDICATORS] == ["S1", "S2", "S3", "P1", "P2", "P3", "P4", "P5"]
+
+
+def test_disability_counts_every_with_a_disability_cell_of_b18101() -> None:
+    """Twelve cells, one per sex and age bracket. Checked against groups/B18101.json."""
+    (s3,) = [i for i in INDICATORS if i.id == "S3"]
+    assert s3.denominator == ("B18101_001",)
+    assert s3.numerator == tuple(
+        f"B18101_{n:03d}" for n in (*range(4, 20, 3), *range(23, 39, 3))
+    )
+    assert len(s3.numerator) == 12
 
 
 def test_every_pulled_variable_is_a_count() -> None:

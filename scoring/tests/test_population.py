@@ -96,18 +96,38 @@ def test_five_socioeconomic_indicators_do_not_outvote_two_sensitive_ones() -> No
 # ---- section 11 rule 2, the group minimums -------------------------------
 
 
-def test_one_of_two_sensitive_indicators_is_enough() -> None:
+def test_two_of_three_sensitive_indicators_is_enough() -> None:
     scored = ["hA"]
     rankings = {
         "S1": ranked({"hA": 90.0}, scored),
         "S2": ranked({"hA": None}, scored),
+        "S3": ranked({"hA": 70.0}, scored),
         **{i: ranked({"hA": 30.0}, scored) for i in ALL_SOCIOECONOMIC},
     }
 
     row = population_characteristics(rankings, scored=scored).by_h3()["hA"]
 
-    assert row.group_mean("sensitive_populations") == pytest.approx(90.0)
-    assert row.raw == pytest.approx(60.0)
+    assert row.group_mean("sensitive_populations") == pytest.approx(80.0)
+    assert row.raw == pytest.approx(55.0)
+
+
+def test_one_of_three_sensitive_indicators_is_not_enough() -> None:
+    """v0.5.0, section 11 rule 2: no single indicator stands in for the subgroup.
+
+    Rule 4 then has the component use Socioeconomic Factors alone.
+    """
+    scored = ["hA"]
+    rankings = {
+        "S1": ranked({"hA": 90.0}, scored),
+        "S2": ranked({"hA": None}, scored),
+        "S3": ranked({"hA": None}, scored),
+        **{i: ranked({"hA": 30.0}, scored) for i in ALL_SOCIOECONOMIC},
+    }
+
+    row = population_characteristics(rankings, scored=scored).by_h3()["hA"]
+
+    assert row.group_mean("sensitive_populations") is None
+    assert row.raw == pytest.approx(30.0)
 
 
 def test_four_of_five_socioeconomic_indicators_is_enough() -> None:

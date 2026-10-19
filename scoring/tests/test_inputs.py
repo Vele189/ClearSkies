@@ -153,14 +153,14 @@ def test_a_missing_contributing_source_makes_the_vintage_unknown() -> None:
 
 def test_every_indicator_names_its_sources() -> None:
     assert set(INDICATOR_SOURCES) == set(INDICATOR_IDS)
-    assert len(INDICATOR_IDS) == 16
+    assert len(INDICATOR_IDS) == 17
 
 
 def test_loaded_indicators_are_the_ones_every_source_of_which_was_read() -> None:
     per_source = {"echo": date(2026, 9, 1), "acs": date(2024, 12, 31)}
 
     assert loaded_indicators(per_source) == frozenset(
-        {"F1", "F2", "F3", "F4", "S1", "S2", "P1", "P2", "P3", "P4", "P5"}
+        {"F1", "F2", "F3", "F4", "S1", "S2", "S3", "P1", "P2", "P3", "P4", "P5"}
     )
 
 
@@ -233,7 +233,7 @@ def test_an_undefined_cv_is_unknown_rather_than_worst_case() -> None:
 def test_every_indicator_gets_a_row_for_every_hex() -> None:
     rows = indicator_rows({}, {}, hexes=("h1",))
 
-    assert len(rows) == 16
+    assert len(rows) == 17
     assert {row[1] for row in rows} == set(INDICATOR_IDS)
     assert all(row[4] is False for row in rows)
 

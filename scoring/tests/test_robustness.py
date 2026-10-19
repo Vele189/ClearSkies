@@ -400,7 +400,7 @@ def test_one_result_per_indicator_in_the_registry_of_record() -> None:
     # for the reason `test_indicators.py` gives: the registry is the single
     # declaration and a check that restates it proves nothing.
     assert {row.indicator for row in results} == {row.id for row in registry.INDICATORS}
-    assert len(results) == 16
+    assert len(results) == 17
 
 
 def test_removing_an_indicator_that_says_nothing_new_moves_nothing() -> None:

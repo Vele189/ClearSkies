@@ -46,7 +46,7 @@ Group = str
 GROUP_INDICATORS: dict[Group, tuple[str, ...]] = {
     "exposures": ("E1", "E2", "E3", "E4"),
     "environmental_effects": ("F1", "F2", "F3", "F4", "F5"),
-    "sensitive_populations": ("S1", "S2"),
+    "sensitive_populations": ("S1", "S2", "S3"),
     "socioeconomic_factors": ("P1", "P2", "P3", "P4", "P5"),
 }
 
@@ -54,7 +54,7 @@ GROUP_INDICATORS: dict[Group, tuple[str, ...]] = {
 GROUP_MINIMUM_PRESENT: dict[Group, int] = {
     "exposures": 2,
     "environmental_effects": 2,
-    "sensitive_populations": 1,
+    "sensitive_populations": 2,
     "socioeconomic_factors": 4,
 }
 

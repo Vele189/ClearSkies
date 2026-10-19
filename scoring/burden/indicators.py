@@ -1,6 +1,6 @@
 """The part of the indicator registry the scoring package needs.
 
-`api/app/indicators.py` is the registry of record for the sixteen indicators,
+`api/app/indicators.py` is the registry of record for the seventeen indicators,
 their groups and their weights, and it is locked to methodology section 8. The
 scoring package cannot import it: `api` and `scoring` are separate
 distributions with separate dependency sets, which is what lets the API deploy
@@ -23,7 +23,7 @@ from dataclasses import dataclass
 GROUP_INDICATORS: dict[str, tuple[str, ...]] = {
     "exposures": ("E1", "E2", "E3", "E4"),
     "environmental_effects": ("F1", "F2", "F3", "F4", "F5"),
-    "sensitive_populations": ("S1", "S2"),
+    "sensitive_populations": ("S1", "S2", "S3"),
     "socioeconomic_factors": ("P1", "P2", "P3", "P4", "P5"),
 }
 
@@ -41,7 +41,7 @@ GROUP_WEIGHTS: dict[str, float] = {
 GROUP_MINIMUM_PRESENT: dict[str, int] = {
     "exposures": 2,
     "environmental_effects": 2,
-    "sensitive_populations": 1,
+    "sensitive_populations": 2,
     "socioeconomic_factors": 4,
 }
 

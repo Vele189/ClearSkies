@@ -185,6 +185,16 @@ OVER_64 = _sequence("B01001", range(20, 26), "male 65 years and over") + _sequen
     "B01001", range(44, 50), "female 65 years and over"
 )
 
+# B18101 crosses sex and age with disability status over the civilian
+# non-institutionalized population. Every age bracket has a "With a disability"
+# cell, at 004 to 019 in steps of three for male and 023 to 038 for female; 001
+# is the universe. Read from groups/B18101.json for the 2024 release on
+# 2026-10-19. Section 8.3, S3, v0.5.0.
+DISABILITY_TOTAL = AcsVariable("B18101_001", "civilian non-institutionalized population")
+WITH_DISABILITY = _sequence("B18101", range(4, 20, 3), "male with a disability") + _sequence(
+    "B18101", range(23, 39, 3), "female with a disability"
+)
+
 # C17002 is the collapsed ratio-of-income-to-poverty table. 002 through 007 run
 # from "Under .50" to "1.85 to 1.99"; 008 is "2.00 and over".
 POVERTY_TOTAL = AcsVariable("C17002_001", "population with a poverty ratio determined")
@@ -245,6 +255,8 @@ SCORED: tuple[AcsVariable, ...] = (
     HOUSEHOLDS,
     *UNDER_5,
     *OVER_64,
+    DISABILITY_TOTAL,
+    *WITH_DISABILITY,
     POVERTY_TOTAL,
     *UNDER_200_POVERTY,
     EDUCATION_TOTAL,
@@ -313,6 +325,13 @@ INDICATORS: tuple[Indicator, ...] = (
         label="percent of population 65 and over",
         numerator=_codes(OVER_64),
         denominator=(AGE_TOTAL.code,),
+    ),
+    Indicator(
+        id="S3",
+        label="percent of the civilian non-institutionalized population with a disability",
+        numerator=_codes(WITH_DISABILITY),
+        denominator=(DISABILITY_TOTAL.code,),
+        note="The universe ACS measures disability in, which excludes people in institutions.",
     ),
     Indicator(
         id="P1",

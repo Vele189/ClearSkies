@@ -87,21 +87,21 @@ def test_a_fully_supported_hex_scores_one() -> None:
 
 
 def test_coverage_weights_each_indicator_as_section_ten_weights_its_group() -> None:
-    # Four Exposures at 1.0, five Environmental Effects at 0.5, two Sensitive at
-    # 1.0 and five Socioeconomic at 1.0 comes to 13.5.
-    assert TOTAL_INDICATOR_WEIGHT == pytest.approx(13.5)
+    # Four Exposures at 1.0, five Environmental Effects at 0.5, three Sensitive
+    # at 1.0 and five Socioeconomic at 1.0 comes to 14.5.
+    assert TOTAL_INDICATOR_WEIGHT == pytest.approx(14.5)
     assert INDICATOR_WEIGHT["E1"] == 1.0
     assert INDICATOR_WEIGHT["F1"] == 0.5
 
 
 def test_losing_an_exposures_indicator_costs_twice_what_losing_an_effects_one_does() -> None:
-    # 12.5 / 13.5 against 13.0 / 13.5. The ratio is section 10's, not a second
+    # 13.5 / 14.5 against 14.0 / 14.5. The ratio is section 10's, not a second
     # opinion about which indicators matter.
     without_e1 = scored(perfect(observed_indicators=ALL_INDICATORS - {"E1"}))
     without_f1 = scored(perfect(observed_indicators=ALL_INDICATORS - {"F1"}))
 
-    assert without_e1.c_coverage == pytest.approx(12.5 / 13.5)
-    assert without_f1.c_coverage == pytest.approx(13.0 / 13.5)
+    assert without_e1.c_coverage == pytest.approx(13.5 / 14.5)
+    assert without_f1.c_coverage == pytest.approx(14.0 / 14.5)
 
 
 def test_a_hex_with_nothing_observed_falls_to_the_floor() -> None:
