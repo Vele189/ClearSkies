@@ -35,6 +35,7 @@ from app.schemas import (
     Confidence,
     Demographics,
     GroupScore,
+    HealthEstimates,
     HexDetail,
     IndicatorValue,
 )
@@ -106,6 +107,44 @@ INDICATOR_VALUES = """
       FROM hex_indicator
      WHERE run_id = $1 AND h3 = $2::h3_cell
 """
+
+
+# CDC PLACES over the tracts this hex draws on, weighted by the people each
+# tract contributes to it, from the newest release held. Read through the same
+# crosswalk section 7 uses, so the panel's figure is the hex's and not one
+# tract's. Nothing in scoring reads `tract_health`; this is display only.
+HEALTH = """
+WITH weighted AS (
+    SELECT th.release_year, w.population AS people,
+           th.asthma_pct, th.copd_pct, th.chd_pct
+      FROM tract_hex_weight w
+      JOIN tract_health th ON th.tract_geoid = w.tract_geoid
+     WHERE w.h3 = $1
+       AND w.population > 0
+       AND th.release_year = (SELECT max(release_year) FROM tract_health)
+)
+SELECT release_year,
+       sum(people * asthma_pct)
+           / nullif(sum(people) FILTER (WHERE asthma_pct IS NOT NULL), 0) AS asthma_pct,
+       sum(people * copd_pct)
+           / nullif(sum(people) FILTER (WHERE copd_pct IS NOT NULL), 0) AS copd_pct,
+       sum(people * chd_pct)
+           / nullif(sum(people) FILTER (WHERE chd_pct IS NOT NULL), 0) AS chd_pct
+  FROM weighted
+ GROUP BY release_year
+"""
+
+
+def build_health(row: Any) -> HealthEstimates | None:
+    """None when no tract behind the hex has a PLACES row, rather than zeros."""
+    if row is None:
+        return None
+    return HealthEstimates(
+        release_year=int(row["release_year"]),
+        asthma_pct=_float(row["asthma_pct"]),
+        copd_pct=_float(row["copd_pct"]),
+        chd_pct=_float(row["chd_pct"]),
+    )
 
 
 def enforcement_window_start(run_day: date) -> date:
@@ -265,6 +304,7 @@ async def load(conn: Any, h3_index: str, run: RunContext) -> HexDetail | None:
     facility_count = await count_contributing(conn, h3_index, actions_since=since)
 
     indicators = build_indicators(list(indicator_rows))
+    health = build_health(await conn.fetchrow(HEALTH, h3_index))
 
     return HexDetail(
         h3=core["h3"],
@@ -279,6 +319,7 @@ async def load(conn: Any, h3_index: str, run: RunContext) -> HexDetail | None:
         indicators=indicators,
         confidence=build_confidence(core),
         demographics=build_demographics(core),
+        health=health,
         facilities=facilities,
         facility_count=facility_count,
         no_score_reason=core["no_score_reason"],

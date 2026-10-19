@@ -375,6 +375,38 @@ function PeopleHere({ hex }: { hex: HexDetail }) {
   );
 }
 
+function pct(value: number | null | undefined): string {
+  return value == null ? "not available" : `${value.toFixed(1)}%`;
+}
+
+/** CDC PLACES, shown for context the way race is: next to the result, never in
+ *  it. The wording says "estimated" because these are model outputs, not
+ *  counts of diagnosed people. */
+function HealthHere({ hex }: { hex: HexDetail }) {
+  const health = hex.health;
+  if (!health) return null;
+  return (
+    <section className="mt-6" aria-labelledby="health-here">
+      <SectionLabel>
+        <span id="health-here">Estimated adult health</span>
+      </SectionLabel>
+      <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm text-body">
+        <dt>Asthma</dt>
+        <dd className="tabular-nums">{pct(health.asthma_pct)}</dd>
+        <dt>COPD</dt>
+        <dd className="tabular-nums">{pct(health.copd_pct)}</dd>
+        <dt>Coronary heart disease</dt>
+        <dd className="tabular-nums">{pct(health.chd_pct)}</dd>
+      </dl>
+      <p className="mt-1.5 text-xs leading-relaxed text-faint">
+        {health.source} {health.release_year} estimates for adults living here. They come from a
+        statistical model, not from counting diagnoses, and that model uses race, so they are
+        shown for context only and are never used to work out the result.
+      </p>
+    </section>
+  );
+}
+
 export default function HexPanel({
   hex,
   onClose,
@@ -602,6 +634,8 @@ export default function HexPanel({
         )}
 
         <PeopleHere hex={hex} />
+
+        <HealthHere hex={hex} />
 
         <footer className="mt-6 border-t border-border pt-3.5 text-xs leading-relaxed text-faint">
           A high result reflects estimated pollution, nearby industry and a vulnerable

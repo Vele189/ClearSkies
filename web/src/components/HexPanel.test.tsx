@@ -135,6 +135,37 @@ describe("HexPanel", () => {
     expect(screen.queryByText(/too little data here to stand behind/i)).not.toBeInTheDocument();
   });
 
+  it("shows modeled health estimates as context, never as part of the result", () => {
+    // Methodology section 8.3: PLACES is modeled with race as a predictor, so it
+    // is displayed the way race is. The caveat is the point of the section.
+    render(
+      <HexPanel
+        hex={hex({
+          health: {
+            source: "CDC PLACES",
+            release_year: 2025,
+            modeled: true,
+            asthma_pct: 10.2,
+            copd_pct: null,
+            chd_pct: 6.8,
+          },
+        })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Estimated adult health")).toBeInTheDocument();
+    expect(screen.getByText("10.2%")).toBeInTheDocument();
+    expect(screen.getByText("not available")).toBeInTheDocument();
+    expect(screen.getByText(/statistical model, not from counting diagnoses/)).toBeInTheDocument();
+  });
+
+  it("leaves the health section out when there is no estimate", () => {
+    render(<HexPanel hex={hex({ health: null })} onClose={() => {}} />);
+
+    expect(screen.queryByText("Estimated adult health")).not.toBeInTheDocument();
+  });
+
   it("states that the score is not a finding of wrongdoing", () => {
     // This disclaimer is a requirement, not decoration. It must not be
     // refactored away silently.

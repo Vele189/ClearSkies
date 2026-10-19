@@ -92,6 +92,23 @@ class Demographics(BaseModel):
     hispanic_pct: float | None = None
 
 
+class HealthEstimates(BaseModel):
+    """CDC PLACES adult prevalence, displayed and never an input to the score.
+
+    Methodology v0.4.0 section 8.3: PLACES tract figures are model estimates
+    whose model takes race and ethnicity as a predictor, so scoring them would
+    put race into the arithmetic by another route. They are shown the way race
+    is, beside the score. Population-weighted over the tracts the hex draws on.
+    """
+
+    source: str = "CDC PLACES"
+    release_year: int
+    modeled: bool = True
+    asthma_pct: float | None = None
+    copd_pct: float | None = None
+    chd_pct: float | None = None
+
+
 class HexDetail(BaseModel):
     h3: str
     resolution: int
@@ -110,6 +127,10 @@ class HexDetail(BaseModel):
     indicators: list[IndicatorValue]
     confidence: Confidence
     demographics: Demographics
+    health: HealthEstimates | None = Field(
+        default=None,
+        description="Modeled adult prevalence from CDC PLACES. Displayed, never scored.",
+    )
     facilities: list[Facility]
     facility_count: int = Field(
         default=0,

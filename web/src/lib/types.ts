@@ -82,6 +82,18 @@ export interface Demographics {
   hispanic_pct?: number | null;
 }
 
+/** CDC PLACES adult prevalence. Displayed beside the score and never part of
+ *  it: the estimates are modeled with race as a predictor, which methodology
+ *  section 8.3 rules out of the arithmetic. */
+export interface HealthEstimates {
+  source: string;
+  release_year: number;
+  modeled: boolean;
+  asthma_pct?: number | null;
+  copd_pct?: number | null;
+  chd_pct?: number | null;
+}
+
 export interface HexDetail {
   h3: string;
   resolution: number;
@@ -98,6 +110,9 @@ export interface HexDetail {
   indicators: IndicatorValue[];
   confidence: Confidence;
   demographics: Demographics;
+  /** Absent from older API versions; null where no tract behind the hex has
+   *  a PLACES estimate. */
+  health?: HealthEstimates | null;
   facilities: Facility[];
   /** Facilities within 10 km. `facilities` is capped at the nearest 50. */
   facility_count: number;
