@@ -383,3 +383,29 @@ options are a materially different Sensitive Populations design, a revision of
 the criteria themselves argued in the open, or shipping with the gate failing
 and saying so. All three are the Lead's to choose under §13.7, not a code
 change.
+
+---
+
+## 7. Phase B, implemented (2026-10-19)
+
+The owner chose the recommendations in §6: show PLACES without scoring it,
+build B3, and settle B5 by adopting `c_spatial` as implemented. Methodology
+v0.4.0 was committed first (`cc08f2c`), with its expected effects registered.
+It was then implemented, and run 84 was scored and put through the whole
+protocol. The full record is in methodology §18, "Run 84 under v0.4.0".
+
+- **F5** (B3): a new `epa_sems` source and migration 0032. It counts 17
+  Louisiana Final or proposed NPL sites. It moved Gordon Plaza from 93.1 to
+  94.4 and moved nothing much else, as registered. It does not touch the
+  negative controls, and was not meant to.
+- **`c_spatial`** (B5) is now defined in §12. No score changed from this item.
+- **PLACES** is on the hex panel as "Estimated adult health", with a caveat
+  that it is modeled using race and never used in the result. Nothing in
+  scoring reads it.
+- **Gate:** 8 of 10 primary, 1 of 4 controls. It still fails, on S1/S2 and
+  the controls, exactly as before.
+
+What remains is CP-14's question, unchanged by any of this, and it is the
+owner's to decide: a different Sensitive Populations design with a data source
+not modeled from race, a revision of the control criterion argued in the open,
+or shipping with the gate failing and saying so.

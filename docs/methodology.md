@@ -474,6 +474,40 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 
 ## 18. Changelog
 
+### Run 84 under v0.4.0 — recorded 2026-10-19
+
+Scored 2026-10-19, not promoted. Run 83 was killed by an operator timeout
+before it wrote anything and is recorded as failed. The whole §13 protocol was
+run against run 84, §13.6 included. Results are in
+`docs/validation/runs/run-84-*.md`.
+
+| Check | run 81 (v0.2.0) | run 84 (v0.4.0) |
+|---|---|---|
+| Primary sites (8 of 10 required) | 8, met | 8, met |
+| Negative controls (4 of 4 required) | 1 | 1 |
+| Alternative specifications (≥ 0.85) | 0.980 / 0.958 | 0.981 / 0.961 |
+| Leave-one-out over the bar | S1 31.6%, S2 32.6% | S1 32.3%, S2 33.2% |
+| F5 leave-one-out | — | 0.0% |
+| Interpolation sensitivity, ρ | 0.987 | 0.987 |
+| Confident hexes | 15,811 | 15,882 |
+| §13.6 Black share, Spearman (confident) | not run | +0.378 |
+
+**Against the expectations registered above.** Alternative specifications
+above 0.85: held. S1 and S2 over the bar: held. F5's own leave-one-out under
+5%: held, at 0.0%. Hexes near the seventeen sites rose: held; 9 Gordon Plaza
+went from 93.1 to 94.4, and other sites moved by less than 2.5 points. The
+negative controls did not pass: held, though N4 South Lafayette came within
+1.4 points (51.4 against a 50 bar). **One expectation was wrong.** The
+confident universe changed, from 15,811 to 15,882. F5 is observed wherever
+SEMS is loaded, which is everywhere, so it adds 0.5 to the covered weight of
+every hex, and `c_coverage` rises slightly for all of them. A term's input
+changed even though no term's definition did. That should have been foreseen
+and was not.
+
+**The gate fails, as it does under run 81**, and on the same criterion.
+Promotion under §17.6 is the owner's decision: run 84 has been through the
+protocol, and run 81, which is currently served, fails it identically.
+
 ### v0.4.0 — 2026-10-19 — F5 contaminated land; `c_spatial` defined; PLACES excluded under §14
 
 Written and committed before any run was scored under it. The version is

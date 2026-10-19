@@ -371,8 +371,14 @@ async def _interpolate(
         await connection.close()
 
 
-async def _disparity(*, database_url: str, acs_vintage: str, out: Path | None) -> int:
-    """Section 13.6, over the run the API and the tiles are serving.
+async def _disparity(
+    *, database_url: str, acs_vintage: str, out: Path | None, run_id: int | None = None
+) -> int:
+    """Section 13.6, over the run the API and the tiles are serving, or `run_id`.
+
+    A run that has not been promoted is analysed the same way. Section 13.7
+    requires the whole protocol, 13.6 included, before a run is promoted, so
+    the analysis has to be able to read one that is not yet current.
 
     Fills the three composition columns first, because `run_scoring` leaves them
     unset by design and this is the package section 14 allows to read them. The
@@ -392,7 +398,8 @@ async def _disparity(*, database_url: str, acs_vintage: str, out: Path | None) -
 
     connection = _LazyConnection(database_url)
     try:
-        run_id = await connection.fetchval("SELECT run_id FROM pipeline_run WHERE is_current")
+        if run_id is None:
+            run_id = await connection.fetchval("SELECT run_id FROM pipeline_run WHERE is_current")
         if run_id is None:
             print("no promoted scoring run; nothing to analyse", file=sys.stderr)
             return 1
@@ -402,7 +409,12 @@ async def _disparity(*, database_url: str, acs_vintage: str, out: Path | None) -
         written = await store_shares(connection, shares, run_id=int(run_id))
         print(f"composition written for {written} hexes of run {run_id}")
 
-        report = await run_disparity(connection, now=datetime.now(UTC))
+        version = await connection.fetchval(
+            "SELECT methodology_version FROM pipeline_run WHERE run_id = $1", int(run_id)
+        )
+        report = await run_disparity(
+            connection, now=datetime.now(UTC), run_id=int(run_id), methodology_version=version
+        )
     finally:
         await connection.close()
 
@@ -790,6 +802,9 @@ def main(argv: list[str] | None = None) -> int:
     disparity.add_argument("--database-url", default=None, help="override DATABASE_URL")
     disparity.add_argument("--acs-vintage", default="2020-2024")
     disparity.add_argument("--out", type=Path, default=None, help="write the report here")
+    disparity.add_argument(
+        "--run-id", type=int, default=None, help="analyse this run; default the promoted one"
+    )
 
     grid_export = sub.add_parser(
         "grid-export",
@@ -968,6 +983,7 @@ def main(argv: list[str] | None = None) -> int:
                 database_url=args.database_url or os.environ.get("DATABASE_URL", ""),
                 acs_vintage=args.acs_vintage,
                 out=args.out,
+                run_id=args.run_id,
             )
         )
 
