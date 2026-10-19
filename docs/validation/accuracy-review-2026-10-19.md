@@ -313,3 +313,73 @@ not how they rank, and the same large-block effect is what drives the
 **Cleanup the owner may want.** With the crosswalk rebuilt, CS-112's plan was
 to discard the blocks again. They are 197 MB of the branch's 584 MB. Dropping
 them is irreversible on the free plan and was not done here.
+
+---
+
+## 6. Phase B, first finding (2026-10-19): B1 is not admissible, and B2 does nothing alone
+
+Nothing was scored. These findings come from the input data and CDC's
+published method, before any run, so they are not shaped by a validation
+result.
+
+### 6.1 B1: CDC PLACES conflicts with §14
+
+PLACES tract figures are not survey measurements. CDC fits a multilevel model
+to BRFSS responses using "individual-level age, sex, race/ethnicity, and
+education level", plus county poverty and random effects, and projects it onto
+2020 census-block population counts
+([CDC PLACES methodology](https://www.cdc.gov/places/methodology/index.html)).
+Each tract's estimate is therefore partly a function of its racial
+composition.
+
+§14 keeps race out of the arithmetic so that §13.6's disparity result is
+evidence rather than a property of how the score was built. An indicator
+modeled from race brings race in indirectly. That argument does not depend on
+the score or the sites, and it rules B1 out as designed. The lost v0.3.0 (run
+79, three PLACES indicators) had the same flaw. Its §13.6 result would have
+been partly circular.
+
+Supporting input-level evidence. These are Spearman correlations across
+Louisiana tracts, PLACES 2025 crude prevalence against ACS rates:
+
+| | S1 under 5 | S2 65+ | P1 poverty | P2 no diploma |
+|---|---|---|---|---|
+| Asthma | +0.05 | −0.13 | **+0.84** | +0.62 |
+| COPD | +0.05 | +0.12 | +0.75 | +0.72 |
+| CHD | +0.01 | +0.30 | +0.64 | +0.62 |
+
+COPD and CHD correlate at +0.95 with each other. Mostly the three re-express
+the socioeconomic subgroup rather than adding new information. The tract
+release has only crude (not age-adjusted) prevalence, so age adjustment is
+not available either.
+
+**Recommendation.** Do not score PLACES. Keep `tract_health` for display on
+the hex panel, labelled as modeled, the way race is shown: next to the score,
+not in it. Correct §8.3's reason for excluding health outcomes from "no free
+tract-level source" to "the free tract-level source is modeled from race and
+is excluded under §14".
+
+### 6.2 B2: the Sensitive minimum is never what binds
+
+All 19,881 scored hexes have both S1 and S2. Raising §11's minimum from 1 to 2
+would change no score and no leave-one-out figure. The leave-one-out failure
+comes from the group's structure: two age shares, anti-correlated (−0.21), each
+carrying a quarter of Population Characteristics.
+
+### 6.3 What is left of Phase B, and what it needs from the Lead
+
+| Item | Status | Needs |
+|---|---|---|
+| B1 PLACES | **rejected under §14** | Agreement, then the §8.3 correction above |
+| B2 Sensitive minimum | **moot** | — |
+| B3 contaminated-land indicator | admissible | A new source adapter (EPA Superfund/NPL); it does not address the control failures |
+| B4 hexes or people as the denominator | open | A methodology argument; large re-ranking |
+| B5 ratify `c_spatial` | admissible | A decision on rare-category CVs (§5.1) |
+
+Without a non-race-modeled source of health or susceptibility data, nothing
+admissible left in Phase B targets the main failure (S1/S2 and the negative
+controls). CP-14 anticipated this: it is the point where the remaining
+options are a materially different Sensitive Populations design, a revision of
+the criteria themselves argued in the open, or shipping with the gate failing
+and saying so. All three are the Lead's to choose under §13.7, not a code
+change.
