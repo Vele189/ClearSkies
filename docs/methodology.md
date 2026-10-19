@@ -543,6 +543,11 @@ moved, direction not predicted: it rose by 525. The negative controls, for
 which no prediction was made: two of four pass, up from one. Old Metairie and
 Bocage still fail, both by a wide margin.
 
+**Promoted 2026-10-19** by the owner's decision, with the §13.3 failure stated
+on the site's "How it works" page rather than resolved, so the published score
+and the failure are published together, as §17.6 and §13.7 require. Run 81
+remains in the database, so the promotion can be reversed.
+
 **The gate still fails**, on §13.3 and on S1's leave-one-out. As registered,
 no variant of v0.5.0 will be tried against the controls. What remains is the
 choice CP-14 describes, and it is the owner's.

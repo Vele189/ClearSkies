@@ -1,8 +1,9 @@
 # Robustness checks — CS-212
 
 **Implemented 2026-09-11 against methodology v0.1.3. First run against real data
-2026-09-21. Latest: run 81, methodology v0.2.0, checked 2026-10-19. Outcome:
-FAIL. See §8; §7 is run 11, kept because audits and tickets cite it.**
+2026-09-21. Latest: run 85, methodology v0.5.0, served from 2026-10-19. Outcome:
+FAIL, on S1 alone (13.3%). Full output in `runs/run-85-robustness.md`. §8 is run
+81 and §7 is run 11, kept because audits and tickets cite them.**
 
 Methodology §13.5 specifies three checks that ask whether the score is measuring
 Louisiana or measuring the choices made in §10. All three are implemented, unit
