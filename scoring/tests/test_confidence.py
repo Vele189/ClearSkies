@@ -31,16 +31,16 @@ from burden.confidence import (
     low_confidence,
 )
 
-ALL_FIFTEEN = frozenset(INDICATOR_WEIGHT)
+ALL_INDICATORS = frozenset(INDICATOR_WEIGHT)
 RUN_DATE = date(2026, 9, 11)
-FRESH = dict.fromkeys(ALL_FIFTEEN, RUN_DATE)
+FRESH = dict.fromkeys(ALL_INDICATORS, RUN_DATE)
 
 
 def perfect(h3: str = "h0", **overrides: object) -> HexEvidence:
     """A hex nothing is wrong with, so a test can spoil exactly one thing."""
     defaults: dict[str, object] = {
         "h3": h3,
-        "observed_indicators": ALL_FIFTEEN,
+        "observed_indicators": ALL_INDICATORS,
         "high_cv_population_share": 0.0,
         "mean_block_area_km2": 0.1,
         "nearest_monitor_km": 1.0,
@@ -87,21 +87,21 @@ def test_a_fully_supported_hex_scores_one() -> None:
 
 
 def test_coverage_weights_each_indicator_as_section_ten_weights_its_group() -> None:
-    # Four Exposures at 1.0, four Environmental Effects at 0.5, two Sensitive at
-    # 1.0 and five Socioeconomic at 1.0 comes to 13.0.
-    assert TOTAL_INDICATOR_WEIGHT == pytest.approx(13.0)
+    # Four Exposures at 1.0, five Environmental Effects at 0.5, two Sensitive at
+    # 1.0 and five Socioeconomic at 1.0 comes to 13.5.
+    assert TOTAL_INDICATOR_WEIGHT == pytest.approx(13.5)
     assert INDICATOR_WEIGHT["E1"] == 1.0
     assert INDICATOR_WEIGHT["F1"] == 0.5
 
 
 def test_losing_an_exposures_indicator_costs_twice_what_losing_an_effects_one_does() -> None:
-    # 12.0 / 13.0 against 12.5 / 13.0. The ratio is section 10's, not a second
+    # 12.5 / 13.5 against 13.0 / 13.5. The ratio is section 10's, not a second
     # opinion about which indicators matter.
-    without_e1 = scored(perfect(observed_indicators=ALL_FIFTEEN - {"E1"}))
-    without_f1 = scored(perfect(observed_indicators=ALL_FIFTEEN - {"F1"}))
+    without_e1 = scored(perfect(observed_indicators=ALL_INDICATORS - {"E1"}))
+    without_f1 = scored(perfect(observed_indicators=ALL_INDICATORS - {"F1"}))
 
-    assert without_e1.c_coverage == pytest.approx(12.0 / 13.0)
-    assert without_f1.c_coverage == pytest.approx(12.5 / 13.0)
+    assert without_e1.c_coverage == pytest.approx(12.5 / 13.5)
+    assert without_f1.c_coverage == pytest.approx(13.0 / 13.5)
 
 
 def test_a_hex_with_nothing_observed_falls_to_the_floor() -> None:
@@ -117,7 +117,7 @@ def test_recency_decays_by_exp_minus_age_over_tau() -> None:
     # Every vintage exactly four years old, so Δt / τ is 1 and the term is
     # exp(-1), about 0.368.
     four_years_ago = date(2022, 9, 11)
-    row = scored(perfect(), vintages=dict.fromkeys(ALL_FIFTEEN, four_years_ago))
+    row = scored(perfect(), vintages=dict.fromkeys(ALL_INDICATORS, four_years_ago))
 
     assert row.c_recency == pytest.approx(math.exp(-1.0), rel=1e-3)
 
@@ -130,7 +130,7 @@ def test_recency_is_measured_against_the_vintage_not_the_pull() -> None:
     # The same run, pulled today either way. One read a release from 2018 and
     # one read a release from this year, and they must not come out the same.
     # Downloading an old dataset this morning does not make it a new one.
-    stale = scored(perfect(), vintages=dict.fromkeys(ALL_FIFTEEN, date(2018, 9, 11)))
+    stale = scored(perfect(), vintages=dict.fromkeys(ALL_INDICATORS, date(2018, 9, 11)))
     current = scored(perfect(), vintages=FRESH)
 
     assert stale.c_recency < current.c_recency
@@ -163,7 +163,7 @@ def test_a_hex_whose_contributors_carry_no_vintage_at_all_falls_to_the_floor() -
 
 def test_a_vintage_dated_after_the_run_is_treated_as_current_not_as_a_bonus() -> None:
     # A clock problem upstream should not be able to push a term above 1.
-    row = scored(perfect(), vintages=dict.fromkeys(ALL_FIFTEEN, date(2030, 1, 1)))
+    row = scored(perfect(), vintages=dict.fromkeys(ALL_INDICATORS, date(2030, 1, 1)))
 
     assert row.c_recency == pytest.approx(1.0)
 

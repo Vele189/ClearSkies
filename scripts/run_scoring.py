@@ -22,7 +22,7 @@ source this run did not read is left out rather than filled in:
 the loss as a confidence penalty. A zero would instead say "measured, and there
 is none", which for an unmonitored place is the exact failure this project
 exists to avoid. The proximity indicators run the other way. Section 9 says E3
-and F1 to F4 *are* zero for a hex with no qualifying facility within 10 km, and
+and F1 to F5 *are* zero for a hex with no qualifying facility within 10 km, and
 a query over the links relation cannot return a row for a hex that has none, so
 the zeros are filled in here over the scored universe rather than lost.
 
@@ -400,6 +400,24 @@ SELECT l.h3::text AS h3,
  GROUP BY l.h3
 """
 
+#: F5, section 8.2 (v0.4.0): Superfund sites on the Final NPL or proposed for
+#: it, decayed by the same `facility_decay_weight` F1 to F4 use and over the
+#: same radius, so the two kinds of point cannot drift apart. Which statuses
+#: count is `CLEANUP_STATUSES`, here rather than in the table, because the
+#: table holds every NPL status for the panel to explain.
+CLEANUP_PROXIMITY = """
+SELECT h.h3::text AS h3,
+       sum(facility_decay_weight(ST_Distance(c.geom::geography, h.centroid::geography)))::float8
+           AS f5
+  FROM cleanup_site c
+  JOIN hex h ON ST_DWithin(c.geom::geography, h.centroid::geography, $1)
+ WHERE c.npl_status_code = ANY($2::text[])
+ GROUP BY h.h3
+"""
+
+#: Section 8.2: established contamination whose remedy is not complete.
+CLEANUP_STATUSES = ("F", "P")
+
 #: The quarters F2 reads, in the window and in every status. Which of them count
 #: is `burden.inputs.noncompliant_quarters`, not this query.
 COMPLIANCE_ROWS = """
@@ -446,6 +464,23 @@ async def facility_indicators(
             value = row[name.lower()]
             sums[name][row["h3"]] = None if value is None else float(value)
     return {name: proximity_values(sums[name], hexes=hexes, loaded=True) for name in names}
+
+
+async def cleanup_indicator(
+    conn: asyncpg.Connection, *, hexes: Collection[str], loaded: bool
+) -> dict[str, dict[str, float | None]]:
+    """F5 over the scored hexes, zero where no counted site is within 10 km.
+
+    Read like F1 to F4: SEMS loaded means the sites were looked for, so a hex
+    with none near it is a zero; SEMS not loaded means every hex is absent.
+    """
+    sums: dict[str, float | None] = {}
+    if loaded:
+        for row in await conn.fetch(
+            CLEANUP_PROXIMITY, INTERACTION_RADIUS_M, list(CLEANUP_STATUSES)
+        ):
+            sums[row["h3"]] = None if row["f5"] is None else float(row["f5"])
+    return {"F5": proximity_values(sums, hexes=hexes, loaded=loaded)}
 
 
 # Section 8.1. The numerator is `facility_release_toxicity.toxicity_weighted_lb`,
@@ -635,6 +670,8 @@ WITH consulted(source, snapshot_id) AS (
     SELECT 'echo', snapshot_id FROM facility_compliance_quarter
     UNION
     SELECT 'echo', snapshot_id FROM enforcement_action
+    UNION
+    SELECT 'sems', snapshot_id FROM cleanup_site
 )
 SELECT s.source, s.vintage_end
   FROM consulted c
@@ -751,6 +788,7 @@ async def score_run(
     acs_values, tract_cvs = await acs_indicators(conn, crosswalk, acs_vintage=acs_vintage)
     values.update(acs_values)
     values.update(await facility_indicators(conn, as_of=as_of, hexes=scored, loaded="F1" in loaded))
+    values.update(await cleanup_indicator(conn, hexes=scored, loaded="F5" in loaded))
     values.update(
         await exposure_indicators(
             conn, tri_year=TRI_REPORTING_YEAR, hexes=scored, e3_loaded="E3" in loaded

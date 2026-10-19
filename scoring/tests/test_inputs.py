@@ -153,7 +153,7 @@ def test_a_missing_contributing_source_makes_the_vintage_unknown() -> None:
 
 def test_every_indicator_names_its_sources() -> None:
     assert set(INDICATOR_SOURCES) == set(INDICATOR_IDS)
-    assert len(INDICATOR_IDS) == 15
+    assert len(INDICATOR_IDS) == 16
 
 
 def test_loaded_indicators_are_the_ones_every_source_of_which_was_read() -> None:
@@ -233,7 +233,7 @@ def test_an_undefined_cv_is_unknown_rather_than_worst_case() -> None:
 def test_every_indicator_gets_a_row_for_every_hex() -> None:
     rows = indicator_rows({}, {}, hexes=("h1",))
 
-    assert len(rows) == 15
+    assert len(rows) == 16
     assert {row[1] for row in rows} == set(INDICATOR_IDS)
     assert all(row[4] is False for row in rows)
 

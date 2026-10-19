@@ -61,10 +61,10 @@ def test_the_components_group_the_way_the_api_does() -> None:
     )
 
 
-def test_all_fifteen_indicators_are_accounted_for() -> None:
-    # Fourteen would pass every other test in this file and quietly drop an
+def test_all_sixteen_indicators_are_accounted_for() -> None:
+    # Fifteen would pass every other test in this file and quietly drop an
     # indicator from a component.
-    assert sum(len(ids) for ids in GROUP_INDICATORS.values()) == 15
+    assert sum(len(ids) for ids in GROUP_INDICATORS.values()) == 16
 
 
 def test_a_group_spec_carries_its_weight_and_minimum() -> None:

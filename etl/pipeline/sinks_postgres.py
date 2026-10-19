@@ -75,6 +75,7 @@ SNAPSHOT_SOURCE: Mapping[str, str] = {
     "openaq": "openaq",
     "census_acs": "acs",
     "census_block": "census_block",
+    "epa_sems": "sems",
 }
 
 
@@ -271,6 +272,22 @@ def _tract_variable(r: Any) -> dict[str, Any]:
     }
 
 
+def _cleanup_site(r: Any) -> dict[str, Any]:
+    return {
+        "site_id": r.site_id,
+        "epa_id": r.epa_id,
+        "name": r.name,
+        "city": r.city,
+        "county_fips": r.county_fips,
+        "state": r.state,
+        "npl_status_code": r.npl_status_code,
+        "npl_status_name": r.npl_status_name,
+        "is_federal": r.is_federal,
+        "geom": _point(r.longitude, r.latitude),
+        "h3": r.h3,
+    }
+
+
 def _monitor(r: Any) -> dict[str, Any]:
     return {
         "monitor_id": r.monitor_id,
@@ -350,6 +367,13 @@ SPECS: Mapping[str, TableSpec] = {
         conflict=("monitor_id", "parameter", "measured_on"), row=_monitor_measurement
     ),
     "hex_air_quality": TableSpec(conflict=("h3", "parameter"), row=_hex_air_quality),
+    "cleanup_site": TableSpec(
+        conflict=("site_id",),
+        row=_cleanup_site,
+        geometry=frozenset({"geom"}),
+        keep_on_update=frozenset({"first_seen_at"}),
+        touch_on_update={"last_seen_at": "now()"},
+    ),
 }
 
 #: Parents before children, because every child here carries a real foreign key.
@@ -370,6 +394,7 @@ WRITE_ORDER: tuple[str, ...] = (
     "monitor",
     "monitor_measurement",
     "hex_air_quality",
+    "cleanup_site",
 )
 
 

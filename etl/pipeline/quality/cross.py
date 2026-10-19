@@ -45,7 +45,7 @@ Group = str
 
 GROUP_INDICATORS: dict[Group, tuple[str, ...]] = {
     "exposures": ("E1", "E2", "E3", "E4"),
-    "environmental_effects": ("F1", "F2", "F3", "F4"),
+    "environmental_effects": ("F1", "F2", "F3", "F4", "F5"),
     "sensitive_populations": ("S1", "S2"),
     "socioeconomic_factors": ("P1", "P2", "P3", "P4", "P5"),
 }

@@ -236,6 +236,18 @@ SCHEDULES: dict[str, SourceSchedule] = {
             "other is not is a normal night."
         ),
     ),
+    "epa_sems": SourceSchedule(
+        source="epa_sems",
+        refresh=WEEKLY,
+        budget_minutes=0.5,
+        note=(
+            "One Envirofacts request for the state's Superfund sites, about 800 rows "
+            "of which roughly 35 carry an NPL status. SEMS changes on Federal "
+            "Register publication, a few times a year for one state, so weekly is "
+            "ample and it depends on nothing: cleanup_site has no foreign key "
+            "beyond its snapshot."
+        ),
+    ),
     "airtoxscreen": SourceSchedule(
         source="airtoxscreen",
         refresh=MONTHLY,

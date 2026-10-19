@@ -15,14 +15,14 @@ from app.indicators import (
 # methodology revision (section 17), so this test is meant to fail loudly.
 EXPECTED_PER_GROUP = {
     Group.EXPOSURES: 4,
-    Group.ENVIRONMENTAL_EFFECTS: 4,
+    Group.ENVIRONMENTAL_EFFECTS: 5,
     Group.SENSITIVE_POPULATIONS: 2,
     Group.SOCIOECONOMIC_FACTORS: 5,
 }
 
 
 def test_indicator_set_matches_the_methodology() -> None:
-    assert len(INDICATORS) == 15
+    assert len(INDICATORS) == 16
     for group, expected in EXPECTED_PER_GROUP.items():
         assert len(in_group(group)) == expected, group
 

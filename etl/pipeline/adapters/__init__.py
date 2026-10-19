@@ -26,6 +26,7 @@ from pipeline.adapters.fake import FakeAirAdapter
 from pipeline.adapters.openaq import OpenAqAdapter
 from pipeline.adapters.registry import REGISTRY, get, names, register, specs
 from pipeline.adapters.rsei import EpaRseiAdapter
+from pipeline.adapters.sems import EpaSemsAdapter
 from pipeline.adapters.tri import EpaTriAdapter
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "CensusBlockAdapter",
     "EpaEchoAdapter",
     "EpaRseiAdapter",
+    "EpaSemsAdapter",
     "EpaTriAdapter",
     "FakeAirAdapter",
     "FetchResult",

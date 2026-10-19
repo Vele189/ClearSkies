@@ -67,6 +67,7 @@ INDICATOR_SOURCES: Mapping[str, tuple[str, ...]] = {
     "F2": ("echo",),
     "F3": ("echo",),
     "F4": ("echo",),
+    "F5": ("sems",),
     "S1": ("acs",),
     "S2": ("acs",),
     "P1": ("acs",),

@@ -26,5 +26,5 @@ def test_indicators_endpoint_publishes_the_running_configuration(client: TestCli
     r = client.get("/indicators")
     assert r.status_code == 200
     body = r.json()
-    assert len(body["indicators"]) == 15
+    assert len(body["indicators"]) == 16
     assert body["group_weights"]["environmental_effects"] == 0.5
