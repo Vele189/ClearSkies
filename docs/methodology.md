@@ -1,9 +1,9 @@
 # ClearSkies Methodology
 
-**Version:** 0.2.0 (draft, pre-implementation)
+**Version:** 0.4.0
 **Status:** Phase 0 deliverable. Written before any scoring code exists, by design.
 **Pilot geography:** Louisiana
-**Last revised:** 2026-09-12
+**Last revised:** 2026-10-19
 
 ---
 
@@ -159,8 +159,19 @@ Inverse-square decay is a modelling assumption, not a dispersion model. It ignor
 | F2 | Non-compliance burden | Distance-decayed count of facility-quarters in non-compliance over the trailing 12 quarters | ECHO | Point |
 | F3 | Enforcement burden | Distance-decayed count of formal enforcement actions over the trailing 5 years, each action scaled by its log penalty above a floor of one, so an action with no penalty contributes one | ECHO | Point |
 | F4 | Hazardous waste proximity | Distance-decayed count of RCRA large-quantity generators and treatment, storage, and disposal facilities | ECHO | Point |
+| F5 | Contaminated land proximity | Distance-decayed count of Superfund sites currently on the Final National Priorities List or proposed for it | EPA SEMS | Point |
 
-F1 through F4 use the same inverse-square decay and 10 km cutoff as E3, without toxicity weighting.
+F1 through F5 use the same inverse-square decay and 10 km cutoff as E3, without toxicity weighting.
+
+**F5, added in v0.4.0.** The score was air-only, and §16 said so: a community whose harm is contaminated soil or groundwater did not register. CalEnviroScreen's Environmental Effects component carries a Cleanup Sites indicator for that reason, and a cumulative-burden score that leaves out the federal government's own list of the country's worst contaminated land is not measuring cumulative burden. F5 counts Superfund sites from EPA's Superfund Enterprise Management System (SEMS), as published through Envirofacts, with coordinates as EPA records them.
+
+Which sites count is a statement about what the indicator is for: land on which contamination has been established and whose remedy is not complete.
+
+- **Counted:** sites currently on the Final NPL (`F`) and sites proposed for it (`P`). Proposal follows a Hazard Ranking System score above the listing threshold, which is the finding of contamination this indicator registers.
+- **Not counted:** sites deleted from the NPL (`D`), because deletion is EPA's determination that the remedy is complete. Sites removed from the proposed list (`R`) are not counted, because removal withdraws the finding. Rows marked as part of another NPL site (`A`) are not counted, because the site they belong to already is, and counting both would count one site twice.
+- **Not in v0.4.0:** non-NPL Superfund sites, state voluntary-remediation sites and brownfields. EPA records coordinates for few of them, and their status vocabulary does not say whether contamination was established. They are recorded in §16.
+
+A Superfund site is a point here, though many cover hundreds of acres. The 250 m floor and the inverse-square decay are the same as the rest of the group, so the indicator says "contaminated land of national priority nearby", not an exposure estimate. Like F1 to F4, it is zero for a hex with no qualifying site within 10 km, which is most of Louisiana, and it sits in the zero tie block §9 describes.
 
 **F3 formula, and what a penalty-free action contributes.** For hex `h`, over facilities `f` and over the formal actions `a` at each facility settled within the trailing five years:
 
@@ -191,7 +202,7 @@ Second, and specific to this design: **F2 and F3 partly measure regulatory atten
 | S1 | Young children | Percent of population under 5 | ACS |
 | S2 | Older adults | Percent of population 65 and over | ACS |
 
-Both groups are physiologically more susceptible to air pollution. This subgroup is thin, and deliberately so rather than accidentally: the health-outcome indicators that would belong here have no free tract-level national source. See §16.
+Both groups are physiologically more susceptible to air pollution. This subgroup is thin, and deliberately so rather than accidentally: the health-outcome indicators that would belong here have no free tract-level source admissible under §14. CDC PLACES publishes tract-level prevalence for asthma, COPD and coronary heart disease, but those figures are model estimates whose model takes each respondent's race and ethnicity as a predictor and projects onto census-block counts, so a tract's value is partly a function of its racial composition. Scoring them would make race an indirect ingredient, which §14 rules out. They are displayed on the hex panel, labelled as modeled, beside the score and not in it. See §16.
 
 ### 8.4 Population Characteristics → Socioeconomic Factors (subgroup weight 1.0)
 
@@ -266,7 +277,7 @@ Score(h) = PB(h) · PC(h)          range (0, 100]
 **Rules.**
 
 1. A missing indicator is dropped from its subgroup mean. It is not imputed to zero and not imputed to the median.
-2. A subgroup is computable only if a minimum number of its indicators are present: at least 2 of 4 Exposures, at least 2 of 4 Environmental Effects, at least 1 of 2 Sensitive Populations, at least 4 of 5 Socioeconomic Factors.
+2. A subgroup is computable only if a minimum number of its indicators are present: at least 2 of 4 Exposures, at least 2 of 5 Environmental Effects, at least 1 of 2 Sensitive Populations, at least 4 of 5 Socioeconomic Factors.
 3. If Exposures is not computable, Pollution Burden falls back to Environmental Effects alone and the hex's confidence is penalized heavily. If neither is computable, the hex is `no_score` with reason `insufficient_pollution_data`.
 4. If either Population Characteristics subgroup is not computable, the component uses the other alone with a confidence penalty. If neither is computable, the hex is `no_score` with reason `insufficient_population_data`.
 5. Every dropped indicator is recorded per hex and shown in the detail panel. A user always sees which of the fifteen were actually used.
@@ -287,8 +298,19 @@ Every scored hex carries a confidence value in (0, 1]. It measures how well-supp
 |---|---|---|
 | `c_coverage` | 0.35 | Weight-weighted fraction of the fifteen indicators with an observed value for this hex |
 | `c_recency` | 0.20 | `exp(−Δt / τ)` with `τ` = 4 years, `Δt` the weighted mean age of the contributing data vintages |
-| `c_spatial` | 0.25 | Interpolation support: falls with the share of hex population drawn from ACS estimates whose coefficient of variation exceeds 0.30, and with the mean area of the source census blocks |
+| `c_spatial` | 0.25 | Interpolation support: `(1 − s) · min(1, A_hex / A_block)`, defined below |
 | `c_monitor` | 0.20 | `min(1, 10 km / d_nearest)` where `d_nearest` is the distance to the nearest PM2.5 monitor |
+
+**`c_spatial`, defined in v0.4.0.** Until v0.4.0 this term was specified only by direction: it falls with the share of hex population drawn from ACS estimates whose coefficient of variation exceeds 0.30, and with the mean area of the source census blocks. The implementation chose a functional form, and this section adopts it as written:
+
+```
+c_spatial(h) = ( 1 − s(h) ) · min( 1, A_hex / A_block(h) )
+```
+
+- `s(h)` is the share of `(person, estimate)` pairs behind the hex whose estimate has a CV above 0.30, over the seven ACS rate estimates the score draws on (S1, S2, P1 to P5), each rate's CV formed from the published margins by the Census Bureau's proportion formula. An estimate of zero has no CV and takes no part.
+- `A_hex` is 0.737 km², the mean resolution-8 cell area of §5. `A_block(h)` is the population-weighted mean area of the census blocks the hex's population was drawn from. A source block no larger than the hex supports the interpolation fully, and one ten times larger supports a tenth as much.
+
+It is adopted as implemented, and not redesigned, on purpose. Run 81 showed that this term decides whether several pre-registered cells count for validation. A redesign chosen after seeing that could not be argued independently of its effect, and §17.2 requires that it be. Its weaknesses are recorded in §16 for a revision that can be argued on its own terms.
 
 **Combination — weighted geometric mean.**
 
@@ -407,13 +429,25 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 
 ## 16. Known limitations
 
-**No health outcome indicators.** The Sensitive Populations subgroup rests on age structure alone. Asthma prevalence, low birth weight, and cardiovascular disease would materially improve it. CDC PLACES publishes model-based tract-level prevalence for several relevant conditions and is the obvious sixth data source; it is deferred rather than rejected, and adding it is the highest-value single extension to this specification.
+**No health outcome indicators.** The Sensitive Populations subgroup rests on age structure alone. Asthma prevalence, low birth weight, and cardiovascular disease would materially improve it. CDC PLACES, the one free tract-level source, is model-based with race and ethnicity among its predictors, and is excluded under §14 (see §8.3). Across Louisiana tracts its asthma, COPD and CHD estimates correlate with the poverty indicator P1 at +0.84, +0.75 and +0.64, and with the 65-and-over share S2 at −0.13, +0.12 and +0.30, so they would largely restate the socioeconomic subgroup. A health source that is measured, or modeled without race, remains the highest-value single extension.
+
+**Sensitive Populations is two anti-correlated age shares.** S1 and S2 correlate at −0.21 across hexes, and each carries a quarter of Population Characteristics. §13.5's leave-one-out check finds each alone moves about 30% of hexes by more than a decile. Near industry, where Pollution Burden is close to its ceiling, this subgroup orders places, and an affluent neighbourhood with many older residents can rank with a poor one. This is the documented cause of the §13.3 negative-control failures, and the repair needs data this specification does not have.
+
+**`c_spatial` and rare-category estimates.** Under §12's definition, linguistic isolation (P3) has a CV above 0.30 in 713 of the 721 Louisiana tracts where it has one, and unemployment (P4) in 1,267 of 1,321, so `s(h)` partly measures which rare categories a tract contains rather than how well its population is placed. Because a zero estimate has no CV, a tract with a few linguistically isolated households is penalised and a tract with none is not. And because both `s(h)` and `A_block(h)` are high in sparse rural areas, most hexes of 25 to 120 residents fall in the Insufficient band.
+
+**Residential population, not land use.** The score measures burden on residents. A cell inside an industrial complex where almost nobody lives, Geismar for example, falls under §5's 25-person threshold and is not scored, however high its Pollution Burden. That is the design, not a data gap.
+
+**The zero block holds low-industry places down.** Where no facility is within 10 km, E3 and F1 to F5 all take the zero tie block's mid-rank, so a poor rural parish with little industry has a low Pollution Burden by construction, and the multiplication in §10 keeps it low. §13.4's Stress A cases fall below their expected band for this reason.
+
+**Measured PM2.5 is an urban indicator.** E4 has a value only within 25 km of a monitor with a complete year, which in Louisiana is about ten metro-area regulatory monitors. Because §11 re-averages over the indicators present, the Exposures mean changes in a step at that 25 km boundary.
+
+**Contaminated land beyond the NPL.** F5 counts Final and proposed NPL sites only. Non-NPL Superfund sites, state cleanup sites and brownfields are not represented, so soil and groundwater burden is still understated.
 
 **Enforcement indicators encode regulatory attention.** F2 and F3 rise with inspection frequency as well as with actual violation. Areas whose facilities are seldom inspected can appear compliant. The 0.5 group weight limits the damage; it does not fix it. A proper correction would require inspection-effort data and is not attempted.
 
 **Inverse-square decay is not dispersion.** E3, F1 through F4 ignore prevailing wind, stack height, terrain, and chemistry. Along the river corridor, where wind direction is persistent, this will misplace burden relative to a real plume model.
 
-**Air only.** Louisiana's water and soil contamination burden is substantial and entirely absent from v0. A community whose principal harm is a contaminated aquifer will not show it here.
+**Mostly air.** Apart from F5's count of nationally listed sites, Louisiana's water and soil contamination burden is absent. A community whose principal harm is a contaminated aquifer that is not on the NPL will not show it here.
 
 **Race excluded from the score understates some burden.** See §14.
 
@@ -439,6 +473,54 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 ---
 
 ## 18. Changelog
+
+### v0.4.0 — 2026-10-19 — F5 contaminated land; `c_spatial` defined; PLACES excluded under §14
+
+Written and committed before any run was scored under it. The version is
+0.4.0 rather than 0.3.0 because a 0.3.0 was published once (run 79, eighteen
+indicators) by code that was never committed and no longer exists
+(`docs/expansion.md` §2.6). That number is retired so no score can be confused
+with it.
+
+**What changed.**
+
+1. **F5, contaminated land proximity** (§8.2), from EPA SEMS: Final and proposed
+   NPL sites, the decay and radius of F1 to F4, in Environmental Effects. The
+   group minimum in §11 rule 2 becomes 2 of 5. No weight changes.
+2. **`c_spatial` is defined** (§12) as the implementation already computed it.
+   No score changes from this item.
+3. **CDC PLACES is excluded under §14** (§8.3, §16). This corrects the reason
+   v0.2.0 gave for having no health indicators, and records why the free
+   tract-level source cannot be used.
+4. **§16 gains** the Sensitive Populations structure, the `c_spatial` limits,
+   residential population, the zero block, E4's urban coverage and the NPL-only
+   scope of F5.
+
+**Why, independent of validation (§17.2).** F5: the score claimed cumulative
+burden and measured air alone. Contaminated land is part of CalEnviroScreen's
+Environmental Effects component, and the NPL is EPA's own determination of
+the country's highest-priority contaminated sites. The status rules follow
+from what the indicator is for (established contamination, remedy not
+complete), not from where the sites are. `c_spatial`: the code was ahead of
+the paper, and §17 forbids that. PLACES: §14.
+
+**What is disclosed.** The proposal for F5 arose in a review that looked at
+validation results (`docs/validation/accuracy-review-2026-10-19.md`), and one
+pre-registered high-burden site, 9 Gordon Plaza, is built on the Agriculture
+Street Landfill, which is on the Final NPL. Gordon Plaza already passed under
+run 81, at 93.1. The status rules above were written from what the indicator
+measures. Under them Agriculture Street is counted, and so is any Final NPL
+site. Nothing in this revision targets the failing negative controls, and
+none of its items was chosen to change one.
+
+**Expected effect, registered before the run.** F5 is one of five indicators
+in a group weighted 0.5 and is zero for most hexes, so it should move few
+hexes. Expected: the §13.5 alternative specifications stay above 0.85; S1 and
+S2 stay over the leave-one-out bar, since nothing here touches them; F5's own
+leave-one-out movement is small (under 5%); hexes within a few kilometres of
+the roughly seventeen Final and proposed sites, including in Baton Rouge, New
+Orleans and Slidell, rise; the negative controls are not expected to pass. The
+confident universe should not change, because no confidence term changes.
 
 ### Runs and fixes under v0.2.0 — recorded 2026-09-22
 
