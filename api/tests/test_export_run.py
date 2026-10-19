@@ -106,3 +106,49 @@ async def test_an_unscored_hex_is_exported_with_its_reason(export: ModuleType) -
     )
 
     assert payload["hexes"]["88444600d9fffff"] == {"no_score_reason": "low_population"}
+
+
+# ---- the areal block's control -----------------------------------------
+
+
+def columns(**values: dict[str, float | None]) -> dict[str, dict[str, float | None]]:
+    """Every crosswalk indicator, with the given overrides and an agreed default."""
+    from_scorer = {"88444600ddfffff": 12.5}
+    return {
+        indicator: values.get(indicator, from_scorer)
+        for indicator in ("S1", "S2", "P1", "P2", "P3", "P4", "P5", "E1", "E2")
+    }
+
+
+def test_a_recomputation_that_matches_the_run_passes_the_control(export: ModuleType) -> None:
+    """Numeric-to-float rounding is not drift."""
+    stored = columns(E1={"88444600ddfffff": 41.25})
+    again = columns(E1={"88444600ddfffff": 41.25 + 1e-9})
+
+    assert export._reproduces(stored, again) == []
+
+
+def test_a_value_that_moved_since_the_run_is_drift(export: ModuleType) -> None:
+    """An areal block is only a statement about section 7 if nothing else moved."""
+    stored = columns(P1={"88444600ddfffff": 30.0})
+    again = columns(P1={"88444600ddfffff": 31.0})
+
+    assert [line.split()[0] for line in export._reproduces(stored, again)] == ["P1"]
+
+
+def test_an_absence_that_became_a_value_is_drift(export: ModuleType) -> None:
+    """Section 11: a missing indicator and a present one are different facts."""
+    stored = columns(S2={"88444600ddfffff": None})
+    again = columns(S2={"88444600ddfffff": 4.0})
+
+    assert len(export._reproduces(stored, again)) == 1
+
+
+def test_the_areal_flag_needs_the_robustness_file(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["export_run.py", "--validation", "v.json", "--areal"])
+    with pytest.raises(SystemExit):
+        import asyncio
+
+        asyncio.run(export.main())

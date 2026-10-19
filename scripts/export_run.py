@@ -22,17 +22,22 @@ Defaults to the promoted run, the one the API and the tiles serve, so a gate
 describes the data a reader is looking at rather than whichever run finished
 last.
 
-**No `areal` block.** Section 13.5's third check wants the same run interpolated
-a second time by area share, and `dasymetric.areal_counterpart` produces it from
-`tract_hex_weight` rather than from the block layer: it needs each tract's area
-shares, which the crosswalk stores. What it needs and did not have is the whole
-of each tract, and until migration 0025 the cells holding none of a tract's
-block population were not stored at all, so the counterpart refused every tract
-that had one. A crosswalk rebuilt under 0025 carries them, which does mean
-reloading the blocks once. This script still exports no `areal` block, because
-producing one means scoring the counterpart as a second run, and the check
-reports that it did not run -- which is a different statement from finding no
-divergence, and is the honest one.
+**The `areal` block, with `--areal`.** Section 13.5's third check wants the
+same run interpolated a second time by area share. It does not need a second
+scored run: `run_robustness.py` scores both interpolations itself through the
+production `compute`. It needs the inputs, and only the crosswalk-derived ones
+differ -- the total population behind section 5, S1, S2 and P1 to P5 from the
+ACS, and E1 and E2 from AirToxScreen. Those are recomputed here by the
+scorer's own loaders over `dasymetric.areal_counterpart`, so the only thing that
+changes between the two blocks is the population estimator. E3, E4 and F1 to
+F4 are point-based and are copied unchanged.
+
+The counterpart needs the whole of each tract, which `tract_hex_weight` holds
+once the crosswalk is rebuilt under migration 0025; it raises
+`PartialCrosswalk` rather than guess when it does not. As a control, the same
+loaders are first run over the dasymetric crosswalk and must reproduce the
+run's stored values; `--areal` refuses to write a block if they do not, since
+the comparison would then measure drift since the run rather than section 7.
 """
 
 from __future__ import annotations
@@ -206,16 +211,102 @@ async def robustness_payload(conn: asyncpg.Connection, run_id: int, version: str
     }
 
 
+#: Recomputed under area share. Everything else is a point indicator and does
+#: not pass through the crosswalk.
+CROSSWALK_INDICATORS = ("S1", "S2", "P1", "P2", "P3", "P4", "P5", "E1", "E2")
+
+#: How far a recomputed dasymetric value may sit from the stored one. The
+#: stored column is numeric and the recomputation is float8, so this is
+#: rounding, not tolerance for a different answer.
+REPRODUCTION_TOLERANCE = 1e-6
+
+
+async def _crosswalk_inputs(
+    conn: asyncpg.Connection, crosswalk: Any
+) -> tuple[dict[str, float], dict[str, dict[str, float | None]]]:
+    """Population and the nine crosswalk-derived indicators, as the scorer forms them."""
+    import run_scoring as scoring
+
+    population, _ = await scoring.hex_population(
+        conn, crosswalk, acs_vintage=scoring.ACS_VINTAGE
+    )
+    values, _ = await scoring.acs_indicators(conn, crosswalk, acs_vintage=scoring.ACS_VINTAGE)
+    values.update(
+        await scoring.modelled_exposure(
+            conn, crosswalk, vintage_year=scoring.EXPOSURE_VINTAGE_YEAR
+        )
+    )
+    return population, {k: dict(values[k]) for k in CROSSWALK_INDICATORS}
+
+
+def _reproduces(
+    stored: dict[str, dict[str, float | None]], recomputed: dict[str, dict[str, float | None]]
+) -> list[str]:
+    """Indicators whose stored values the dasymetric recomputation does not match."""
+    drift = []
+    for indicator in CROSSWALK_INDICATORS:
+        for h3, value in stored.get(indicator, {}).items():
+            again = recomputed[indicator].get(h3)
+            if value is None or again is None:
+                if value is not again:
+                    drift.append(f"{indicator} {h3}: stored {value}, recomputed {again}")
+                    break
+            elif abs(value - again) > REPRODUCTION_TOLERANCE * max(1.0, abs(value)):
+                drift.append(f"{indicator} {h3}: stored {value}, recomputed {again}")
+                break
+    return drift
+
+
+async def areal_block(conn: asyncpg.Connection, payload: dict[str, Any]) -> dict[str, Any]:
+    """The `areal` block for a robustness payload already built from the run."""
+    from pipeline.dasymetric import areal_counterpart, postgis
+
+    crosswalk = await postgis.load_crosswalk(conn)
+
+    _, dasymetric = await _crosswalk_inputs(conn, crosswalk)
+    drift = _reproduces(payload["indicators"], dasymetric)
+    if drift:
+        raise SystemExit(
+            "the dasymetric inputs no longer reproduce this run, so an areal block "
+            "built now would not isolate section 7; first mismatches: " + "; ".join(drift)
+        )
+
+    population, values = await _crosswalk_inputs(conn, areal_counterpart(crosswalk))
+    indicators = {k: dict(v) for k, v in payload["indicators"].items()}
+    for indicator in CROSSWALK_INDICATORS:
+        indicators[indicator] = values[indicator]
+
+    # Section 5 is re-derived from these populations by `run_robustness.py`.
+    # No band and no reason: confidence was computed for the dasymetric
+    # interpolation only, and section 11 is applied by the scoring itself.
+    hexes = {
+        h3: {
+            "population": population.get(h3),
+            "scored": True,
+            "outside_pilot_state": row["outside_pilot_state"],
+        }
+        for h3, row in payload["hexes"].items()
+    }
+    return {"hexes": hexes, "indicators": indicators}
+
+
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--validation", type=Path, help="write the CS-206 scores file here")
     parser.add_argument("--robustness", type=Path, help="write the CS-212 values file here")
     parser.add_argument("--tiles", type=Path, help="write the CS-207 tile input here")
     parser.add_argument("--run-id", type=int, default=None, help="default: the promoted run")
+    parser.add_argument(
+        "--areal",
+        action="store_true",
+        help="add the section 13.5 areal-weighting counterpart to the --robustness file",
+    )
     args = parser.parse_args()
 
     if not args.validation and not args.robustness and not args.tiles:
         parser.error("nothing to write: pass --validation, --robustness or --tiles")
+    if args.areal and not args.robustness:
+        parser.error("--areal adds a block to the --robustness file; pass both")
 
     url = os.environ.get("DATABASE_URL", "").strip()
     if not url:
@@ -233,6 +324,8 @@ async def main() -> int:
             if path is None:
                 continue
             payload = await build(conn, run_id, version)
+            if args.areal and build is robustness_payload:
+                payload["areal"] = await areal_block(conn, payload)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(payload))
             print(f"run {run_id}: {len(payload['hexes'])} hexes -> {path}")

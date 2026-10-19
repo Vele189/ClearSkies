@@ -27,7 +27,7 @@ left in the database.
 | Stress B below 90th | reported | 3 of 3 | 3 of 3 | – |
 | Alt. specs, Spearman ≥ 0.85 | yes | pass (0.978 / 0.960) | pass (0.980 / 0.958) | 0.85 |
 | Leave-one-out ≤ 10% moved | yes | 4 over (E1, E2, S1, S2) | **2 over (S1 31.6%, S2 32.6%)** | 10% |
-| Interpolation sensitivity | reported | did not run | did not run | – |
+| Interpolation sensitivity | reported | did not run | ρ 0.987, 2.2% moved (§5.3) | – |
 | Confident hexes | – | 17,263 | **15,811** | – |
 
 **Overall: FAIL.** The primary gate now passes and E1/E2 no longer dominate,
@@ -219,7 +219,7 @@ implement → re-run validate, robustness, disparity → D.
 |---|---|---|
 | A1 | done | Not a defect. The confidence drop is AUD-05's corrected `c_spatial` input. It becomes methodology item B5. |
 | A2 | done | Not a defect. E4 follows §8.1 and the adapter's rules. Two data-handling notes below. |
-| A3 | **waiting on owner** | Needs a write to `dev-seed` (block reload, crosswalk rebuild, a second scored run). CP-06 leaves that choice to the owner. |
+| A3 | done | The interpolation sensitivity check ran for the first time. ρ = 0.987 on 11,747 shared hexes, 2.2% moved more than a decile, and 4,064 confident hexes are scored only under dasymetric weighting. No database write was needed (§5.3). |
 | A4 | done | Gate summary line fixed. |
 | A5 | done | `site-validation.md`, `robustness.md` §8, and a dated record in methodology §18. |
 
@@ -288,3 +288,28 @@ code fix. Changing it now to recover Welcome's cells would be exactly what
   and one without averages three, so the 25 km edge is a step in the
   Exposures mean. Both are design, not defects. The step is worth a sentence
   in §16.
+
+### 5.3 A3: the interpolation sensitivity check ran for the first time
+
+The fork I planned to make was not needed. The block layer is already on
+`dev-seed` (142,874 blocks, 197 MB), and the crosswalk has already been rebuilt
+under migration 0025 (50,096 `pop_weight = 0` rows). CP-06's acceptance
+conditions about data are therefore met, though the ticket still reads
+BLOCKED. The check needs no database write: `run_robustness.py` scores both
+interpolations itself, so what was missing was an exporter. `export_run.py
+--areal` now provides it, and it refuses to write a block unless the
+dasymetric recomputation reproduces the run (tests in
+`api/tests/test_export_run.py`).
+
+Result: ρ = 0.987 over 11,747 shared hexes, 253 (2.2%) moved more than a
+decile, and 4,064 confident hexes clear §5 only under dasymetric weighting.
+Their median population is 46 with blocks and 12 by area share. See
+`robustness.md` §8.3.
+
+Bearing on Phase B: the block layer mostly decides *which* hexes are scored,
+not how they rank, and the same large-block effect is what drives the
+`c_spatial` area factor (§5.1). B4 and B5 should be argued together.
+
+**Cleanup the owner may want.** With the crosswalk rebuilt, CS-112's plan was
+to discard the blocks again. They are 197 MB of the branch's 584 MB. Dropping
+them is irreversible on the free plan and was not done here.

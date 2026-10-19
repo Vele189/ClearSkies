@@ -336,9 +336,40 @@ facility-free hexes hold an E3 of zero rather than nothing: removing E3 now
 changes the Exposures mean of every hex rather than only the hexes near a TRI
 reporter.
 
-### 8.3 Interpolation sensitivity — still did not run
+### 8.3 Interpolation sensitivity — ran for the first time
 
-§7.3 still applies, with one change. `dev-seed` is now at 584 MB of a 1 GiB
-cap after the 2026-10-19 cleanup (`docs/expansion.md` §7), so the block reload
-that CP-06 needs may now fit. That reload is a decision for the owner and has
-not been made.
+Reported, never gating. Produced with
+`export_run.py --robustness values.json --areal`, which recomputes the
+crosswalk-derived inputs (population, S1, S2, P1 to P5, E1, E2) over
+`dasymetric.areal_counterpart` with the scorer's own loaders and copies the
+point indicators unchanged. Before writing anything it recomputes the same
+inputs over the dasymetric crosswalk and refuses if they do not reproduce run
+81's stored values. They did, so the comparison isolates §7.
+
+§7.3's obstacle was gone by the time this ran. The block layer is loaded
+(142,874 blocks) and `tract_hex_weight` has been rebuilt under 0025: it holds
+50,096 `pop_weight = 0` rows across all 1,388 tracts, and `areal_counterpart`
+accepted every tract without raising `PartialCrosswalk`. Nothing was written to
+the database.
+
+| | |
+|---|---|
+| Rank correlation, hexes both methods score | **0.987** |
+| Hexes compared | 11,747 |
+| Moved more than one decile | 253 (2.2%), largest move 8 deciles |
+| Median absolute score change | 0.55 |
+| Confident hexes scored only under dasymetric weighting | **4,064** |
+| Scored only under areal weighting | 0 (no band was computed for them, so §12 leaves them out) |
+
+**Where the hexes agree, the block layer barely changes the order.** A 0.987
+correlation means the ranking of the cells both methods score is close to the
+same either way.
+
+**What the block layer changes is who gets scored at all.** 4,064 of the 15,811
+confident hexes, a quarter, fall below §5's 25-person line under area
+weighting: their median population is 46 with blocks and 12 without, because
+uniform density spreads a settlement over the whole of a large rural tract.
+§2 predicted that this would be the largest consequence of the choice, and it
+is. That is the result §7 argues for, and it should be read that way: the
+expensive step is not re-ranking places, it is finding where in a tract the
+people live.

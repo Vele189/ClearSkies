@@ -40,7 +40,16 @@ Removing any single indicator must not move more than 10% of hexes by more than 
 
 ## 13.5 Interpolation sensitivity
 
-Not run: no areal-weighted interpolation was supplied. Section 13.5 asks for the score recomputed with simple areal weighting, and that cannot be answered from the dasymetric run alone.
+- Rank correlation: 0.987
+- Hexes scored by both methods: 11747
+- Scored only under dasymetric weighting: 4064
+- Scored only under areal weighting: 0
+- Moved more than one decile: 253 (2.2%)
+- Largest decile move: 8
+- Median absolute decile move: 0.0
+- Median absolute score change: 0.549
+
+areal weighting against dasymetric: rank correlation 0.987, 253 of 11747 shared hexes moved more than one decile; 4064 hexes scored only under dasymetric weighting and 0 only under areal, because the two disagree about which cells clear the 25-person line of section 5. Reported, not gating: section 13.5 asks this check to quantify how much the section 7 machinery changes, and section 7 argues for dasymetric weighting on grounds that do not depend on the answer
 
 ## If this run failed
 
