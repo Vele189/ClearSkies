@@ -1,6 +1,6 @@
 # ClearSkies Methodology
 
-**Version:** 0.4.0
+**Version:** 0.5.0
 **Status:** Phase 0 deliverable. Written before any scoring code exists, by design.
 **Pilot geography:** Louisiana
 **Last revised:** 2026-10-19
@@ -201,8 +201,15 @@ Second, and specific to this design: **F2 and F3 partly measure regulatory atten
 |---|---|---|---|
 | S1 | Young children | Percent of population under 5 | ACS |
 | S2 | Older adults | Percent of population 65 and over | ACS |
+| S3 | Disability | Percent of the civilian non-institutionalized population with a disability (ACS table B18101) | ACS |
 
-Both groups are physiologically more susceptible to air pollution. This subgroup is thin, and deliberately so rather than accidentally: the health-outcome indicators that would belong here have no free tract-level source admissible under §14. CDC PLACES publishes tract-level prevalence for asthma, COPD and coronary heart disease, but those figures are model estimates whose model takes each respondent's race and ethnicity as a predictor and projects onto census-block counts, so a tract's value is partly a function of its racial composition. Scoring them would make race an indirect ingredient, which §14 rules out. They are displayed on the hex panel, labelled as modeled, beside the score and not in it. See §16.
+Young children and older adults are physiologically more susceptible to air pollution.
+
+**S3, added in v0.5.0.** People with a disability carry higher rates of the chronic respiratory and cardiovascular conditions that air pollution aggravates, and are less able to move away from a release or evacuate during one. Disability status is a standard susceptibility measure in CDC's Social Vulnerability Index and EPA's EJScreen. It is a direct ACS survey measurement, published with margins of error, and it is not modeled from race or anything else, so §14 admits it. It is defined over the civilian non-institutionalized population because that is the universe ACS measures disability in.
+
+**Why the group changed.** §13.5's leave-one-out check found that either S1 or S2 alone moved about a third of the state by more than a decile, because with two indicators and a minimum of one, each carries half the subgroup. That is a structural finding about the group, reported by the robustness protocol, and §13.5 sends it back to this section. A third measured indicator makes each carry a third. §11's minimum for the group rises to 2 of 3, so no single indicator can stand in for the whole subgroup.
+
+This subgroup remains thin, and deliberately so rather than accidentally: the health-outcome indicators that would belong here have no free tract-level source admissible under §14. CDC PLACES publishes tract-level prevalence for asthma, COPD and coronary heart disease, but those figures are model estimates whose model takes each respondent's race and ethnicity as a predictor and projects onto census-block counts, so a tract's value is partly a function of its racial composition. Scoring them would make race an indirect ingredient, which §14 rules out. They are displayed on the hex panel, labelled as modeled, beside the score and not in it. See §16.
 
 ### 8.4 Population Characteristics → Socioeconomic Factors (subgroup weight 1.0)
 
@@ -277,7 +284,7 @@ Score(h) = PB(h) · PC(h)          range (0, 100]
 **Rules.**
 
 1. A missing indicator is dropped from its subgroup mean. It is not imputed to zero and not imputed to the median.
-2. A subgroup is computable only if a minimum number of its indicators are present: at least 2 of 4 Exposures, at least 2 of 5 Environmental Effects, at least 1 of 2 Sensitive Populations, at least 4 of 5 Socioeconomic Factors.
+2. A subgroup is computable only if a minimum number of its indicators are present: at least 2 of 4 Exposures, at least 2 of 5 Environmental Effects, at least 2 of 3 Sensitive Populations, at least 4 of 5 Socioeconomic Factors.
 3. If Exposures is not computable, Pollution Burden falls back to Environmental Effects alone and the hex's confidence is penalized heavily. If neither is computable, the hex is `no_score` with reason `insufficient_pollution_data`.
 4. If either Population Characteristics subgroup is not computable, the component uses the other alone with a confidence penalty. If neither is computable, the hex is `no_score` with reason `insufficient_population_data`.
 5. Every dropped indicator is recorded per hex and shown in the detail panel. A user always sees which of the fifteen were actually used.
@@ -307,7 +314,7 @@ Every scored hex carries a confidence value in (0, 1]. It measures how well-supp
 c_spatial(h) = ( 1 − s(h) ) · min( 1, A_hex / A_block(h) )
 ```
 
-- `s(h)` is the share of `(person, estimate)` pairs behind the hex whose estimate has a CV above 0.30, over the seven ACS rate estimates the score draws on (S1, S2, P1 to P5), each rate's CV formed from the published margins by the Census Bureau's proportion formula. An estimate of zero has no CV and takes no part.
+- `s(h)` is the share of `(person, estimate)` pairs behind the hex whose estimate has a CV above 0.30, over the ACS rate estimates the score draws on (S1 to S3 and P1 to P5 since v0.5.0), each rate's CV formed from the published margins by the Census Bureau's proportion formula. An estimate of zero has no CV and takes no part.
 - `A_hex` is 0.737 km², the mean resolution-8 cell area of §5. `A_block(h)` is the population-weighted mean area of the census blocks the hex's population was drawn from. A source block no larger than the hex supports the interpolation fully, and one ten times larger supports a tenth as much.
 
 It is adopted as implemented, and not redesigned, on purpose. Run 81 showed that this term decides whether several pre-registered cells count for validation. A redesign chosen after seeing that could not be argued independently of its effect, and §17.2 requires that it be. Its weaknesses are recorded in §16 for a revision that can be argued on its own terms.
@@ -431,7 +438,7 @@ This also matters downstream. A Title VI disparate-impact argument rests on show
 
 **No health outcome indicators.** The Sensitive Populations subgroup rests on age structure alone. Asthma prevalence, low birth weight, and cardiovascular disease would materially improve it. CDC PLACES, the one free tract-level source, is model-based with race and ethnicity among its predictors, and is excluded under §14 (see §8.3). Across Louisiana tracts its asthma, COPD and CHD estimates correlate with the poverty indicator P1 at +0.84, +0.75 and +0.64, and with the 65-and-over share S2 at −0.13, +0.12 and +0.30, so they would largely restate the socioeconomic subgroup. A health source that is measured, or modeled without race, remains the highest-value single extension.
 
-**Sensitive Populations is two anti-correlated age shares.** S1 and S2 correlate at −0.21 across hexes, and each carries a quarter of Population Characteristics. §13.5's leave-one-out check finds each alone moves about 30% of hexes by more than a decile. Near industry, where Pollution Burden is close to its ceiling, this subgroup orders places, and an affluent neighbourhood with many older residents can rank with a poor one. This is the documented cause of the §13.3 negative-control failures, and the repair needs data this specification does not have.
+**Sensitive Populations was two anti-correlated age shares until v0.5.0.** S1 and S2 correlate at −0.21 across hexes, and each carried a quarter of Population Characteristics. §13.5's leave-one-out check finds each alone moves about 30% of hexes by more than a decile. Near industry, where Pollution Burden is close to its ceiling, this subgroup orders places, and an affluent neighbourhood with many older residents can rank with a poor one. This is the documented cause of the §13.3 negative-control failures, and the repair needs data this specification does not have.
 
 **`c_spatial` and rare-category estimates.** Under §12's definition, linguistic isolation (P3) has a CV above 0.30 in 713 of the 721 Louisiana tracts where it has one, and unemployment (P4) in 1,267 of 1,321, so `s(h)` partly measures which rare categories a tract contains rather than how well its population is placed. Because a zero estimate has no CV, a tract with a few linguistically isolated households is penalised and a tract with none is not. And because both `s(h)` and `A_block(h)` are high in sparse rural areas, most hexes of 25 to 120 residents fall in the Insufficient band.
 
@@ -507,6 +514,49 @@ and was not.
 **The gate fails, as it does under run 81**, and on the same criterion.
 Promotion under §17.6 is the owner's decision: run 84 has been through the
 protocol, and run 81, which is currently served, fails it identically.
+
+### v0.5.0 — 2026-10-19 — S3 disability; Sensitive Populations minimum 2 of 3
+
+Written and committed before the ACS disability table was pulled or any run
+was scored under it.
+
+**What changed.** S3, the share of the civilian non-institutionalized population
+with a disability, from ACS table B18101, joins Sensitive Populations (§8.3).
+§11 rule 2's minimum for the group becomes 2 of 3. No weight changes, and no
+other indicator changes.
+
+**Why, independent of validation (§17.2).** §13.5's leave-one-out check, which
+runs on construction rather than on the sites, put S1 and S2 over its bar in
+every run since run 7: each moved roughly 27–33% of hexes alone, because a
+two-indicator group with a minimum of one lets either indicator carry the whole
+subgroup. §13.5 says such a finding goes back to §8 to be re-argued. Disability
+is a recognised susceptibility measure (CDC SVI, EPA EJScreen), is measured
+rather than modeled, and does not involve race. The candidates considered and
+rejected were CDC PLACES and CDC USALEEP life expectancy. Both are modeled with
+race among the predictors (USALEEP's tract model includes the non-Hispanic
+Black and Hispanic population shares), so §14 excludes them.
+
+**What is disclosed.** This revision was chosen after the §13.3 negative
+controls were seen to fail, and the review that proposed it traced those
+failures to this subgroup. The choice among three admissible designs was the
+owner's, made on 2026-10-19 before any of them was computed. No variant will be
+tried against the controls in search of one that passes: whatever run 85 shows
+is the result of v0.5.0.
+
+**Expected effect, registered before the run.**
+- S1's and S2's leave-one-out movement falls from about 32–33%, since each now
+  carries a third of the subgroup rather than half. Whether it falls below 10%
+  is not predicted.
+- S3's own leave-one-out movement is of the same order as S1's and S2's.
+- Alternative specifications stay above 0.85. Nothing on the pollution side
+  changes.
+- **Negative controls: no confident prediction.** Disability prevalence rises
+  with age, so neighbourhoods with many older residents may stay high. This
+  revision is not expected to resolve the control failures on its own, and it
+  is not made on the condition that it does.
+- The confident universe moves, because S3 adds weight to `c_coverage` and
+  one more estimate's CV to `c_spatial`'s `s(h)`. The direction is not
+  predicted. (The lesson of run 84's missed expectation.)
 
 ### v0.4.0 — 2026-10-19 — F5 contaminated land; `c_spatial` defined; PLACES excluded under §14
 
