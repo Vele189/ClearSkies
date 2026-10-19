@@ -184,6 +184,7 @@ methodology §18 *before* the re-run.
 | B2 | With B1, raise the §11 Sensitive minimum from 1 to at least 2 indicators | No single indicator should stand in for half of a component, which is what §13.5 LOO already flags | Fewer hexes scored. Report the count. |
 | B3 | Add a contaminated-land indicator (NPL / Superfund, RCRA corrective action, brownfields proximity) to Environmental Effects | CalEnviroScreen's "Cleanup Sites"; the README promises cumulative burden, not air-only burden | Low |
 | B4 | Decide on hexes versus people as the percentile denominator, or on a minimum for tract-duplicated cells | Statistical: pseudo-replicated rural cells distort every percentile | Large re-ranking. Argue it on its own merits. |
+| B5 | **Ratify `c_spatial`.** Write its functional form into §12 (it is still only in `confidence.py`), and decide how the CV rule treats rate estimates for rare categories | §12 cannot be applied as written to P3 and P4, whose CVs exceed 0.30 almost everywhere (§5.1); AUD-05 rejected the "any estimate" reading for exactly this reason, and the per-estimate reading partly reproduces it | Changes which hexes count for validation. State the expected confident-universe size in advance. |
 
 Expected direction, stated before any run so it cannot be fitted afterwards:
 B1+B2 should lower Old Metairie and Bocage, whose health burden should not
@@ -209,3 +210,81 @@ the expected range before computing it.
 
 A1 → A2 → A4/A5 (in parallel) → A3 → write B1–B3 into methodology §18 →
 implement → re-run validate, robustness, disparity → D.
+
+---
+
+## 5. Phase A results (2026-10-19)
+
+| # | Status | Result |
+|---|---|---|
+| A1 | done | Not a defect. The confidence drop is AUD-05's corrected `c_spatial` input. It becomes methodology item B5. |
+| A2 | done | Not a defect. E4 follows §8.1 and the adapter's rules. Two data-handling notes below. |
+| A3 | **waiting on owner** | Needs a write to `dev-seed` (block reload, crosswalk rebuild, a second scored run). CP-06 leaves that choice to the owner. |
+| A4 | done | Gate summary line fixed. |
+| A5 | done | `site-validation.md`, `robustness.md` §8, and a dated record in methodology §18. |
+
+### 5.1 A1: the confident universe shrank because the `c_spatial` input was corrected
+
+`c_spatial = (1 − high_cv_share) · min(1, 0.737 km² / mean_block_area)`.
+Before AUD-05, the first factor used the CV of the *total-population* estimate,
+which is small almost everywhere. AUD-05 (M3) made it the share of a hex's
+population drawn from the seven ACS rate estimates (S1, S2, P1–P5) whose CV
+exceeds 0.30, which is what §12 says.
+
+Recomputing every scored hex's band from the stored terms (script
+`spatial_sim.py`, not committed):
+
+| `c_spatial` input | High | Moderate | Low | Insufficient |
+|---|---|---|---|---|
+| As stored in run 81 (reproduced exactly, 0 of 19,881 differ) | 423 | 5,237 | 10,151 | **4,070** |
+| Pre-AUD-05 input (total-population CV) | 3,203 | 6,085 | 8,542 | 2,051 |
+| Block-area factor only | 3,592 | 6,444 | 8,048 | 1,797 |
+| CV-share factor only | 704 | 9,132 | 9,932 | 113 |
+
+So the change explains the whole jump. In most of the state, which hexes
+are Insufficient now depends on the two factors *together*. Neither alone
+produces many.
+
+The CV-share factor is dominated by indicators that are noisy everywhere:
+
+| Estimate | Tracts with CV > 0.30 | Median CV |
+|---|---|---|
+| P3 linguistic isolation | 713 of 721 | 1.03 |
+| P4 unemployment | 1,267 of 1,321 | 0.53 |
+| S1 under 5 | 973 of 1,339 | 0.37 |
+| P2 no diploma | 751 of 1,355 | 0.32 |
+| P5 housing burden | 238 of 1,362 | 0.17 |
+| P1 poverty | 184 of 1,366 | 0.21 |
+| S2 65 and over | 71 of 1,362 | 0.16 |
+
+P3 is defined in only 721 tracts because a zero rate has no CV and takes no
+part. A tract with *some* linguistically isolated households is therefore
+penalised, and a tract with none is not. That asymmetry, and P4's
+near-universal flag, are why this is a methodology question (B5) and not a
+code fix. Changing it now to recover Welcome's cells would be exactly what
+§13.7 forbids.
+
+### 5.2 A2: E4 is an urban indicator, by construction
+
+- 18 of the 32 PM2.5 monitors have at least the 274 days that the annual
+  mean requires (16 regulatory, 2 low-cost). These are raw day counts, before
+  the adapter's screening. Ten of the regulatory ones are in Louisiana, all
+  in metro areas; the rest are in Mississippi and Texas. E4 has a value for
+  7,978 of 19,881 scored hexes.
+- **Monroe (243 valid days) and Vinton (247)** fall short of 274, so the 738
+  hexes within 25 km of them get no E4 but still use them for `c_monitor`.
+  This is the adapter's documented rule and it is applied correctly.
+- **Moncus Park, a low-cost sensor in Lafayette, enters the E4
+  interpolation.** The adapter's own known-gap note says a low-cost sensor
+  "is not interchangeable with a federal equivalent method instrument", and
+  §8.1 describes the network as regulatory monitors, yet nothing filters on
+  `is_regulatory`. The effect is small, because it sits beside the Lafayette
+  regulatory monitor, and §8.1 does not actually forbid it. **Recommendation:**
+  §8.1 should say which instruments count. Fondren (Jackson, MS) is the other
+  low-cost sensor that qualifies; it is out of range of every Louisiana hex.
+- The +0.44 correlation between E4 and rank in the polluted band reflects
+  where monitors stand (the New Orleans and Baton Rouge metros), together with
+  §11's drop-and-reaverage. A hex with E4 averages four Exposures indicators
+  and one without averages three, so the 25 km edge is a step in the
+  Exposures mean. Both are design, not defects. The step is worth a sentence
+  in §16.

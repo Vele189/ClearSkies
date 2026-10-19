@@ -499,6 +499,18 @@ run built by the corrected code, and §13.7 and §17.6 both require it before an
 score produced by it is published. The numbers above are the record as it
 stands, not a prediction of what the next run will show.
 
+**Recorded 2026-10-19: run 81 is that run.** It was scored by the corrected
+code on 2026-10-12 and promoted before the protocol had been run against it.
+The protocol was run on 2026-10-19 and failed: 8 of 10 primary sites (met), 1
+of 4 negative controls, S1 and S2 over the §13.5 leave-one-out bar, and 15,811
+confident hexes. `docs/validation/site-validation.md` and `robustness.md` §8
+hold the results. No methodology changed. Two facts a v0.3 must address:
+`c_spatial`'s functional form is still unratified (see `confidence.py`), and
+under the rate CVs AUD-05 introduced, linguistic isolation (P3) exceeds 0.30
+in 713 of 721 tracts that have a CV, and unemployment (P4) in 1,267 of 1,321.
+That makes the term mostly a measure of which rare categories a tract
+happens to have.
+
 **Correction to the v0.2.0 entry below.** It was written on 2026-09-12 and says
 that all four Exposures indicators are absent, that four indicators remain
 absent for want of source data, and that §12 assigns every scored cell the

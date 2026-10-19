@@ -1,7 +1,8 @@
 # Robustness checks — CS-212
 
 **Implemented 2026-09-11 against methodology v0.1.3. First run against real data
-2026-09-21. Latest: run 11, methodology v0.2.0. Outcome: FAIL. See §7.**
+2026-09-21. Latest: run 81, methodology v0.2.0, checked 2026-10-19. Outcome:
+FAIL. See §8; §7 is run 11, kept because audits and tickets cite it.**
 
 Methodology §13.5 specifies three checks that ask whether the score is measuring
 Louisiana or measuring the choices made in §10. All three are implemented, unit
@@ -276,3 +277,68 @@ methodology with a rationale that stands independently of this outcome — then
 re-run every check from the beginning. Moving the 0.85 or the 10% because a
 check missed them is not among the options, and neither is dropping S1 or S2
 because removing one of them moves the score.
+
+---
+
+## 8. Result — run 81, checked 2026-10-19
+
+- Methodology version: 0.2.0
+- Comparison universe: 15,811 hexes, after 4,070 excluded as insufficient confidence per §12
+- Values file: `scripts/export_run.py --robustness`; generated output in
+  `runs/run-81-robustness.md`
+- **Outcome: FAIL.** Two indicators are over the leave-one-out bar, down from four.
+
+Run 81 is the first run scored by the code AUD-05 corrected. The universe is
+smaller than run 11's 17,263 because AUD-05 also corrected the input to
+`c_spatial`; `site-validation.md` and `accuracy-review-2026-10-19.md` §5 give
+the arithmetic.
+
+### 8.1 Alternative specifications — all three clear, as before
+
+| Specification | Gating | Spearman | run 11 |
+|---|---|---|---|
+| `equal_weights` | yes | 0.980 | 0.978 |
+| `exposures_only` | yes | 0.958 | 0.960 |
+| `additive` | reported | 0.982 | 0.983 |
+
+§7.1's conclusion stands unchanged: whatever is wrong with this score, it is not
+the F-group weighting.
+
+### 8.2 Leave-one-indicator-out — S1 and S2 over the bar, E1 and E2 no longer
+
+| Indicator | Moved > 1 decile | Share | Group lost | run 11 share |
+|---|---|---|---|---|
+| S2 | 5,148 of 15,811 | **32.6%** | 0 | 28.8% |
+| S1 | 5,002 of 15,811 | **31.6%** | 0 | 26.6% |
+| E3 | 1,124 of 15,811 | 7.1% | 0 | 1.6% |
+| P5 | 380 of 15,811 | 2.4% | 0 | ≤0.8% |
+| E1 | 320 of 15,811 | 2.0% | 0 | 30.1% |
+| E2 | 317 of 15,811 | 2.0% | 0 | 30.4% |
+| all others | at most 162 | ≤1.0% | ≤1 | |
+
+**E1 and E2 confirm §7.2's reading.** Their run 11 movement was almost entirely
+the `Group lost` column: Exposures falling below its minimum because E3 and the
+F indicators were missing rather than zero. With AUD-05 writing those zeros,
+`Group lost` is 0 and the movement falls from 30% to 2%. It was a defect in the
+inputs, as §7.2 argued, and not evidence about E1 and E2.
+
+**S1 and S2 are now the only finding, and stronger.** Both moved further above
+the bar. §7.2's diagnosis is unchanged: Sensitive Populations is two indicators
+with a §11 minimum of one, so either alone carries half of Population
+Characteristics. The two are also anti-correlated across the state (r = −0.21
+between their percentiles), so the subgroup mean is the average of two
+measures pulling in different directions. This goes back to §8 of the
+methodology to be re-argued. The negative-control failures in
+`site-validation.md` are the same finding seen from the sites.
+
+**E3 rose from 1.6% to 7.1%**, still within the bar. That is expected once
+facility-free hexes hold an E3 of zero rather than nothing: removing E3 now
+changes the Exposures mean of every hex rather than only the hexes near a TRI
+reporter.
+
+### 8.3 Interpolation sensitivity — still did not run
+
+§7.3 still applies, with one change. `dev-seed` is now at 584 MB of a 1 GiB
+cap after the 2026-10-19 cleanup (`docs/expansion.md` §7), so the block reload
+that CP-06 needs may now fit. That reload is a decision for the owner and has
+not been made.
