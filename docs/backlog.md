@@ -2453,9 +2453,11 @@ Protect the budget and the database.
 
 ### CS-403 — Monitoring and uptime checks
 
-**Size:** S · **Labels:** infra · **Depends on:** CS-208 · **Owner:** Terrence · **Status:** Not started
+**Size:** S · **Labels:** infra · **Depends on:** CS-208 · **Owner:** Terrence · **Status:** Done 2026-10-25, except log retention
 
 Know when it's down or when the nightly job failed.
+
+**What landed:** `.github/workflows/uptime.yml` runs `scripts/uptime_check.py` every 30 minutes and opens one `uptime` issue on failure. It checks `/health` by its status field, the website, and the tile archive the live bundle points at. ETL failure already opens a `nightly-etl` issue, including a source reporting `failed` or `stale`, through the gate. **Not done:** Railway log retention and search, which needs dashboard access.
 
 **Acceptance criteria**
 
