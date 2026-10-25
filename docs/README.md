@@ -23,6 +23,7 @@ it, records a result it demanded, or explains how to operate a part of it.
 | [drafting.md](drafting.md) | The drafting assistant: where each safety rule lives, what the red team found, and how the citation verifier is checked. |
 | [repos.md](repos.md) | The split: this repository, the two deploy repositories generated from it, the container images both services build, and how a change reaches production. |
 | [frontend.md](frontend.md) | How the map draws a score and how it draws how much we trust it: the ramp, the legend, the confidence bands, the detail panel. |
+| [performance.md](performance.md) | CP-23: measured latency, payload and database size against the plan |
 | [expansion.md](expansion.md) | Adding states to a score specified for one: what the Neon branch holds, what a state costs, the schema work that has to land before a second state's rows do, and the order states should arrive in. |
 
 ## Validation results
