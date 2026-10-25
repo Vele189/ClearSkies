@@ -123,6 +123,78 @@ def build_context(profile: Profile, facilities: list[dict[str, Any]], index: int
     )
 
 
+# ---- live mode (CP-15) ------------------------------------------------
+#
+# The fixture profiles say what kind of hexagon each draft is about. Live mode
+# keeps that intent and replaces the invented numbers with a real hexagon from
+# the promoted run, chosen by a rule fixed here rather than by hand:
+#
+#   1. scored in the promoted run, in the profile's parish and confidence band;
+#   2. on the same side of THIN_FACILITIES as the profile, counting facilities
+#      with usable coordinates within 10 km, nearest that count;
+#   3. ties broken by md5(h3), so the choice is stable and nobody picks it;
+#   4. if the parish has none, the same rule statewide, and the report says so.
+#
+# The context is then built by the draft endpoint's own `load_hex_context`, so
+# a live draft cites exactly what the map shows for that cell.
+
+LIVE_CANDIDATES = """
+WITH current AS (SELECT run_id FROM pipeline_run WHERE is_current),
+     cells AS (
+        SELECT s.h3::text AS h3, h.parish_name, h.centroid
+          FROM hex_score s
+          JOIN current c ON c.run_id = s.run_id
+          JOIN hex h ON h.h3 = s.h3
+         WHERE s.score IS NOT NULL
+           AND s.confidence_band = $1
+           AND ($2::text IS NULL OR h.parish_name = $2)
+     )
+SELECT cells.h3, cells.parish_name,
+       (SELECT count(*) FROM facility f
+         WHERE f.coordinate_status = 'ok'
+           AND ST_DWithin(f.geom::geography, cells.centroid::geography, 10000)) AS facilities
+  FROM cells
+"""
+
+
+async def live_profile(conn: Any, profile: Profile, taken: set[str]) -> tuple[Profile, str, str]:
+    """The real hexagon standing in for `profile`, by the rule above."""
+    import hashlib
+
+    for parish in (profile.parish, None):
+        rows = await conn.fetch(LIVE_CANDIDATES, profile.band, parish)
+        rows = [
+            r
+            for r in rows
+            if r["h3"] not in taken
+            and (r["facilities"] <= audit.THIN_FACILITIES) == profile.thin
+        ]
+        if rows:
+            best = min(
+                rows,
+                key=lambda r: (
+                    abs(int(r["facilities"]) - profile.facilities),
+                    hashlib.md5(r["h3"].encode()).hexdigest(),
+                ),
+            )
+            where = "in parish" if parish else "statewide (no match in the parish)"
+            real = Profile(
+                name=profile.name,
+                band=profile.band,
+                confidence=profile.confidence,
+                score=profile.score,
+                percentile=profile.percentile,
+                facilities=int(best["facilities"]),
+                parish=str(best["parish_name"]),
+                population=profile.population,
+                black_pct=profile.black_pct,
+                poverty_pct=profile.poverty_pct,
+                note=profile.note,
+            )
+            return real, str(best["h3"]), where
+    raise SystemExit(f"no hexagon in the promoted run matches profile {profile.name}")
+
+
 def document_text(document: Any) -> str:
     payload = document.model_dump(exclude=set(SYSTEM_WRITTEN_FIELDS))
     out: list[str] = []
@@ -292,12 +364,46 @@ def gate_failures(results: list[AuditedDraft], count: int, allow_cached: bool) -
     return reasons
 
 
+FIXTURE_SECTION: tuple[str, ...] = (
+    "## What is a fixture, and what is real",
+    "",
+    "**Real:** every statute passage, retrieved from the sealed corpus. Every "
+    "facility, loaded from ECHO with its own FRS registry identifier — the same "
+    "identifier a reader would take to EPA. Every verification, run against "
+    "those two tables.",
+    "",
+    "**A fixture:** the hexagons. Phase 2 has not run against a populated "
+    "database, so there is no scored cell to point at, and the scores, "
+    "confidence values and demographics here are invented to span the spread the "
+    "gate asks for. This does not weaken the citation result, which is what the "
+    "gate is about: a citation is checked against the corpus and the facility "
+    "table, and both hold real rows. It does mean the drafts are about places "
+    "that do not have these scores, and **this audit must be re-run once the "
+    "pipeline has loaded real data** before the model card cites it as a "
+    "statement about production behaviour.",
+    "",
+)
+
+LIVE_SECTION: tuple[str, ...] = (
+    "## What is real",
+    "",
+    "**All of it.** Every hexagon is a scored cell of the promoted run, chosen by the "
+    "rule in `scripts/run_citation_audit.py` (band, parish and facility density from "
+    "the fixed profiles; ties broken by hash), and its context is built by the draft "
+    "endpoint's own loader, so each draft cites what the map shows for that cell. "
+    "Every statute passage comes from the sealed corpus and every facility from ECHO. "
+    "This is the CP-15 re-run that the fixture audit said was owed.",
+    "",
+)
+
+
 def render(
     results: list[AuditedDraft],
     model: str,
     corpus: str,
     spend: cost.Spend,
     blocked: list[str] | None = None,
+    live: bool = False,
 ) -> str:
     drafted = [r for r in results if r.outcome == "drafted"]
     refused = [r for r in results if r.outcome == "refused"]
@@ -459,23 +565,7 @@ def render(
         "model over every citation, and attributing all of it to generation would "
         "mislead about where the money goes.",
         "",
-        "## What is a fixture, and what is real",
-        "",
-        "**Real:** every statute passage, retrieved from the sealed corpus. Every "
-        "facility, loaded from ECHO with its own FRS registry identifier — the same "
-        "identifier a reader would take to EPA. Every verification, run against "
-        "those two tables.",
-        "",
-        "**A fixture:** the hexagons. Phase 2 has not run against a populated "
-        "database, so there is no scored cell to point at, and the scores, "
-        "confidence values and demographics here are invented to span the spread the "
-        "gate asks for. This does not weaken the citation result, which is what the "
-        "gate is about: a citation is checked against the corpus and the facility "
-        "table, and both hold real rows. It does mean the drafts are about places "
-        "that do not have these scores, and **this audit must be re-run once the "
-        "pipeline has loaded real data** before the model card cites it as a "
-        "statement about production behaviour.",
-        "",
+        *(LIVE_SECTION if live else FIXTURE_SECTION),
         "## What a person still has to do",
         "",
         "The gate says every citation is manually verified. A script reporting that "
@@ -526,9 +616,26 @@ async def main_async(args: argparse.Namespace) -> int:
 
         schedule = audit.plan(args.count, list(TYPES))
 
+        live: dict[str, tuple[Profile, HexContext]] = {}
+        if args.live:
+            from app.routers.draft import load_hex_context
+
+            taken: set[str] = set()
+            print("live hexagons, chosen by rule from the promoted run:")
+            for base in audit.PROFILES:
+                real, h3, where = await live_profile(conn, base, taken)
+                taken.add(h3)
+                live[base.name] = (real, await load_hex_context(conn, h3))
+                print(f"  {base.name:<24} {h3} {real.parish:<18} {real.band:<9} "
+                      f"{real.facilities:>3} facilities, {where}")
+            print()
+
         results: list[AuditedDraft] = []
         for i, (profile, document_type, index) in enumerate(schedule, start=1):
-            context = build_context(profile, facilities, index)
+            if args.live:
+                profile, context = live[profile.name]
+            else:
+                context = build_context(profile, facilities, index)
             result = await audit_one(
                 conn, client, model, args.embedding_model, profile, context, document_type
             )
@@ -564,7 +671,7 @@ async def main_async(args: argparse.Namespace) -> int:
         print(f"\nwrote drafts to {directory}")
 
     blocked = gate_failures(results, args.count, args.allow_cached)
-    report = render(results, args.model, corpus, spend, blocked)
+    report = render(results, args.model, corpus, spend, blocked, live=args.live)
     if args.out:
         Path(args.out).write_text(report + "\n", encoding="utf-8")
         print(f"wrote {args.out}")
@@ -616,6 +723,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--model", default="gpt-4o")
     parser.add_argument("--embedding-model", default="text-embedding-3-small")
     parser.add_argument("--count", type=int, default=50)
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="draft from real hexagons of the promoted run instead of fixture profiles (CP-15)",
+    )
     parser.add_argument("--out", default=None)
     parser.add_argument("--json", default=None)
     parser.add_argument("--drafts-dir", default=None, help="write every draft here for review")
