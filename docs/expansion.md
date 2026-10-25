@@ -352,6 +352,13 @@ a bounding box computed over the scored extent.
 
 ## 6. The `tract_health` decision
 
+**Decided 2026-10-19.** The table is used for display and never scored.
+PLACES models tract estimates with race and ethnicity among its predictors,
+so scoring it would breach §14. Methodology v0.4.0 §8.3 says so, and the hex
+panel shows the three measures, population-weighted through the crosswalk, as
+"Estimated adult health", labelled as modeled. The text below is the
+reasoning as it stood before that decision.
+
 0030 recovers the table because the rows are real and the work was done. It is
 read by nothing: no module under `api/`, `etl/`, `scoring/`, `assistant/` or
 `web/` mentions it.

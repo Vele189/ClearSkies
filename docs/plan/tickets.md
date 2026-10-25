@@ -68,6 +68,25 @@ and CS-207. They are the only Phase 4 tickets this document leaves out.
 
 ---
 
+## Where this stands, 2026-10-25
+
+Stages B and C have run, in a different shape from the one planned here. The
+record is [accuracy-review-2026-10-19.md](../validation/accuracy-review-2026-10-19.md)
+and methodology §18. Run 12 was never produced by that name: the corrected
+code first scored run 81, then runs 84 and 85.
+
+| ID | Outcome |
+|---|---|
+| CP-06 | **Done.** The block layer was already loaded and the crosswalk rebuilt under 0025 (50,096 `pop_weight = 0` rows). `export_run.py --areal` now produces the counterpart, and §13.5's third check ran for the first time: ρ 0.987 on run 81, 0.991 on run 85. |
+| CP-07 | **Done as run 81** (promoted 2026-10-12 before the protocol had run against it), then runs 84 and 85. |
+| CP-08 | **Done** for runs 81, 84 and 85, §13.6 included. `pipeline disparity --run-id` lets it run before promotion. |
+| CP-09 | **Done.** The gate fails on the negative controls under every run, so Stage C opened. |
+| CP-10 | **Rejected under §14.** PLACES models its tract estimates with race among the predictors. `tract_health` is shown on the hex panel as modeled context and is never scored. |
+| CP-11 | **Done differently.** S3 is ACS disability, which is measured rather than modeled, and the Sensitive Populations minimum is 2 of 3 (v0.5.0). USALEEP was rejected for the same reason as PLACES. |
+| CP-12 | **Open.** M5 (how the §11 fallback penalty enters C(h)) and M8 (P5 at 50% or 30%) are still undecided. |
+| CP-13 | **Done as v0.4.0 (F5, contaminated land) and v0.5.0 (S3)**, each registered before its run. 0.3.0 is retired, because run 79 used it with code that no longer exists. Run 85: primary sites 8 of 10, controls 2 of 4, S1 leave-one-out 13.3%. |
+| CP-14 | **Decided by the owner, 2026-10-19:** ship run 85 with the control failure stated on the site's "How it works" page. The criteria were not revised and the method was not tuned. Run 85 is served. |
+
 ## Where this stands, 2026-09-23
 
 Implemented, each on its own branch, none pushed:
@@ -224,6 +243,9 @@ code. Stage C does not begin before CP-09.
 
 ## CP-06 · Rebuild the crosswalk so the areal counterpart can run · high · M
 
+**Done 2026-10-19.** See the 2026-10-25 status above. The block text below is history.
+
+
 **Files:** `etl/pipeline/dasymetric/build.py` if anything, otherwise a run.
 
 §13.5's third check needs the same run recomputed with simple areal weighting.
@@ -352,6 +374,9 @@ by a rationale that stands independently of the validation outcome.
 
 ## CP-10 · CDC PLACES adapter, the sixth source · high · L
 
+**Rejected 2026-10-19 under §14.** See the 2026-10-25 status above.
+
+
 **Files:** `etl/pipeline/adapters/places.py`, fixtures, tests, `etl/README.md`.
 
 Acceptance:
@@ -372,6 +397,9 @@ Acceptance:
   first new source since the contract was written.
 
 ## CP-11 · Indicators S3 to S5 and the Sensitive Populations group · high · M
+
+**Done differently, v0.5.0.** S3 is disability from ACS. See the 2026-10-25 status above.
+
 
 **Files:** `docs/methodology.md` §8 and §11, `scoring/burden/indicators.py`,
 `scripts/run_scoring.py`, a migration if the indicator enum is constrained.
@@ -408,6 +436,9 @@ Acceptance:
 
 ## CP-13 · Methodology v0.3.0, then run 13 and the whole protocol again · critical · M
 
+**Done as v0.4.0 and v0.5.0, runs 84 and 85.** See the 2026-10-25 status above.
+
+
 **Files:** `docs/methodology.md` §18, every validation document.
 
 Acceptance:
@@ -421,6 +452,9 @@ Acceptance:
   exits.
 
 ## CP-14 · If the controls still fail: the criteria question · high · M
+
+**Decided 2026-10-19: ship with the failure stated.** See the 2026-10-25 status above.
+
 
 **Files:** `docs/methodology.md` §13, and a written argument.
 

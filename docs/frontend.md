@@ -435,14 +435,47 @@ rebuild, not a restart.
 |---|---|
 | `VITE_API_BASE_URL` | `https://${{api.RAILWAY_PUBLIC_DOMAIN}}` |
 | `VITE_BASEMAP_STYLE` | OpenFreeMap Positron |
-| `VITE_TILES_URL` | The R2 archive, once CS-207 produces one |
+| `VITE_TILES_URL` | The served run's archive in Neon Object Storage, e.g. `…/tiles/clearskies-run85.pmtiles` |
 | `VITE_GEOCODER_URL` | Optional; defaults to Photon |
 
-`VITE_TILES_URL` is deliberately unset in `.railway/railway.ts`. Until CS-207
-publishes an archive there is nothing to point it at, and an unset value is
-handled: the map renders the basemap and the banner explains why there are no
-hexes. A URL pointing at an archive that does not exist would instead produce
-the tile-failure notice, which would be true but misleading.
+**Where the archive actually lives.** Not R2: `infra/r2/README.md` and `make
+deploy-tiles` describe a plan that was never carried out. The archive is in the
+public-read `tiles` bucket on the `dev-seed` Neon branch. Each archive is named
+for the run it draws, `clearskies-run<N>.pmtiles`. A release uploads the new
+run's archive beside the old one, then points `VITE_TILES_URL` at it, which
+rebuilds `web`. Rolling back is re-pointing the variable and re-promoting the
+earlier run; nothing is overwritten. The procedure, as used for run 85 on
+2026-10-19:
+
+```
+etl/.venv/bin/python scripts/export_run.py --run-id N --tiles tiles.json
+cd etl && .venv/bin/python -m pipeline tiles --scores ../tiles.json --out clearskies-runN.pmtiles
+# upload through a presigned PUT to tiles/clearskies-runN.pmtiles on dev-seed
+.venv/bin/python -m pipeline tiles-hosting --url <archive url> --origin <web origin>
+# then set VITE_TILES_URL on clearskies-web, which redeploys it
+```
+
+Promote the run only after the API that will serve it is deployed. A run with
+indicators the live API's registry does not know would break the hex panel.
+
+**The hosting check reports one failure, and it is not new.** The bucket allows
+any origin but exposes only `ETag`, not `Content-Length` or `Content-Range`.
+PMTiles works without them in the browsers tried. The fix is the bucket's CORS
+`ExposeHeaders` setting, committed as `infra/neon-storage/tiles-cors.json` (the
+same origins and methods as today, plus the two headers). Neon supports
+`PutBucketCors` but the `neon` CLI has no command for it, so it goes through the
+S3 API with the branch's storage credentials:
+
+```
+neon auth                                   # if the CLI session has expired
+neon env pull --branch dev-seed -s object-storage --file /tmp/storage.env
+set -a; . /tmp/storage.env; set +a
+aws s3api put-bucket-cors --bucket tiles --cors-configuration file://infra/neon-storage/tiles-cors.json
+etl/.venv/bin/python -m pipeline tiles-hosting --url "$VITE_TILES_URL" --origin https://clearskies-web-production.up.railway.app
+rm /tmp/storage.env
+```
+
+The last check should then report no failures.
 
 **Preview environments.** Railway builds a per-pull-request environment when PR
 Environments are enabled on the base environment, under Settings > Environments
