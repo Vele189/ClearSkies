@@ -102,6 +102,12 @@ class Bounds:
     max_outside_fraction: float = 0.0
     severity: Severity = "fail"
     note: str = ""
+    #: True only for a field the upstream is known not to publish at all, said
+    #: in `note`. A column with no values then passes, labelled as absent,
+    #: instead of skipping; for a required source a skip fails the night, and
+    #: failing every night on a documented absence teaches people to ignore
+    #: the gate. The field's null rate is still what to watch.
+    may_be_absent: bool = False
 
     def rendered(self) -> str:
         if self.low is not None and self.high is not None:
@@ -312,6 +318,19 @@ def check_null_rate(
 def check_bounds(records: Sequence[Any], rule: Bounds, *, scope: str, table: str) -> CheckResult:
     present, _ = numbers(records, rule.field)
     if not present:
+        if rule.may_be_absent:
+            return _result(
+                check=f"bounds.{rule.field}",
+                scope=scope,
+                table=table,
+                rule_field=rule.field,
+                ok=True,
+                severity=rule.severity,
+                detail=f"no values of {rule.field}, which upstream does not publish. {rule.note}",
+                observed=0.0,
+                expected=rule.rendered(),
+                note=rule.note,
+            )
         return _skip("bounds", scope, table, rule.field, "no numeric values to bound")
     outside = [v for v in present if rule.outside(v)]
     rate = len(outside) / len(present)

@@ -184,6 +184,28 @@ def test_bounds_ignore_an_absent_measurement_rather_than_bounding_it_as_zero() -
     assert result.status == "pass"
 
 
+
+def test_an_empty_field_skips_unless_upstream_is_declared_not_to_publish_it() -> None:
+    """ECHO's bulk air feed has no penalty figure; a range check on it cannot run."""
+    records = [Row(key="a", reading=Measurement.absent())]
+    default = check_bounds(records, Bounds("reading", low=0.0), scope="s", table="row")
+    declared = check_bounds(
+        records,
+        Bounds("reading", low=0.0, may_be_absent=True, note="Not published upstream."),
+        scope="s",
+        table="row",
+    )
+    assert default.status == "skip"
+    assert declared.status == "pass"
+    assert "does not publish" in declared.detail
+
+
+def test_a_declared_absence_still_bounds_values_when_they_arrive() -> None:
+    records = [Row(key="a", reading=Measurement.of(-5.0))]
+    rule = Bounds("reading", low=0.0, may_be_absent=True)
+    assert check_bounds(records, rule, scope="s", table="row").status == "fail"
+
+
 # ---- geometry ----------------------------------------------------------
 
 

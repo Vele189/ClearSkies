@@ -120,7 +120,9 @@ EPA_ECHO = SourceExpectations(
                     low=0.0,
                     high=1_000_000_000.0,
                     note="A negative penalty is a parse error; a billion-dollar one "
-                    "is a unit error.",
+                    "is a unit error. ECHO's bulk air feed publishes no penalty "
+                    "figure (methodology 8.2), so the column is empty today.",
+                    may_be_absent=True,
                 ),
             ),
         ),
@@ -186,6 +188,11 @@ EPA_TRI = SourceExpectations(
 
 AIRTOXSCREEN = SourceExpectations(
     source="airtoxscreen",
+    # hex_exposure is written only when the adapter is handed the section 7
+    # crosswalk. The nightly job runs without the database and so without one;
+    # scoring interpolates E1 and E2 from tract_exposure itself, so the night
+    # loses nothing it uses. When the table is present its checks below apply.
+    optional_tables=frozenset({"hex_exposure"}),
     tables=(
         TableExpectations(
             table="tract_exposure",
