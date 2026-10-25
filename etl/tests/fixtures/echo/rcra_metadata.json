@@ -1,0 +1,911 @@
+{
+ "Results": {
+  "Message": "Success",
+  "ResultColumns": [
+   {
+    "ColumnName": "RCR_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "200",
+    "ColumnID": "1",
+    "ObjectName": "RCRAName",
+    "Description": null
+   },
+   {
+    "ColumnName": "SOURCE_ID",
+    "DataType": "VARCHAR2",
+    "DataLength": "30",
+    "ColumnID": "2",
+    "ObjectName": "SourceID",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_STREET",
+    "DataType": "VARCHAR2",
+    "DataLength": "200",
+    "ColumnID": "3",
+    "ObjectName": "RCRAStreet",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_CITY",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "4",
+    "ObjectName": "RCRACity",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_STATE",
+    "DataType": "CHAR",
+    "DataLength": "2",
+    "ColumnID": "5",
+    "ObjectName": "RCRAState",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_STATE_DISTRICT",
+    "DataType": "VARCHAR2",
+    "DataLength": "40",
+    "ColumnID": "6",
+    "ObjectName": "RCRAStateDistrict",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_ZIP",
+    "DataType": "VARCHAR2",
+    "DataLength": "10",
+    "ColumnID": "7",
+    "ObjectName": "RCRAZip",
+    "Description": null
+   },
+   {
+    "ColumnName": "REGISTRY_ID",
+    "DataType": "VARCHAR2",
+    "DataLength": "50",
+    "ColumnID": "8",
+    "ObjectName": "RegistryID",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_COUNTY",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "9",
+    "ObjectName": "RCRACounty",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_EPA_REGION",
+    "DataType": "CHAR",
+    "DataLength": "2",
+    "ColumnID": "10",
+    "ObjectName": "RCRAEPARegion",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_FEDERAL_AGENCY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "150",
+    "ColumnID": "11",
+    "ObjectName": "FacFederalAgencyName",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_LAND_TYPE_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "30",
+    "ColumnID": "12",
+    "ObjectName": "RCRALandTypeCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_HUC",
+    "DataType": "VARCHAR2",
+    "DataLength": "8",
+    "ColumnID": "13",
+    "ObjectName": "FacDerivedHuc",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_FIPS_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "15",
+    "ColumnID": "14",
+    "ObjectName": "FacFIPSCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_INDIAN_CNTRY_FLG",
+    "DataType": "VARCHAR2",
+    "DataLength": "3",
+    "ColumnID": "15",
+    "ObjectName": "FacIndianCntryFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_INDIAN_CNTRY_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "16",
+    "ObjectName": "RCRAIndianCntryFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_INDIAN_SPATIAL_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "17",
+    "ObjectName": "FacIndianSpatialFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_TRIBES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "18",
+    "ObjectName": "FacDerivedTribes",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_RESERVATION_TRIBES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "19",
+    "ObjectName": "FacDerivedReservationTribes",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_US_MEX_BORDER_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "20",
+    "ObjectName": "FacUsMexBorderFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_SIC_CODES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "21",
+    "ObjectName": "FacSICCodes",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_SIC_DESCS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "22",
+    "ObjectName": "FacSICDescs",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_NAICS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "23",
+    "ObjectName": "RCRANAICS",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_NAICS_DESCS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "24",
+    "ObjectName": "RCRANAICSDescs",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_LAT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "25",
+    "ObjectName": "FacLat",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_LONG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "26",
+    "ObjectName": "FacLong",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_UNIVERSE",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "27",
+    "ObjectName": "RCRAUniverse",
+    "Description": null
+   },
+   {
+    "ColumnName": "TSDF",
+    "DataType": "VARCHAR2",
+    "DataLength": "200",
+    "ColumnID": "28",
+    "ObjectName": "Tsdf",
+    "Description": null
+   },
+   {
+    "ColumnName": "CLEANUP_ACTION_FLAG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "29",
+    "ObjectName": "CleanupActionFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_STATUS",
+    "DataType": "VARCHAR2",
+    "DataLength": "500",
+    "ColumnID": "30",
+    "ObjectName": "RCRAStatus",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "31",
+    "ObjectName": "AIRIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "CWA_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "32",
+    "ObjectName": "CWAIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "33",
+    "ObjectName": "RCRAIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "RMP_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "34",
+    "ObjectName": "RmpIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "SEMS_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "35",
+    "ObjectName": "SemsIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "SDWA_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "36",
+    "ObjectName": "SDWAIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "TRI_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "37",
+    "ObjectName": "TRIIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_COMPL_STATUS",
+    "DataType": "VARCHAR2",
+    "DataLength": "50",
+    "ColumnID": "38",
+    "ObjectName": "RCRAComplStatus",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_SNC",
+    "DataType": "VARCHAR2",
+    "DataLength": "3",
+    "ColumnID": "39",
+    "ObjectName": "RCRASNC",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_QTRS_WITH_NC",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "40",
+    "ObjectName": "RCRAQtrsWithNC",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_VIOLATION_TYPES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "41",
+    "ObjectName": "RCRAViolationTypes",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_QTRS_WITH_SNC",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "42",
+    "ObjectName": "RCRAQtrsWithSNC",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_OLDEST_OPEN_VIO_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "43",
+    "ObjectName": "RCRAOldestOpenVioDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_INSP_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "44",
+    "ObjectName": "RCRAInspCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_DAYS_LAST_INSPECTION",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "45",
+    "ObjectName": "RCRADaysLastInspection",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_INSPECTION_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "46",
+    "ObjectName": "RCRALastInspectionDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_INSP_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "47",
+    "ObjectName": "RCRALastInspDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_INSP_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "48",
+    "ObjectName": "RCRALastInspDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "DATE_LAST_RECORD_REVIEW",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "49",
+    "ObjectName": "DateLastRecordReview",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_LAND_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "50",
+    "ObjectName": "FacTRILandReleases",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_OFF_SITE_TRANSFERS",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "51",
+    "ObjectName": "FacTRIOffSiteTransfers",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_WBD",
+    "DataType": "VARCHAR2",
+    "DataLength": "14",
+    "ColumnID": "52",
+    "ObjectName": "FacDerivedWBD",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_WBD_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "53",
+    "ObjectName": "FacDerivedWBDName",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_IMP_WATER_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "54",
+    "ObjectName": "RCRAImpWaterFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "CHESAPEAKE_BAY_FLAG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "55",
+    "ObjectName": "ChesapeakeBayFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_IEA_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "56",
+    "ObjectName": "RCRAIeaCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_FEA_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "57",
+    "ObjectName": "RCRAFeaCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_IEA_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "58",
+    "ObjectName": "RCRALastIeaDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_IEA_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "59",
+    "ObjectName": "RCRALastIeaDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_IEA_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "60",
+    "ObjectName": "RCRALastIeaDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_FEA_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "61",
+    "ObjectName": "RCRALastFeaDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_FEA_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "62",
+    "ObjectName": "RCRALastFeaDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_FEA_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "63",
+    "ObjectName": "RCRALastFeaDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_PENALTIES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "64",
+    "ObjectName": "RCRAPenalties",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_LAST_PENALTY_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "65",
+    "ObjectName": "RCRALastPenaltyDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_POPULATION_DENSITY",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "66",
+    "ObjectName": "FacPopulationDensity",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_PERCENT_MINORITY",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "67",
+    "ObjectName": "FacPercentMinority",
+    "Description": null
+   },
+   {
+    "ColumnName": "EPA_SYSTEM",
+    "DataType": "VARCHAR2",
+    "DataLength": "10",
+    "ColumnID": "68",
+    "ObjectName": "EPASystem",
+    "Description": null
+   },
+   {
+    "ColumnName": "STATUTE",
+    "DataType": "VARCHAR2",
+    "DataLength": "50",
+    "ColumnID": "69",
+    "ObjectName": "Statute",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_TRIBAL_LAND_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "80",
+    "ColumnID": "70",
+    "ObjectName": "RCRATRIbalLandCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_FEDERAL_AGENCY_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "15",
+    "ColumnID": "71",
+    "ObjectName": "FacFederalAgencyCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_CASE_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "72",
+    "ObjectName": "RCRACaseIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_REPORTER",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "73",
+    "ObjectName": "FacTRIReporter",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_ON_SITE_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "74",
+    "ObjectName": "FacTRIOnSiteReleases",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_MAP_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "75",
+    "ObjectName": "FacMapFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_MAP_ICON",
+    "DataType": "VARCHAR2",
+    "DataLength": "20",
+    "ColumnID": "76",
+    "ObjectName": "FacMapIcon",
+    "Description": null
+   },
+   {
+    "ColumnName": "LAST_VIOLATION_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "77",
+    "ObjectName": "LastViolationDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURRENT_VIO_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "78",
+    "ObjectName": "CurrentVioCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCR_FIPS_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "5",
+    "ColumnID": "79",
+    "ObjectName": "RCRAFIPSCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_MAP_ICON",
+    "DataType": "VARCHAR2",
+    "DataLength": "20",
+    "ColumnID": "80",
+    "ObjectName": "RCRAMapIcon",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_3YR_COMPL_QTRS_HISTORY",
+    "DataType": "VARCHAR2",
+    "DataLength": "15",
+    "ColumnID": "81",
+    "ObjectName": "RCRA3yrComplQtrsHistory",
+    "Description": null
+   },
+   {
+    "ColumnName": "CENSUS_BLOCK_GROUP",
+    "DataType": "VARCHAR2",
+    "DataLength": "12",
+    "ColumnID": "82",
+    "ObjectName": "CensusBlockGroup",
+    "Description": null
+   },
+   {
+    "ColumnName": "TRIBAL_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "83",
+    "ObjectName": "TRIbalFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURR_SV_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "84",
+    "ObjectName": "CurrSvFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "VIOL_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "85",
+    "ObjectName": "ViolFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURR_VIO_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "86",
+    "ObjectName": "CurrVioFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "INSP_5YR_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "87",
+    "ObjectName": "Insp5yrFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "EA_5YR_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "88",
+    "ObjectName": "Ea5yrFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "INFEA_5YR_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "89",
+    "ObjectName": "Infea5yrFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "LOWER_48",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "90",
+    "ObjectName": "Lower48",
+    "Description": null
+   },
+   {
+    "ColumnName": "ACTIVE_LOWER_48",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "91",
+    "ObjectName": "ActiveLower48",
+    "Description": null
+   },
+   {
+    "ColumnName": "COLLECTION_METHOD",
+    "DataType": "VARCHAR2",
+    "DataLength": "750",
+    "ColumnID": "92",
+    "ObjectName": "CollectionMethod",
+    "Description": null
+   },
+   {
+    "ColumnName": "REFERENCE_POINT",
+    "DataType": "VARCHAR2",
+    "DataLength": "750",
+    "ColumnID": "93",
+    "ObjectName": "ReferencePoint",
+    "Description": null
+   },
+   {
+    "ColumnName": "CALCULATED_ACCURACY_METERS",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "94",
+    "ObjectName": "CalculatedAccuracyMeters",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAP",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "95",
+    "ObjectName": "Map",
+    "Description": null
+   },
+   {
+    "ColumnName": "WEB_DOCS",
+    "DataType": "VARCHAR2",
+    "DataLength": "5",
+    "ColumnID": "96",
+    "ObjectName": "WebDocs",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_COUNTY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "97",
+    "ObjectName": "FacCountyName",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_STD_COUNTY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "300",
+    "ColumnID": "98",
+    "ObjectName": "FacStdCountyName",
+    "Description": null
+   },
+   {
+    "ColumnName": "CHEM_NAMES_REL_LAND",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "99",
+    "ObjectName": "ChemNamesRelLand",
+    "Description": null
+   },
+   {
+    "ColumnName": "OWNER_CODE",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "100",
+    "ObjectName": "OwnerCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "OWNER_DESC",
+    "DataType": "VARCHAR2",
+    "DataLength": "20",
+    "ColumnID": "101",
+    "ObjectName": "OwnerDesc",
+    "Description": null
+   },
+   {
+    "ColumnName": "OPERATOR_CODE",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "102",
+    "ObjectName": "OperatorCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "OPERATOR_DESC",
+    "DataType": "VARCHAR2",
+    "DataLength": "20",
+    "ColumnID": "103",
+    "ObjectName": "OperatorDesc",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRAINFO_LAND_TYPE_CODE",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "104",
+    "ObjectName": "RCRAinfoLandTypeCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRAINFO_LAND_TYPE_DESC",
+    "DataType": "VARCHAR2",
+    "DataLength": "20",
+    "ColumnID": "105",
+    "ObjectName": "RCRAinfoLandTypeDesc",
+    "Description": null
+   },
+   {
+    "ColumnName": "RECEIVE_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "106",
+    "ObjectName": "ReceiveDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "SOURCE_TYPE_CODE",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "107",
+    "ObjectName": "SourceTypeCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "SOURCE_TYPE_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "108",
+    "ObjectName": "SourceTypeName",
+    "Description": null
+   },
+   {
+    "ColumnName": "PERCENT_BELOW_LOWINCOME_3MILE",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "109",
+    "ObjectName": "PercentBelowLowincome3mile",
+    "Description": null
+   },
+   {
+    "ColumnName": "PERCENT_PEOPLE_OF_COLOR",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "110",
+    "ObjectName": "PercentPeopleOfColor",
+    "Description": null
+   },
+   {
+    "ColumnName": "ACS_POPULATION_DENSITY",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "111",
+    "ObjectName": "AcsPopulationDensity",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_US_CANADA_BORDER_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "112",
+    "ObjectName": "FacUsCanadaBorderFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "SCORE",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "113",
+    "ObjectName": "Score",
+    "Description": null
+   }
+  ]
+ }
+}

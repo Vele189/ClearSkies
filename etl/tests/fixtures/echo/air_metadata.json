@@ -1,0 +1,1327 @@
+{
+ "Results": {
+  "Message": "Success",
+  "ResultColumns": [
+   {
+    "ColumnName": "AIR_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "200",
+    "ColumnID": "1",
+    "ObjectName": "AIRName",
+    "Description": null
+   },
+   {
+    "ColumnName": "SOURCE_ID",
+    "DataType": "VARCHAR2",
+    "DataLength": "30",
+    "ColumnID": "2",
+    "ObjectName": "SourceID",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_STREET",
+    "DataType": "VARCHAR2",
+    "DataLength": "200",
+    "ColumnID": "3",
+    "ObjectName": "AIRStreet",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_CITY",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "4",
+    "ObjectName": "AIRCity",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_STATE",
+    "DataType": "CHAR",
+    "DataLength": "2",
+    "ColumnID": "5",
+    "ObjectName": "AIRState",
+    "Description": null
+   },
+   {
+    "ColumnName": "LOCAL_CONTROL_REGION_CODE",
+    "DataType": "CHAR",
+    "DataLength": "3",
+    "ColumnID": "6",
+    "ObjectName": "LocalControlRegionCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_ZIP",
+    "DataType": "VARCHAR2",
+    "DataLength": "10",
+    "ColumnID": "7",
+    "ObjectName": "AIRZip",
+    "Description": null
+   },
+   {
+    "ColumnName": "REGISTRY_ID",
+    "DataType": "VARCHAR2",
+    "DataLength": "50",
+    "ColumnID": "8",
+    "ObjectName": "RegistryID",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_COUNTY",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "9",
+    "ObjectName": "AIRCounty",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_EPA_REGION",
+    "DataType": "CHAR",
+    "DataLength": "2",
+    "ColumnID": "10",
+    "ObjectName": "AIREPARegion",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_FEDERAL_AGENCY_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "15",
+    "ColumnID": "11",
+    "ObjectName": "FacFederalAgencyCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_FEDERAL_AGENCY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "150",
+    "ColumnID": "12",
+    "ObjectName": "FacFederalAgencyName",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_HUC",
+    "DataType": "VARCHAR2",
+    "DataLength": "8",
+    "ColumnID": "13",
+    "ObjectName": "FacDerivedHuc",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_FIPS_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "15",
+    "ColumnID": "14",
+    "ObjectName": "FacFIPSCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_INDIAN_CNTRY_FLG",
+    "DataType": "VARCHAR2",
+    "DataLength": "3",
+    "ColumnID": "15",
+    "ObjectName": "FacIndianCntryFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_INDIAN_CNTRY_FLG",
+    "DataType": "VARCHAR2",
+    "DataLength": "3",
+    "ColumnID": "16",
+    "ObjectName": "AIRIndianCntryFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_INDIAN_SPATIAL_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "17",
+    "ObjectName": "FacIndianSpatialFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_TRIBES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "18",
+    "ObjectName": "FacDerivedTribes",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_RESERVATION_TRIBES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "19",
+    "ObjectName": "FacDerivedReservationTribes",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_US_MEX_BORDER_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "20",
+    "ObjectName": "FacUsMexBorderFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_SIC_CODES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "21",
+    "ObjectName": "FacSICCodes",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_SIC_DESCS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "22",
+    "ObjectName": "FacSICDescs",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_NAICS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "23",
+    "ObjectName": "AIRNAICS",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_NAICS_DESCS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "24",
+    "ObjectName": "AIRNAICSDescs",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_LAT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "25",
+    "ObjectName": "FacLat",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_LONG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "26",
+    "ObjectName": "FacLong",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_PROGRAMS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "27",
+    "ObjectName": "AIRPrograms",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_MACTS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "28",
+    "ObjectName": "AIRMacts",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_STATUS",
+    "DataType": "VARCHAR2",
+    "DataLength": "500",
+    "ColumnID": "29",
+    "ObjectName": "AIRStatus",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_UNIVERSE",
+    "DataType": "VARCHAR2",
+    "DataLength": "150",
+    "ColumnID": "30",
+    "ObjectName": "AIRUniverse",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_CLASSIFICATION",
+    "DataType": "VARCHAR2",
+    "DataLength": "150",
+    "ColumnID": "31",
+    "ObjectName": "AIRClassification",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_CMS_CATEGORY_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "3",
+    "ColumnID": "32",
+    "ObjectName": "AIRCmsCategoryCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_CMS_CATEGORY_DESC",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "33",
+    "ObjectName": "AIRCmsCategoryDesc",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_WBD",
+    "DataType": "VARCHAR2",
+    "DataLength": "14",
+    "ColumnID": "34",
+    "ObjectName": "FacDerivedWBD",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_DERIVED_WBD_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "35",
+    "ObjectName": "FacDerivedWBDName",
+    "Description": null
+   },
+   {
+    "ColumnName": "CHESAPEAKE_BAY_FLAG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "36",
+    "ObjectName": "ChesapeakeBayFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "37",
+    "ObjectName": "AIRIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "CWA_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "38",
+    "ObjectName": "CWAIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "RCRA_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "39",
+    "ObjectName": "RCRAIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "RMP_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "40",
+    "ObjectName": "RmpIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "SDWA_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "41",
+    "ObjectName": "SDWAIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "TRI_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "42",
+    "ObjectName": "TRIIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "GHG_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "43",
+    "ObjectName": "GHGIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "EIS_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "44",
+    "ObjectName": "EisIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "CAMD_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "45",
+    "ObjectName": "CamdIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_COMPL_STATUS",
+    "DataType": "VARCHAR2",
+    "DataLength": "80",
+    "ColumnID": "46",
+    "ObjectName": "AIRComplStatus",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_HPV_STATUS",
+    "DataType": "VARCHAR2",
+    "DataLength": "80",
+    "ColumnID": "47",
+    "ObjectName": "AIRHpvStatus",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_MNTHS_WITH_HPV",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "48",
+    "ObjectName": "AIRMnthsWithHpv",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_QTRS_WITH_HPV",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "49",
+    "ObjectName": "AIRQtrsWithHpv",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_QTRS_WITH_VIOL",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "50",
+    "ObjectName": "AIRQtrsWithViol",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_POLL_RECENT_VIOL",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "51",
+    "ObjectName": "AIRPollRecentViol",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_RECENT_VIOL_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "52",
+    "ObjectName": "AIRRecentViolCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_VIOL_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "53",
+    "ObjectName": "AIRLastViolDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_EVAL_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "54",
+    "ObjectName": "AIREvalCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_DAYS_LAST_EVAL",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "55",
+    "ObjectName": "AIRDaysLastEval",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_EVAL_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "56",
+    "ObjectName": "AIRLastEvalDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_EVAL_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "57",
+    "ObjectName": "AIRLastEvalDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_EVAL_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "58",
+    "ObjectName": "AIRLastEvalDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_FCE_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "59",
+    "ObjectName": "AIRFceCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_DAYS_LAST_FCE",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "60",
+    "ObjectName": "AIRDaysLastFce",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_FCE_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "61",
+    "ObjectName": "AIRLastFceDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_FCE_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "62",
+    "ObjectName": "AIRLastFceDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_FCE_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "63",
+    "ObjectName": "AIRLastFceDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "LAST_DATE_PCE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "64",
+    "ObjectName": "LastDatePce",
+    "Description": null
+   },
+   {
+    "ColumnName": "LAST_DATE_PCE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "65",
+    "ObjectName": "LastDatePceEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "LAST_DATE_PCE_STA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "66",
+    "ObjectName": "LastDatePceSta",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_STCK_TEST_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "67",
+    "ObjectName": "AIRLastStckTestDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_STCK_TEST_RESULTS",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "68",
+    "ObjectName": "AIRLastStckTestResults",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_STACK_TEST_5_YR_ALL",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "69",
+    "ObjectName": "AIRStackTest5YrAll",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_STACK_TEST_5_YR_FAIL",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "70",
+    "ObjectName": "AIRStackTest5YrFail",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_NAA_FLAG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "71",
+    "ObjectName": "FacNaaFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_REPORTER",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "72",
+    "ObjectName": "FacTRIReporter",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_AIR_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "73",
+    "ObjectName": "FacTRIAIRReleases",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_CARC_AIR_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "74",
+    "ObjectName": "FacTRICarcAIRReleases",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_HAPS_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "75",
+    "ObjectName": "FacTRIHapsReleases",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_EIS_AIR_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "76",
+    "ObjectName": "FacEisAIRReleases",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_GHG_CO2_RELEASES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "77",
+    "ObjectName": "FacGHGCO2Releases",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_IEA_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "78",
+    "ObjectName": "AIRIeaCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_FEA_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "79",
+    "ObjectName": "AIRFeaCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_IEA_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "80",
+    "ObjectName": "AIRLastIeaDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_IEA_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "81",
+    "ObjectName": "AIRLastIeaDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_IEA_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "82",
+    "ObjectName": "AIRLastIeaDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_FEA_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "83",
+    "ObjectName": "AIRLastFeaDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_FEA_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "84",
+    "ObjectName": "AIRLastFeaDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_FEA_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "85",
+    "ObjectName": "AIRLastFeaDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_PENALTIES",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "86",
+    "ObjectName": "AIRPenalties",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_PENALTY_DATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "87",
+    "ObjectName": "AIRLastPenaltyDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_POPULATION_DENSITY",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "88",
+    "ObjectName": "FacPopulationDensity",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_PERCENT_MINORITY",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "89",
+    "ObjectName": "FacPercentMinority",
+    "Description": null
+   },
+   {
+    "ColumnName": "EPA_SYSTEM",
+    "DataType": "VARCHAR2",
+    "DataLength": "10",
+    "ColumnID": "90",
+    "ObjectName": "EPASystem",
+    "Description": null
+   },
+   {
+    "ColumnName": "STATUTE",
+    "DataType": "VARCHAR2",
+    "DataLength": "50",
+    "ColumnID": "91",
+    "ObjectName": "Statute",
+    "Description": null
+   },
+   {
+    "ColumnName": "LOCAL_CONTROL_REGION_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "70",
+    "ColumnID": "92",
+    "ObjectName": "LocalControlRegionName",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_FIPS_CODE",
+    "DataType": "NVARCHAR2",
+    "DataLength": "64",
+    "ColumnID": "93",
+    "ObjectName": "AIRFIPSCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_TRIBAL_EPAIDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "50",
+    "ColumnID": "94",
+    "ObjectName": "AIRTRIbalEPAids",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_TRIBAL_NAMES",
+    "DataType": "VARCHAR2",
+    "DataLength": "200",
+    "ColumnID": "95",
+    "ObjectName": "AIRTRIbalNames",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_CASE_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "96",
+    "ObjectName": "AIRCaseIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_STCK_DATE_EPA",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "97",
+    "ObjectName": "AIRLastStckDateEPA",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_LAST_STCK_DATE_STATE",
+    "DataType": "DATE",
+    "DataLength": "7",
+    "ColumnID": "98",
+    "ObjectName": "AIRLastStckDateState",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_MAP_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "99",
+    "ObjectName": "FacMapFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_MAP_ICON",
+    "DataType": "VARCHAR2",
+    "DataLength": "20",
+    "ColumnID": "100",
+    "ObjectName": "FacMapIcon",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_GHG_REPORTER",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "101",
+    "ObjectName": "FacGHGReporter",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_EIS_REPORTER",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "102",
+    "ObjectName": "FacEisReporter",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_CAMD_REPORTER",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "103",
+    "ObjectName": "FacCamdReporter",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_FACILITY_TYPE_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "3",
+    "ColumnID": "104",
+    "ObjectName": "AIRFacilityTypeCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_MAJOR_FLAG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "105",
+    "ObjectName": "AIRMajorFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_3YR_COMPL_QTRS_HISTORY",
+    "DataType": "VARCHAR2",
+    "DataLength": "12",
+    "ColumnID": "106",
+    "ObjectName": "AIR3yrComplQtrsHistory",
+    "Description": null
+   },
+   {
+    "ColumnName": "HAS_POLL_RPT",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "107",
+    "ObjectName": "HasPollRpt",
+    "Description": null
+   },
+   {
+    "ColumnName": "TRIBAL_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "108",
+    "ObjectName": "TRIbalFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURR_SV_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "109",
+    "ObjectName": "CurrSvFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "VIOL_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "110",
+    "ObjectName": "ViolFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURR_VIO_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "111",
+    "ObjectName": "CurrVioFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "INSP_5YR_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "112",
+    "ObjectName": "Insp5yrFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "EA_5YR_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "113",
+    "ObjectName": "Ea5yrFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "INFEA_5YR_FLAG",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "114",
+    "ObjectName": "Infea5yrFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "LOWER_48",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "115",
+    "ObjectName": "Lower48",
+    "Description": null
+   },
+   {
+    "ColumnName": "ACTIVE_LOWER_48",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "116",
+    "ObjectName": "ActiveLower48",
+    "Description": null
+   },
+   {
+    "ColumnName": "COLLECTION_METHOD",
+    "DataType": "VARCHAR2",
+    "DataLength": "750",
+    "ColumnID": "117",
+    "ObjectName": "CollectionMethod",
+    "Description": null
+   },
+   {
+    "ColumnName": "REFERENCE_POINT",
+    "DataType": "VARCHAR2",
+    "DataLength": "750",
+    "ColumnID": "118",
+    "ObjectName": "ReferencePoint",
+    "Description": null
+   },
+   {
+    "ColumnName": "CALCULATED_ACCURACY_METERS",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "119",
+    "ObjectName": "CalculatedAccuracyMeters",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAP",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "120",
+    "ObjectName": "Map",
+    "Description": null
+   },
+   {
+    "ColumnName": "WEB_DOCS",
+    "DataType": "VARCHAR2",
+    "DataLength": "5",
+    "ColumnID": "121",
+    "ObjectName": "WebDocs",
+    "Description": null
+   },
+   {
+    "ColumnName": "NAA_CATEGORIES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "122",
+    "ObjectName": "NaaCategories",
+    "Description": null
+   },
+   {
+    "ColumnName": "NAA_POLLUTANTS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "123",
+    "ObjectName": "NaaPollutants",
+    "Description": null
+   },
+   {
+    "ColumnName": "NA_STANDARDS_NAA",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "124",
+    "ObjectName": "NaStandardsNaa",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAINT_STANDARDS_NAA",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "125",
+    "ObjectName": "MaintStandardsNaa",
+    "Description": null
+   },
+   {
+    "ColumnName": "NA_POLLUTANTS_NAA",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "126",
+    "ObjectName": "NaPollutantsNaa",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAINT_POLLUTANTS_NAA",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "127",
+    "ObjectName": "MaintPollutantsNaa",
+    "Description": null
+   },
+   {
+    "ColumnName": "NA_STATUS_NAA",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "128",
+    "ObjectName": "NaStatusNaa",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAINT_STATUS_NAA",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "129",
+    "ObjectName": "MaintStatusNaa",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_COUNTY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "130",
+    "ObjectName": "FacCountyName",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_STD_COUNTY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "300",
+    "ColumnID": "131",
+    "ObjectName": "FacStdCountyName",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_NSPS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "132",
+    "ObjectName": "AIRNsps",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_NSPSM",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "133",
+    "ObjectName": "AIRNspsm",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_FACILITY_TYPE_DESC",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "134",
+    "ObjectName": "AIRFacilityTypeDesc",
+    "Description": null
+   },
+   {
+    "ColumnName": "OTHER_PERMIT_IDS",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "135",
+    "ObjectName": "OtherPermitIDs",
+    "Description": null
+   },
+   {
+    "ColumnName": "PERCENT_BELOW_LOWINCOME_3MILE",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "136",
+    "ObjectName": "PercentBelowLowincome3mile",
+    "Description": null
+   },
+   {
+    "ColumnName": "PERCENT_PEOPLE_OF_COLOR",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "137",
+    "ObjectName": "PercentPeopleOfColor",
+    "Description": null
+   },
+   {
+    "ColumnName": "ACS_POPULATION_DENSITY",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "138",
+    "ObjectName": "AcsPopulationDensity",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_US_CANADA_BORDER_FLG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "139",
+    "ObjectName": "FacUsCanadaBorderFlg",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_DAYS_LAST_PARTIAL_EVAL",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "140",
+    "ObjectName": "AIRDaysLastPartialEval",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_PARTIAL_EVAL_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "141",
+    "ObjectName": "AIRPartialEvalCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "AIR_INV_CNT",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "142",
+    "ObjectName": "AIRInvCnt",
+    "Description": null
+   },
+   {
+    "ColumnName": "NEAREST_AMA_SITE_CODE",
+    "DataType": "VARCHAR2",
+    "DataLength": "100",
+    "ColumnID": "143",
+    "ObjectName": "NearestAmaSiteCode",
+    "Description": null
+   },
+   {
+    "ColumnName": "FACILITY_MONITOR_DISTANCE_KM",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "144",
+    "ObjectName": "FacilityMonitorDistanceKm",
+    "Description": null
+   },
+   {
+    "ColumnName": "AMS_REPORT_LINK",
+    "DataType": "VARCHAR2",
+    "DataLength": "250",
+    "ColumnID": "145",
+    "ObjectName": "AmsReportLink",
+    "Description": null
+   },
+   {
+    "ColumnName": "BFLM_FACILITY_NAME",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "146",
+    "ObjectName": "BflmFacilityName",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURRENT_CEDRI_ID",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "147",
+    "ObjectName": "CurrentCedriID",
+    "Description": null
+   },
+   {
+    "ColumnName": "ANNUAL_AVG_CURRENT_EXCEED",
+    "DataType": "VARCHAR2",
+    "DataLength": "5",
+    "ColumnID": "148",
+    "ObjectName": "AnnualAvgCurrentExceed",
+    "Description": null
+   },
+   {
+    "ColumnName": "PERIOD_AVG_CURRENT_EXCEED",
+    "DataType": "VARCHAR2",
+    "DataLength": "5",
+    "ColumnID": "149",
+    "ObjectName": "PeriodAvgCurrentExceed",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_PERIOD_PERIOD_AVG_V2",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "150",
+    "ObjectName": "MaxPeriodPeriodAvgV2",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_PERIOD_ANNUAL_AVG_V2",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "151",
+    "ObjectName": "MaxPeriodAnnualAvgV2",
+    "Description": null
+   },
+   {
+    "ColumnName": "ANNUAL_AVG_TOTAL_EXCEEDANCES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "152",
+    "ObjectName": "AnnualAvgTotalExceedances",
+    "Description": null
+   },
+   {
+    "ColumnName": "PERIOD_AVG_TOTAL_EXCEEDANCES",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "153",
+    "ObjectName": "PeriodAvgTotalExceedances",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_ANNUAL_AVG",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "154",
+    "ObjectName": "MaxAnnualAvg",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_PERIOD_AVG",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "155",
+    "ObjectName": "MaxPeriodAvg",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_BENZENE_PERIOD_AVG",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "156",
+    "ObjectName": "MaxBenzenePeriodAvg",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_ANNUAL_AVG_START_DATE",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "157",
+    "ObjectName": "MaxAnnualAvgStartDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_PERIOD_AVG_START_DATE",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "158",
+    "ObjectName": "MaxPeriodAvgStartDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "MAX_BENZENE_START_DATE",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "159",
+    "ObjectName": "MaxBenzeneStartDate",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURRENT_PERIOD_END",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "160",
+    "ObjectName": "CurrentPeriodEnd",
+    "Description": null
+   },
+   {
+    "ColumnName": "CURRENT_PERIOD_START",
+    "DataType": "VARCHAR2",
+    "DataLength": "4000",
+    "ColumnID": "161",
+    "ObjectName": "CurrentPeriodStart",
+    "Description": null
+   },
+   {
+    "ColumnName": "NECI_GEO_AREA_FLAG",
+    "DataType": "CHAR",
+    "DataLength": "1",
+    "ColumnID": "162",
+    "ObjectName": "NeciGeoAreaFlag",
+    "Description": null
+   },
+   {
+    "ColumnName": "NECI_GEO_AREA",
+    "DataType": "VARCHAR2",
+    "DataLength": "255",
+    "ColumnID": "163",
+    "ObjectName": "NeciGeoArea",
+    "Description": null
+   },
+   {
+    "ColumnName": "FAC_TRI_REPORTER_DESCRIPTION",
+    "DataType": "VARCHAR2",
+    "DataLength": "12",
+    "ColumnID": "164",
+    "ObjectName": "FacTRIReporterDescription",
+    "Description": null
+   },
+   {
+    "ColumnName": "SCORE",
+    "DataType": "NUMBER",
+    "DataLength": "22",
+    "ColumnID": "165",
+    "ObjectName": "Score",
+    "Description": null
+   }
+  ]
+ }
+}

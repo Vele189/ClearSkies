@@ -99,56 +99,72 @@ DFR_URL = "https://echo.epa.gov/detailed-facility-report?fid={registry_id}"
 PAGE_SIZE = 5000
 MAX_PAGES = 20
 
-# Requested by ColumnID, because the default response omits the compliance
-# history and enforcement columns that F2 and F3 exist to use. Ids come from
-# air_rest_services.metadata; the names are only here to make the list readable.
-QCOLUMNS: tuple[tuple[int, str], ...] = (
-    (8, "REGISTRY_ID"),
-    (2, "SOURCE_ID"),
-    (1, "AIR_NAME"),
-    (3, "AIR_STREET"),
-    (4, "AIR_CITY"),
-    (5, "AIR_STATE"),
-    (7, "AIR_ZIP"),
-    (23, "FAC_LAT"),
-    (24, "FAC_LONG"),
-    (14, "FAC_FIPS_CODE"),
-    (22, "AIR_NAICS"),
-    (103, "AIR_MAJOR_FLAG"),
-    (27, "AIR_STATUS"),
-    (29, "AIR_CLASSIFICATION"),
-    (104, "AIR_3YR_COMPL_QTRS_HISTORY"),
-    (44, "AIR_COMPL_STATUS"),
-    (77, "AIR_FEA_CNT"),
-    (84, "AIR_PENALTIES"),
-    (81, "AIR_LAST_FEA_DATE"),
-    (117, "CALCULATED_ACCURACY_METERS"),
+# Requested by column, because the default response omits the compliance
+# history and enforcement columns that F2 and F3 exist to use -- and, since
+# October 2026, the coordinates too.
+#
+# **Declared by name, resolved to ids on every pull.** `qcolumns` takes ECHO's
+# numeric ColumnIDs, and EPA renumbers them: between the 2026-09-20 load and
+# October 2026 FAC_LAT moved from 23 to 25 and everything after it shifted, so
+# the hard-coded ids asked for the wrong columns and ECHO answered, without an
+# error, with no coordinates for 13,099 of 13,099 sites. The nightly gate
+# caught it. The names are stable, so the adapter reads
+# `<service>.metadata` each pull, maps names to the ids of the day, and fails
+# loudly if a name is gone.
+AIR_METADATA = f"{ECHO}/air_rest_services.metadata"
+QCOLUMNS: tuple[str, ...] = (
+    "REGISTRY_ID",
+    "SOURCE_ID",
+    "AIR_NAME",
+    "AIR_STREET",
+    "AIR_CITY",
+    "AIR_STATE",
+    "AIR_ZIP",
+    "FAC_LAT",
+    "FAC_LONG",
+    "FAC_FIPS_CODE",
+    "AIR_NAICS",
+    "AIR_MAJOR_FLAG",
+    "AIR_STATUS",
+    "AIR_CLASSIFICATION",
+    "AIR_3YR_COMPL_QTRS_HISTORY",
+    "AIR_COMPL_STATUS",
+    "AIR_FEA_CNT",
+    "AIR_PENALTIES",
+    "AIR_LAST_FEA_DATE",
+    "CALCULATED_ACCURACY_METERS",
 )
 
 # RCRAInfo, for the two hazardous-waste flags F4 reads. Same shape as the air
-# service: a query id, then pages of rows.
+# service: a query id, then pages of rows, and columns resolved by name.
+RCRA_METADATA = f"{ECHO}/rcra_rest_services.metadata"
 RCRA_GET_FACILITIES = f"{ECHO}/rcra_rest_services.get_facilities"
 RCRA_GET_QID = f"{ECHO}/rcra_rest_services.get_qid"
 
-# Requested by ColumnID from rcra_rest_services.metadata, as above. RCRA_UNIVERSE
-# and TSDF are what F4 exists to read; the rest is what a site holding no air
-# permit needs in order to become a facility row of its own.
-RCRA_QCOLUMNS: tuple[tuple[int, str], ...] = (
-    (8, "REGISTRY_ID"),
-    (2, "SOURCE_ID"),
-    (1, "RCR_NAME"),
-    (3, "RCR_STREET"),
-    (4, "RCR_CITY"),
-    (5, "RCR_STATE"),
-    (7, "RCR_ZIP"),
-    (14, "FAC_FIPS_CODE"),
-    (22, "RCRA_NAICS"),
-    (23, "FAC_LAT"),
-    (24, "FAC_LONG"),
-    (25, "RCRA_UNIVERSE"),
-    (26, "TSDF"),
-    (92, "CALCULATED_ACCURACY_METERS"),
+# RCRA_UNIVERSE and TSDF are what F4 exists to read; the rest is what a site
+# holding no air permit needs in order to become a facility row of its own.
+RCRA_QCOLUMNS: tuple[str, ...] = (
+    "REGISTRY_ID",
+    "SOURCE_ID",
+    "RCR_NAME",
+    "RCR_STREET",
+    "RCR_CITY",
+    "RCR_STATE",
+    "RCR_ZIP",
+    "FAC_FIPS_CODE",
+    "RCRA_NAICS",
+    "FAC_LAT",
+    "FAC_LONG",
+    "RCRA_UNIVERSE",
+    "TSDF",
+    "CALCULATED_ACCURACY_METERS",
 )
+
+# Columns that must come back in at least one row, by the ObjectName ECHO
+# returns them under. Asking for a column and receiving none of it is how the
+# renumbering above failed silently; this makes the same failure loud.
+AIR_REQUIRED_FIELDS = ("RegistryID", "FacLat", "FacLong", "AIRZip", "AIRStatus")
+RCRA_REQUIRED_FIELDS = ("RegistryID", "FacLat", "FacLong", "RCRAUniverse", "Tsdf")
 
 # The generator token F4 counts. Compared as a whole token rather than searched
 # for, because 'SQG' is a substring of 'VSQG' and a smaller generator is not a
@@ -488,6 +504,24 @@ def twelve_quarters_ending(day: date) -> tuple[date, ...]:
     return tuple(reversed(starts))
 
 
+def _require_fields(rows: Sequence[dict[str, str]], fields: Sequence[str], url: str) -> None:
+    """Fail when a requested column came back in no row at all.
+
+    A field present with a null value is data. A field absent from every row is
+    a request ECHO did not honour, and loading it would write nulls that look
+    like measurements.
+    """
+    seen: set[str] = set()
+    for row in rows:
+        seen.update(row)
+    absent = [name for name in fields if name not in seen]
+    if absent:
+        raise PermanentSourceError(
+            f"{url}: {', '.join(absent)} absent from every row; "
+            f"ECHO did not return the columns requested"
+        )
+
+
 def _as_text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
@@ -578,11 +612,13 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
 
     async def fetch(self, ctx: RunContext) -> FetchResult[EchoSite]:
         state = ctx.pilot_state
-        columns = ",".join(str(cid) for cid, _ in QCOLUMNS)
+        columns, metadata = await self._column_ids(ctx, AIR_METADATA, QCOLUMNS)
 
         rows, artifacts = await self._paged(
             ctx, GET_FACILITIES, GET_QID, state=state, columns=columns, what="facilities"
         )
+        _require_fields(rows, AIR_REQUIRED_FIELDS, GET_QID)
+        artifacts.insert(0, metadata)
 
         # Before the gazetteer, so a hazardous-waste site that holds no air permit
         # is classified on the same ZIP centroids as every other facility.
@@ -709,7 +745,7 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
         "measured, and there are none nearby" of a question that was never asked,
         and F4 would be a column of honest-looking zeroes.
         """
-        columns = ",".join(str(cid) for cid, _ in RCRA_QCOLUMNS)
+        columns, metadata = await self._column_ids(ctx, RCRA_METADATA, RCRA_QCOLUMNS)
 
         rows, artifacts = await self._paged(
             ctx,
@@ -719,6 +755,8 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             columns=columns,
             what="RCRA handlers",
         )
+        _require_fields(rows, RCRA_REQUIRED_FIELDS, RCRA_GET_QID)
+        artifacts.insert(0, metadata)
 
         handlers, unkeyed = self._group_handlers(rows)
         return handlers, len(rows), unkeyed, artifacts
@@ -780,6 +818,31 @@ class EpaEchoAdapter(SourceAdapter[EchoSite]):
             if key not in seen:
                 sites.append(EchoSite(registry_id=handler.registry_id, sources=(), rcra=handler))
         return tuple(sites), matched
+
+    async def _column_ids(
+        self, ctx: RunContext, url: str, names: Sequence[str]
+    ) -> tuple[str, Artifact]:
+        """Today's ColumnIDs for `names`, as the `qcolumns` string, and the artifact.
+
+        Raises rather than dropping a name ECHO no longer lists: a column that
+        quietly goes missing is a column of nulls that reads as "nothing here".
+        """
+        download = await ctx.http.get(url, params={"output": "JSON"})
+        columns = self._results(download.content, url).get("ResultColumns")
+        if not isinstance(columns, list):
+            raise PermanentSourceError(f"{url}: no ResultColumns in the metadata")
+        ids = {
+            str(column.get("ColumnName")): str(column.get("ColumnID"))
+            for column in columns
+            if isinstance(column, dict)
+        }
+        missing = [name for name in names if name not in ids]
+        if missing:
+            raise PermanentSourceError(
+                f"{url}: ECHO no longer lists {', '.join(missing)}; "
+                f"the adapter cannot ask for what it reads"
+            )
+        return ",".join(ids[name] for name in names), download.artifact
 
     @staticmethod
     def _results(payload: bytes, url: str) -> dict[str, object]:

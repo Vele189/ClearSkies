@@ -23,10 +23,13 @@ import httpx
 import pytest
 
 from pipeline.adapters.echo import (
+    AIR_METADATA,
+    RCRA_METADATA,
     GAZETTEER_URL,
     GET_FACILITIES,
     GET_QID,
     PAGE_SIZE,
+    QCOLUMNS,
     RCRA_GET_FACILITIES,
     RCRA_GET_QID,
     ComplianceQuarter,
@@ -82,6 +85,7 @@ def echo_transport(
     qid: str | None = None,
     rcra_facilities: str | None = None,
     rcra_qid: str | None = None,
+    air_metadata: str | None = None,
     fail: set[str] | None = None,
     page_size: int | None = None,
     seen: list[httpx.Request] | None = None,
@@ -109,6 +113,13 @@ def echo_transport(
             body = rcra_qid or (FIXTURES / "rcra_get_qid_page1.json").read_text()
             page = request.url.params.get("pageno", "1")
             return httpx.Response(200, text=paged(body, page, page_size), headers=json_type)
+        if url == AIR_METADATA:
+            body = air_metadata or (FIXTURES / "air_metadata.json").read_text()
+            return httpx.Response(200, text=body, headers=json_type)
+        if url == RCRA_METADATA:
+            return httpx.Response(
+                200, text=(FIXTURES / "rcra_metadata.json").read_text(), headers=json_type
+            )
         if url == GAZETTEER_URL:
             return httpx.Response(
                 200,
@@ -864,3 +875,44 @@ def test_every_normalized_record_declares_a_table_and_a_key() -> None:
     for model in (Facility, ComplianceQuarter, EnforcementAction):
         assert issubclass(model, NormalizedRecord)
         assert isinstance(model.table, str) and model.table
+
+
+# ---- ECHO renumbers its columns (2026-10) ---------------------------------
+
+
+async def test_columns_are_requested_by_todays_ids_not_remembered_ones() -> None:
+    """FAC_LAT was 23 until EPA renumbered it to 25; asking for 23 got AIR_NAICS."""
+    seen: list[httpx.Request] = []
+    await run(InMemorySink(), transport=echo_transport(seen=seen))
+
+    pages = [r for r in seen if str(r.url).startswith(GET_QID)]
+    requested = pages[0].url.params["qcolumns"].split(",")
+    metadata = json.loads((FIXTURES / "air_metadata.json").read_text())
+    ids = {c["ColumnName"]: str(c["ColumnID"]) for c in metadata["Results"]["ResultColumns"]}
+    assert ids["FAC_LAT"] in requested and ids["FAC_LONG"] in requested
+    assert requested == [ids[name] for name in QCOLUMNS]
+
+
+async def test_a_column_echo_stops_listing_fails_the_pull() -> None:
+    metadata = json.loads((FIXTURES / "air_metadata.json").read_text())
+    metadata["Results"]["ResultColumns"] = [
+        c for c in metadata["Results"]["ResultColumns"] if c["ColumnName"] != "FAC_LAT"
+    ]
+    result = await run(InMemorySink(), transport=echo_transport(air_metadata=json.dumps(metadata)))
+
+    assert result.status == "failed"
+    assert "no longer lists FAC_LAT" in " ".join(result.notes)
+
+
+async def test_coordinates_missing_from_every_row_fail_the_pull_rather_than_load() -> None:
+    """The October 2026 failure: rows came back, coordinates did not."""
+    page = json.loads((FIXTURES / "get_qid_page1.json").read_text())
+    for row in page["Results"]["Facilities"]:
+        row.pop("FacLat", None)
+        row.pop("FacLong", None)
+    sink = InMemorySink()
+    result = await run(sink, transport=echo_transport(qid=json.dumps(page)))
+
+    assert result.status == "failed"
+    assert "FacLat" in " ".join(result.notes)
+    assert facilities(sink) == {}
